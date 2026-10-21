@@ -89,6 +89,11 @@ COUNTRIES: dict[str, tuple[list[str], list[str]]] = {
     "SN": (["senegal"], ["dakar"]),
     "CI": (["cote d'ivoire", "ivory coast"], ["abidjan"]),
     "RW": (["rwanda"], ["kigali"]),
+    "ET": (["ethiopia"], ["addis ababa"]),
+    "TZ": (["tanzania"], ["dar es salaam"]),
+    "UG": (["uganda"], ["kampala"]),
+    "CM": (["cameroon", "cameroun"], ["douala", "yaounde"]),
+    "AO": (["angola"], ["luanda"]),
 }
 
 SOUTHERN_HEMISPHERE = {"AU", "NZ", "ZA", "AR", "CL", "BR", "PE", "ID"}

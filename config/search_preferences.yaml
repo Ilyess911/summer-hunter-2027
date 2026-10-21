@@ -2,7 +2,11 @@
 
 geography:
   # Hard personal exclusions (ISO2). Never expanded automatically.
-  excluded_countries: [FR, IL, IN, PK]   # personal choices (IN, PK added 21 Oct 2026)
+  # Personal choices. 21 Oct 2026: South Asia (IN, PK, BD, LK), Sub-Saharan Africa,
+  # Russia, Ukraine, Turkey, Egypt added at the user's request.
+  excluded_countries: [FR, IL, IN, PK, BD, LK,
+                       NG, KE, GH, SN, CI, RW, ZA, ET, TZ, UG, CM, AO,
+                       RU, UA, TR, EG]
   # Countries the user has personally decided to exclude for safety reasons.
   # Empty by default: nothing is added without the user's decision.
   safety_excluded_countries: []
