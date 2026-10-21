@@ -114,6 +114,23 @@ class OllamaProvider(LLMProvider):
         self.temperature = temperature
         self._client = httpx.Client(timeout=timeout)
 
+    def _start_server(self) -> bool:
+        """Start `ollama serve` in the background if the local server is down (no admin rights needed)."""
+        import shutil
+        import subprocess
+        import time
+
+        exe = shutil.which("ollama") or "/opt/homebrew/bin/ollama"
+        try:
+            subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError:
+            return False
+        for _ in range(30):
+            if _ollama_up(self.url):
+                return True
+            time.sleep(1)
+        return False
+
     def complete_json(self, system: str, user: str, schema: dict[str, Any], max_tokens: int) -> LLMResponse:
         import httpx
 
@@ -122,8 +139,12 @@ class OllamaProvider(LLMProvider):
                    "options": {"temperature": self.temperature, "num_ctx": 12288, "num_predict": max_tokens}}
         try:
             resp = self._client.post(f"{self.url}/api/chat", json=payload)
+        except httpx.ConnectError:
+            if not self._start_server():
+                raise LLMError("Ollama is not running and could not be started (install: brew install ollama)") from None
+            resp = self._client.post(f"{self.url}/api/chat", json=payload)
         except httpx.HTTPError as exc:
-            raise LLMError(f"Ollama unreachable ({type(exc).__name__}); is the Ollama app running?") from None
+            raise LLMError(f"Ollama error ({type(exc).__name__})") from None
         if resp.status_code != 200:
             raise LLMError(f"Ollama HTTP {resp.status_code}: {resp.text[:200]}")
         body = resp.json()
@@ -133,6 +154,15 @@ class OllamaProvider(LLMProvider):
             raise LLMError("invalid JSON from local model") from exc
         return LLMResponse(data=data, input_tokens=int(body.get("prompt_eval_count", 0)),
                            output_tokens=int(body.get("eval_count", 0)), model=self.model)
+
+
+def _ollama_up(url: str) -> bool:
+    import httpx
+
+    try:
+        return httpx.get(f"{url}/api/version", timeout=2).status_code == 200
+    except httpx.HTTPError:
+        return False
 
 
 class FakeProvider(LLMProvider):

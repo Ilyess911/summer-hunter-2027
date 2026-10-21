@@ -258,7 +258,7 @@ class Hunter:
                     return await is_gone(http, rec.source, rec.source_id, rec.url)
             verdicts = await asyncio.gather(*(one(r) for _, r in checks))
         now = utcnow()
-        for (opp, rec), gone in zip(checks, verdicts):
+        for (opp, rec), gone in zip(checks, verdicts, strict=True):
             if gone is True:
                 rec.closed_at = now
                 ats = [s for s in opp.sources if s.source.split(":")[0] in {"greenhouse", "lever", "ashby", "workday"}]

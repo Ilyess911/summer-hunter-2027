@@ -14,6 +14,7 @@ import logging
 import re
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -348,8 +349,6 @@ def _fields(content: dict[str, Any], company: str, title: str, location: str | N
 
 
 # --- service used by the Telegram bot and the Mini App ---------------------------------------
-
-import threading
 
 _LOCK = threading.Lock()   # one generation at a time: the local model uses most of the machine
 
