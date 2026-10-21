@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -33,6 +34,7 @@ class Notifier:
         self.settings = settings
         self.session_factory = session_factory
         self.telegram = telegram
+        self.send_interval_s = 1.1
 
     def _send(self, repo: Repository, report: DeliveryReport, key: str, kind: str, opp_id: int | None, text: str,
               buttons=None) -> bool:
@@ -86,8 +88,10 @@ class Notifier:
             text = formatter.digest(stats, best, leads, issues, window)
             digest_key = f"digest:{today}" if not force else f"digest:{today}:{utcnow().isoformat()}"
             self._send(repo, report, digest_key, "digest", None, text)
-            for opp, _ in best[: rules["max_cards_per_digest"]]:
-                self.send_card(repo, opp, report)
+            cap = int(rules.get("max_cards_per_digest") or 0)
+            for opp, _ in (best[:cap] if cap > 0 else best):
+                if self.send_card(repo, opp, report):
+                    time.sleep(self.send_interval_s)   # stay under Telegram's ~1 msg/s per chat
             if not report.dry_run:
                 for post in leads[:5]:
                     post.notified = True

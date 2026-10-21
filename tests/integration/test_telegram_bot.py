@@ -60,6 +60,7 @@ def world(settings, sessions):
 def test_digest_cards_and_dedup(world):
     settings, sessions, client, fake = world
     notifier = Notifier(settings, sessions, client)
+    notifier.send_interval_s = 0
     report = notifier.morning_digest()
     assert report.sent >= 2 and not report.errors
     digest, card = fake.sent[0], fake.sent[1]

@@ -146,11 +146,11 @@ def digest(stats: dict[str, int], best: list[tuple[Opportunity, dict]], leads: l
         f"Rejected: {stats.get('rejected', 0)}",
         f"Needs verification: {stats.get('needs_verification', 0)}",
         f"Eligible (all checks passed): {stats.get('eligible', 0)}",
-        f"Shortlisted (priority ≥ 75): <b>{stats.get('shortlisted', 0)}</b>",
+        f"Shortlisted: <b>{stats.get('shortlisted', 0)}</b>",
     ]
     if best:
         lines += ["", "<b>Best new opportunities:</b>"]
-        for opp, fit in best[:5]:
+        for opp, fit in best[:25]:
             lines.append(f"{TIER_EMOJI.get(opp.priority_tier or '', '•')} {e(opp.title, 80)} @ {e(opp.company_name, 40)}, "
                          f"{e(country_name(opp.country_code), 30)} · fit {fit.get('score')} · {DECISION_LABEL.get(opp.eligibility_status or '', '?')} #{opp.id}")
     else:

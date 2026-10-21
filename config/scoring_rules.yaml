@@ -106,8 +106,8 @@ priority:
     exceptional: 90
     high: 85
     review: 75
-  notify_threshold: 75
-  max_cards_per_digest: 10
+  notify_threshold: 50          # lowered 21 Oct 2026: see more, volume is fine (off-target families cap below 48)
+  max_cards_per_digest: 0       # 0 = unlimited
 
 networking_scores:
   hiring_manager_post: 100
