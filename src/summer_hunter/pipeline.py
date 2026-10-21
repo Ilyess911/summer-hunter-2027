@@ -79,6 +79,7 @@ class Hunter:
         self.override_allow = {c.upper() for c in geo.get("country_overrides_allow", [])} - self.excluded
         self.priority_countries = {c for group in (geo.get("priority_countries") or {}).values() for c in group}
         self.priority_bonus = float(geo.get("priority_country_bonus", 0))
+        self.country_penalties = {str(k).upper(): float(v) for k, v in (geo.get("country_penalties") or {}).items()}
         self.exclude_whole_country = bool(geo.get("exclude_whole_country_advised_against", True))
         self.watchlist = {normalize_company(c["name"]): c for c in settings.companies}
 
@@ -280,7 +281,8 @@ class Hunter:
                                   bool(facts.cold_calling_mentioned or facts.cold_calls_per_day))
         sctx = ScoringContext(profile=self.profile, rules=rules, company_priority=watch.get("priority"),
                               company_sector=watch.get("sector"), priority_countries=self.priority_countries,
-                              priority_country_bonus=self.priority_bonus, learned=learned)
+                              priority_country_bonus=self.priority_bonus, country_penalties=self.country_penalties,
+                              learned=learned)
         fit = score_fit(opp.title, opp.description_text or "", facts, family, sctx, report, primary)
 
         llm_cfg = self.settings.llm

@@ -143,3 +143,16 @@ def test_post_without_company_is_kept_as_lead_only():
     post = build_post("https://www.linkedin.com/posts/x_activity-1/", "We're hiring a business development intern for 2027!",
                       None, None, None, "search:brave", 0.8)
     assert opportunity_from_post(post) is None
+
+
+def test_country_preference_penalty(settings, profile, title_rules):
+    from summer_hunter.engine.extraction import extract_facts as ef
+
+    facts = ef("Solutions Engineer Intern", FILLER)
+    base = ScoringContext(profile=profile, rules=settings.scoring, company_priority=1)
+    pen = ScoringContext(profile=profile, rules=settings.scoring, company_priority=1, country_penalties={"US": -12})
+    fam = title_rules.classify("Solutions Engineer Intern")
+    a = score_fit("Solutions Engineer Intern", FILLER, facts, fam, base, country="US")
+    b = score_fit("Solutions Engineer Intern", FILLER, facts, fam, pen, country="US")
+    c = score_fit("Solutions Engineer Intern", FILLER, facts, fam, pen, country="SG")
+    assert b.score == a.score - 12 and c.score == a.score

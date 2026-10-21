@@ -33,6 +33,7 @@ class ScoringContext:
     company_sector: str | None = None
     priority_countries: set[str] = field(default_factory=set)
     priority_country_bonus: float = 0.0
+    country_penalties: dict[str, float] = field(default_factory=dict)
     learned: list[Adjustment] = field(default_factory=list)
 
 
@@ -174,6 +175,8 @@ def score_fit(title: str, description: str, facts: JobFacts, family: FamilyMatch
     if country and country in ctx.priority_countries:
         if ctx.priority_country_bonus:
             adjustments.append(Adjustment(label=f"priority country {country}", delta=ctx.priority_country_bonus))
+    if country and ctx.country_penalties.get(country):
+        adjustments.append(Adjustment(label=f"country preference {country}", delta=float(ctx.country_penalties[country])))
     adjustments.extend(ctx.learned)
     total += sum(a.delta for a in adjustments if a.component is None)
     if family.tier == 0:

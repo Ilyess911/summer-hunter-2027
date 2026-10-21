@@ -19,6 +19,9 @@ geography:
     europe: [IE, GB, CH, DE, NL, SE, DK, 'NO', FI, BE, LU, ES, IT]
     north_america: [US, CA]
   priority_country_bonus: 2
+  # Personal preference penalties on the career-fit score (not exclusions).
+  # US: J-1 internship visa through a sponsor organisation is slow and costly (decided 21 Oct 2026).
+  country_penalties: {US: -12}
 
 # Title must look like an internship to be kept at collection time.
 internship_title_patterns:
