@@ -42,10 +42,15 @@ def verify_init_data(init_data: str, bot_token: str, allowed_user_id: str, now: 
     received = pairs.pop("hash", None)
     if not received:
         raise AuthError("missing hash")
-    pairs.pop("signature", None)  # third-party validation field, not part of the HMAC check string
-    check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
-    expected = hmac.new(_secret(bot_token), check.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, received):
+    # The data-check-string covers every field except `hash` (including `signature` on Bot API 8+).
+    # Older clients send no `signature`; both forms are HMAC-checked with the bot token.
+    candidates = [pairs, {k: v for k, v in pairs.items() if k != "signature"}]
+    ok = False
+    for fields in candidates:
+        check = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
+        expected = hmac.new(_secret(bot_token), check.encode(), hashlib.sha256).hexdigest()
+        ok = ok or hmac.compare_digest(expected, received)
+    if not ok:
         raise AuthError("bad signature")
     if (now or time.time()) - int(pairs.get("auth_date", "0")) > MAX_AGE_S:
         raise AuthError("initData expired")

@@ -50,8 +50,10 @@ class TelegramAuth(BaseHTTPMiddleware):
                 auth.verify_init_data(request.headers.get("x-telegram-init-data", ""), self.settings.telegram_bot_token or "",
                                       self.settings.telegram_chat_id or "")
             except auth.AuthError as exc:
+                log.warning("web auth refused", extra={"path": request.url.path, "reason": str(exc)})
                 return JSONResponse({"error": "unauthorized", "detail": str(exc)}, status_code=401)
         response = await call_next(request)
+        log.info("web request", extra={"path": request.url.path, "status": response.status_code})
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response

@@ -89,3 +89,8 @@ def test_tailoring_reorders_without_inventing():
     assert cv["skills"]["S"][0] == "customer discovery"
     texts = {b["text"] for e in cv["experiences"] for b in e["bullets"]}
     assert texts <= {"Organised events", "Ran customer demos"}
+
+
+def test_init_data_with_signature_field_is_accepted(client):
+    fields = {"auth_date": str(int(time.time())), "user": json.dumps({"id": int(USER)}), "signature": "abc-ed25519"}
+    assert client.get("/api/opportunities", headers={"X-Telegram-Init-Data": auth.sign_init_data(fields, TOKEN)}).status_code == 200
