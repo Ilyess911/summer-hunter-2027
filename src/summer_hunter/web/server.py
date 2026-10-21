@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -69,6 +70,8 @@ class TelegramAuth(BaseHTTPMiddleware):
         response = await call_next(request)
         log.info("web request", extra={"path": request.url.path, "status": response.status_code})
         response.headers["X-Content-Type-Options"] = "nosniff"
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
@@ -82,8 +85,16 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
         except (ValueError, KeyError):
             return None
 
+    def asset_version() -> str:
+        """Changes whenever a static file changes, so Telegram's webview never mixes old and new assets."""
+        stamp = "".join(f"{f.name}{f.stat().st_mtime_ns}" for f in sorted(STATIC.iterdir()))
+        return hashlib.sha256(stamp.encode()).hexdigest()[:10]
+
     async def index(request: Request) -> Response:
-        return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        v = asset_version()
+        html = html.replace("/static/style.css", f"/static/style.css?v={v}").replace("/static/app.js", f"/static/app.js?v={v}")
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
     async def list_opps(request: Request) -> Response:
         view = request.query_params.get("view", "top")
