@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(root=PROJECT_ROOT, config_dir=PROJECT_ROOT / "config", data_dir=tmp_path,
+    # Tests run against a frozen profile (all identity/immigration fields UNKNOWN),
+    # never against the user's live config/candidate_profile.yaml.
+    config = tmp_path / "config"
+    shutil.copytree(PROJECT_ROOT / "config", config)
+    shutil.copy(FIXTURES / "candidate_profile_test.yaml", config / "candidate_profile.yaml")
+    return Settings(root=PROJECT_ROOT, config_dir=config, data_dir=tmp_path,
                     database_url=f"sqlite:///{tmp_path / 'test.db'}", telegram_bot_token=None, telegram_chat_id=None,
                     anthropic_api_key=None)
 

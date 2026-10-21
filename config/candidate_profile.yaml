@@ -11,14 +11,14 @@ identity:
   previous_degrees:
     - "BUT Génie Industriel et Maintenance"
   expected_graduation_year: 2027
-  expected_graduation_month: UNKNOWN        # e.g. 9 for September. Unlocks graduation-window checks.
-  current_study_year: UNKNOWN               # final_year | penultimate_year | UNKNOWN
-  returning_to_studies_after_internship: UNKNOWN   # true | false | UNKNOWN
+  expected_graduation_month: 9              # September 2027 (confirmed by the candidate, 21 Oct 2026)
+  current_study_year: final_year            # final_year | penultimate_year | UNKNOWN
+  returning_to_studies_after_internship: false     # end-of-studies internship
   # Whether employers' degree requirements are satisfied. Do not set these to
   # true without confirming per employer or per country.
   degree_equivalence:
     bachelors_enrolled: UNKNOWN
-    masters_enrolled: UNKNOWN
+    masters_enrolled: true      # ESILV engineering diploma confers the master's degree (confirmed)
     mba: false
     phd: false
 
@@ -28,10 +28,10 @@ languages:
   - {language: english, level: professional, evidence: "TOEIC 945"}
 
 immigration:
-  citizenship: []                           # ISO2 codes once confirmed, e.g. [FR]
-  work_authorization: {}                    # e.g. {GB: false, US: false}
-  requires_visa_sponsorship: UNKNOWN        # true | false | UNKNOWN
-  willing_to_apply_internship_visa: UNKNOWN # true | false | UNKNOWN
+  citizenship: [FR, MA]                     # confirmed 21 Oct 2026; FR gives EU/EEA/CH free movement
+  work_authorization: {}                    # outside EU/EEA/CH: not known, e.g. {GB: false, US: false}
+  requires_visa_sponsorship: UNKNOWN        # outside the EU: candidate unsure
+  willing_to_apply_internship_visa: true    # yes, if the process stays reasonable
 
 availability:
   start: 2027-04-01
