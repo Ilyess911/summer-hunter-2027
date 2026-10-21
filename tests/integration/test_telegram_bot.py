@@ -135,3 +135,10 @@ def test_telegram_errors_never_leak_token():
 def test_digest_without_telegram_prints(settings, sessions):
     report = Notifier(settings, sessions, None).morning_digest()
     assert report.dry_run and report.messages and report.sent == 0
+
+
+def test_long_explain_is_cut_on_line_boundaries():
+    from summer_hunter.notifications.formatter import _join_within
+
+    text = _join_within([f"<b>line {i}</b> " + "x" * 80 for i in range(200)], 3900)
+    assert len(text) <= 3900 and text.count("<b>") == text.count("</b>")

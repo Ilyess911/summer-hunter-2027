@@ -121,8 +121,19 @@ def explain(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict,
         lines.append(f"{icon.get(c['status'], '?')} {e(c['criterion'].replace('_', ' '))}: {e(c['explanation'], 220)}")
     lines += ["", f"<b>Networking {networking.get('score')}/100:</b> {e(networking.get('rationale'), 300)}",
               f"<b>Priority:</b> {priority.get('priority_score')} ({e(priority.get('reason'), 200)})"]
-    text = "\n".join(lines)
-    return text if len(text) < 4000 else text[:3990] + "…"
+    return _join_within(lines, 3900)
+
+
+def _join_within(lines: list[str], limit: int) -> str:
+    """Join whole lines only, so a long message is never cut inside an HTML tag."""
+    out, size = [], 0
+    for line in lines:
+        if size + len(line) + 1 > limit:
+            out.append("…")
+            break
+        out.append(line)
+        size += len(line) + 1
+    return "\n".join(out)
 
 
 def digest(stats: dict[str, int], best: list[tuple[Opportunity, dict]], leads: list[Any], source_issues: list[str],

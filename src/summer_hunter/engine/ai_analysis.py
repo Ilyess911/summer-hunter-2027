@@ -12,7 +12,6 @@ Guarantees:
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
@@ -22,7 +21,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from summer_hunter.database.models import AIAnalysis, LLMUsage
 from summer_hunter.database.repository import Repository
-from summer_hunter.engine.extraction import JobFacts, LanguageReq, PeriodFact
+from summer_hunter.engine.extraction import JobFacts
 from summer_hunter.integrations.anthropic_client import LLMError, LLMProvider, NullProvider
 from summer_hunter.models.candidate import CandidateProfile
 from summer_hunter.models.scoring import FitReport
@@ -183,7 +182,7 @@ class Analyzer:
         return cost
 
     def analyze_job(self, opp_id: int | None, title: str, company: str, location: str | None, description: str) -> AnalysisOutcome:
-        injection = detect_injection(description)
+        injection = detect_injection(" \n".join([title, company, location or "", description]))
         if not self.enabled:
             return AnalysisOutcome("disabled", injection_flags=injection)
         if not description or len(description) < 200:
@@ -196,8 +195,10 @@ class Analyzer:
         if self.calls_this_run >= int(self.cfg.get("max_analyses_per_run", 12)):
             return AnalysisOutcome("budget", injection_flags=injection, detail="per-run analysis cap reached")
         user = (
-            f"Company: {company}\nTitle: {title}\nLocation: {location or 'UNKNOWN'}\n\n"
-            f"<untrusted_job_posting>\n{neutralize_for_prompt(description)}\n</untrusted_job_posting>\n\n"
+            "<untrusted_job_posting>\n"
+            f"Company: {neutralize_for_prompt(company, 200)}\nTitle: {neutralize_for_prompt(title, 300)}\n"
+            f"Location: {neutralize_for_prompt(location or 'UNKNOWN', 300)}\n\n"
+            f"{neutralize_for_prompt(description)}\n</untrusted_job_posting>\n\n"
             "Return the JSON analysis for this listing."
         )
         estimate = estimate_cost(self.cfg, self.provider.model, len(self.system) + len(user))
@@ -250,36 +251,40 @@ def _parse_partial_date(value: str, end: bool) -> date | None:
 
 
 def enrich_facts(facts: JobFacts, outcome: AnalysisOutcome, known_languages: set[str]) -> list[str]:
-    """Add LLM-found, quote-verified facts that the regex extractor missed. Returns notes."""
-    notes = []
+    """Add facts the regex pass missed, but only as the deterministic rules read the verified quotes.
+
+    The model only points at passages; its own values (dates, categories, "mandatory" flags) are
+    never trusted. Each verified quote is re-parsed by `extract_facts` and only what the rules find
+    in that quote is merged. Returns notes describing what was added.
+    """
+    from summer_hunter.engine.extraction import extract_facts
+
+    notes: list[str] = []
     if not outcome.analysis:
         return notes
-    if outcome.dates_verified and not any(p.kind == "explicit_range" for p in facts.periods):
-        start = _parse_partial_date(outcome.analysis.internship_start, False)
-        end = _parse_partial_date(outcome.analysis.internship_end, True) if outcome.analysis.internship_end != "UNKNOWN" else None
-        if start and end and end > start:
-            facts.periods.append(PeriodFact("explicit_range", start, end, evidence=outcome.analysis.dates_evidence_quote[:300]))
-            notes.append("dates confirmed from a verified quote")
-        elif start:
-            facts.periods.append(PeriodFact("start_only", start, year=start.year, evidence=outcome.analysis.dates_evidence_quote[:300]))
-    from summer_hunter.engine.extraction import LANGUAGES
-
-    for req in outcome.verified_requirements:
-        if req.category == "language" and req.mandatory:
-            text = req.requirement.lower() + " " + req.evidence_quote.lower()
-            for lang, aliases in LANGUAGES.items():
-                if any(a in text for a in aliases) and lang not in known_languages and not any(l.language == lang for l in facts.languages):
-                    facts.languages.append(LanguageReq(lang, True, req.evidence_quote[:300]))
-                    notes.append(f"mandatory {lang} found by analysis (verified quote)")
-        if req.category in {"work_authorization", "sponsorship"}:
-            quote = req.evidence_quote.lower()
-            negated = re.search(r"\b(not|no|unable|without|cannot|can't|won't)\b", quote)
-            key = "unavailable" if negated else "existing_auth" if req.mandatory else "mention"
-            facts.sponsorship_flags.setdefault(key, []).append(req.evidence_quote[:300])
-    if outcome.analysis.cold_calls_per_day and facts.cold_calls_per_day is None:
-        # Only trusted when a verified requirement quote mentions calls.
-        if any("call" in r.evidence_quote.lower() or "dial" in r.evidence_quote.lower() for r in outcome.verified_requirements):
-            facts.cold_calls_per_day = outcome.analysis.cold_calls_per_day
+    quotes = [r.evidence_quote for r in outcome.verified_requirements]
+    if outcome.dates_verified:
+        quotes.append(outcome.analysis.dates_evidence_quote)
+    have_range = any(p.kind == "explicit_range" for p in facts.periods)
+    for quote in quotes:
+        q = extract_facts("", quote)
+        if not have_range:
+            new_periods = [p for p in q.periods if p.kind in {"explicit_range", "start_only"}]
+            if new_periods:
+                facts.periods.extend(new_periods)
+                have_range = any(p.kind == "explicit_range" for p in new_periods)
+                notes.append("dates read from a verified quote")
+        if q.duration and facts.duration is None:
+            facts.duration = q.duration
+        for lang in q.languages:
+            if lang.mandatory and lang.language not in known_languages and not any(l.language == lang.language for l in facts.languages):
+                facts.languages.append(lang)
+                notes.append(f"mandatory {lang.language} read from a verified quote")
+        for key, values in q.sponsorship_flags.items():
+            if key != "mention":
+                facts.sponsorship_flags.setdefault(key, []).extend(values)
+        if q.cold_calls_per_day and facts.cold_calls_per_day is None:
+            facts.cold_calls_per_day, facts.cold_call_evidence = q.cold_calls_per_day, q.cold_call_evidence
     return notes
 
 
