@@ -83,6 +83,10 @@ class Hunter:
         self.exclude_whole_country = bool(geo.get("exclude_whole_country_advised_against", True))
         self.watchlist = {normalize_company(c["name"]): c for c in settings.companies}
 
+    def _display_country(self, countries: list[str]) -> str | None:
+        """First country the candidate can actually work in (e.g. 'Paris; Madrid' shows Spain)."""
+        return next((c for c in countries if c not in self.excluded), countries[0] if countries else None)
+
     # Collectors -----------------------------------------------------------------------------
 
     def build_collectors(self, only: set[str] | None = None) -> list[Collector]:
@@ -203,7 +207,7 @@ class Hunter:
                 opp.apply_url = opp.apply_url or raw.apply_url
                 opp.official_job_id = opp.official_job_id or raw.official_job_id
                 if opp.country_code is None and loc.primary_country:
-                    opp.country_code, opp.countries = loc.primary_country, loc.countries
+                    opp.country_code, opp.countries = self._display_country(loc.countries), loc.countries
                 opp.last_verified_at = now
             else:
                 watch = self.watchlist.get(ncompany)
@@ -213,7 +217,7 @@ class Hunter:
                     canonical_key=key.canonical, company_id=company.id, company_name=raw.company, normalized_company=ncompany,
                     title=raw.title, normalized_title=normalize_title(raw.title), official_job_id=raw.official_job_id,
                     job_family=family.id, family_tier=family.tier, location_text=raw.location_text,
-                    country_code=loc.primary_country, countries=loc.countries, city=loc.cities[0] if loc.cities else None,
+                    country_code=self._display_country(loc.countries), countries=loc.countries, city=loc.cities[0] if loc.cities else None,
                     is_remote=bool(loc.remote or raw.remote_hint), description_text=raw.description_text,
                     content_hash=content_hash, official_url=raw.url, apply_url=raw.apply_url,
                     source_published_at=raw.posted_at, first_discovered_at=now, last_verified_at=now,

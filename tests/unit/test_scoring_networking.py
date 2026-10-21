@@ -85,11 +85,12 @@ def test_strategic_bypass_never_overrides_hard_exclusion(settings, profile, titl
     fit = fit_for("Solutions Engineer Intern", FILLER, settings, profile, title_rules, priority=1)
     fit = fit.model_copy(update={"score": 72})
     net = score_networking([], settings.scoring)
+    rules = settings.scoring | {"priority": settings.scoring["priority"] | {"notify_threshold": 75}}
     ok, _ = evaluate("Solutions Engineer Intern", FILLER, "Singapore")
-    assert score_priority(fit, ok, net, settings.scoring, 1).strategic_bypass
+    assert score_priority(fit, ok, net, rules, 1).strategic_bypass
     bad, _ = evaluate("Solutions Engineer Intern", FILLER, "Tel Aviv, Israel")
     assert bad.decision == Decision.REJECTED
-    assert not score_priority(fit, bad, net, settings.scoring, 1).notify
+    assert not score_priority(fit, bad, net, rules, 1).notify
 
 
 # Scenario G ------------------------------------------------------------------------------------------
