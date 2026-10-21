@@ -65,5 +65,24 @@ class TelegramClient:
             payload["offset"] = offset
         return self._call("getUpdates", payload, timeout=timeout + 10)
 
+    def send_document(self, chat_id: str | int, path, caption: str = "") -> int:  # noqa: ANN001
+        from pathlib import Path
+
+        path = Path(path)
+        try:
+            with path.open("rb") as handle:
+                resp = self._client.post(f"{self._base}/sendDocument", data={"chat_id": str(chat_id), "caption": caption[:1000]},
+                                         files={"document": (path.name, handle)}, timeout=60)
+        except httpx.HTTPError as exc:
+            raise TelegramError(f"sendDocument: network error ({type(exc).__name__})") from None
+        data = resp.json()
+        if not data.get("ok"):
+            raise TelegramError(f"sendDocument: {data.get('error_code')} {data.get('description', '')[:200]}")
+        return int(data["result"]["message_id"])
+
+    def set_menu_button(self, chat_id: str | int, text: str, url: str) -> None:
+        self._call("setChatMenuButton", {"chat_id": int(chat_id),
+                                         "menu_button": {"type": "web_app", "text": text, "web_app": {"url": url}}})
+
     def set_commands(self, commands: list[tuple[str, str]]) -> None:
         self._call("setMyCommands", {"commands": [{"command": c, "description": d} for c, d in commands]})

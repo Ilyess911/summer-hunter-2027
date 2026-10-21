@@ -7,6 +7,7 @@ from pathlib import Path
 
 NIGHT_LABEL = "com.summerhunter.night"
 BOT_LABEL = "com.summerhunter.bot"
+WEB_LABEL = "com.summerhunter.web"
 AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
 
 
@@ -45,6 +46,15 @@ def bot_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
         "EnvironmentVariables": {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin", "PYTHONUNBUFFERED": "1"},
         "ProcessType": "Background",
     }
+
+
+def web_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
+    """Mini App server + Cloudflare quick tunnel, kept alive."""
+    data = bot_plist(executable, project_root, log_dir)
+    data.update({"Label": WEB_LABEL, "ProgramArguments": [str(executable), "web"],
+                 "StandardOutPath": str(log_dir / "launchd-web.out.log"),
+                 "StandardErrorPath": str(log_dir / "launchd-web.err.log")})
+    return data
 
 
 def write_plist(data: dict, label: str, agents_dir: Path = AGENTS_DIR) -> Path:

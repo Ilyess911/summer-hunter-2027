@@ -399,25 +399,25 @@ def cmd_launchd(app: App, args) -> int:  # noqa: ANN001
     exe = Path(sys.executable).parent / "summer-hunter"
     log_dir = app.settings.data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    labels = [launchd.NIGHT_LABEL] + ([launchd.BOT_LABEL] if args.with_bot else [])
+    labels = [launchd.NIGHT_LABEL] + ([launchd.BOT_LABEL, launchd.WEB_LABEL] if args.with_bot else [])
     uid = subprocess.run(["id", "-u"], capture_output=True, text=True).stdout.strip()
     if args.action == "install":
         for label in labels:
-            data = launchd.night_plist(exe, app.settings.root, log_dir) if label == launchd.NIGHT_LABEL else \
-                launchd.bot_plist(exe, app.settings.root, log_dir)
+            data = {launchd.NIGHT_LABEL: launchd.night_plist, launchd.BOT_LABEL: launchd.bot_plist,
+                    launchd.WEB_LABEL: launchd.web_plist}[label](exe, app.settings.root, log_dir)
             path = launchd.write_plist(data, label)
             subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
             res = subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", str(path)], capture_output=True, text=True)
             print(f"{label}: {'loaded' if res.returncode == 0 else 'bootstrap failed: ' + res.stderr.strip()} ({path})")
     elif args.action == "uninstall":
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL):
             path = launchd.AGENTS_DIR / f"{label}.plist"
             if path.exists():
                 subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
                 path.unlink()
                 print(f"{label}: removed")
     else:
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL):
             res = subprocess.run(["launchctl", "print", f"gui/{uid}/{label}"], capture_output=True, text=True)
             state = next((l.strip() for l in res.stdout.splitlines() if l.strip().startswith("state =")), "not loaded")
             print(f"{label}: {state}")
@@ -426,6 +426,17 @@ def cmd_launchd(app: App, args) -> int:  # noqa: ANN001
         if shutil.which("pmset"):
             sched = subprocess.run(["pmset", "-g", "sched"], capture_output=True, text=True).stdout.strip()
             print("Wake schedule (pmset -g sched):\n" + (sched or "none"))
+    return 0
+
+
+def cmd_web(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.web.server import create_app
+    from summer_hunter.web.tunnel import serve
+
+    if not app.settings.telegram_configured:
+        print("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required (the Mini App authenticates through Telegram).")
+        return 2
+    serve(create_app, app.settings, app.sessions, port=args.port)
     return 0
 
 
@@ -528,8 +539,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="runs, counts, spend").set_defaults(fn=cmd_status)
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")
     ld.add_argument("action", choices=["install", "uninstall", "status"])
-    ld.add_argument("--with-bot", action="store_true", help="also keep the Telegram bot running")
+    ld.add_argument("--with-bot", action="store_true", help="also keep the Telegram bot and Mini App running")
     ld.set_defaults(fn=cmd_launchd)
+    wb = sub.add_parser("web", help="run the Telegram Mini App (local server + HTTPS tunnel)")
+    wb.add_argument("--port", type=int, default=8787)
+    wb.set_defaults(fn=cmd_web)
     lc = sub.add_parser("llm-check", help="verify the Anthropic key with one tiny call")
     lc.add_argument("--yes", action="store_true")
     lc.set_defaults(fn=cmd_llm_check)

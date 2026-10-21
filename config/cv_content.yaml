@@ -1,0 +1,90 @@
+# CV content used to build tailored CVs. Only verified facts.
+# Provisional version built from candidate_profile.yaml; it will be replaced by the
+# content and layout of the candidate's real CV. Dates and contact details are left
+# as placeholders on purpose: nothing is invented.
+
+lang: en
+header:
+  name: "Prénom Nom"
+  location: "Paris area, France"
+  email: "email@example.com"
+  phone: ""
+  linkedin: ""
+
+labels: {summary: Profile, education: Education, experience: Experience, projects: Projects and leadership, skills: Skills, achievements: Awards}
+
+headlines:
+  default: "Engineering student (ESILV, 2027) | AI, automation and industrial engineering"
+  technical_sales: "Engineering student (ESILV, 2027) | Technical sales and solutions engineering"
+  enterprise_sales: "Engineering student (ESILV, 2027) | Enterprise technology sales"
+  product_marketing: "Engineering student (ESILV, 2027) | Product marketing for technical products"
+  go_to_market: "Engineering student (ESILV, 2027) | Go-to-market, partnerships and business development"
+  product_management: "Engineering student (ESILV, 2027) | AI product management"
+  ai_solutions: "Engineering student (ESILV, 2027) | AI solutions and deployment"
+  commercial_strategy: "Engineering student (ESILV, 2027) | Commercial strategy and operations"
+  strategy_consulting: "Engineering student (ESILV, 2027) | Strategy and digital transformation"
+
+education:
+  - school: ESILV
+    degree: "Diplôme d'ingénieur (Master's level), industrial engineering and robotics"
+    dates: "expected 2027"
+    location: "Paris La Défense, France"
+  - school: "BUT Génie Industriel et Maintenance"
+    degree: "Industrial engineering and maintenance"
+    dates: ""
+
+experiences:
+  - id: air_france_industries
+    org: Air France Industries
+    role: Engineering apprentice, aircraft maintenance engineering
+    dates: ""
+    bullets:
+      - {text: "Automated the consolidation of aircraft equipment data across fleets with Python and Power Query.", tags: [automation, python, data, ai]}
+      - {text: "Analysed technical data to support operational decision-making and industrial performance.", tags: [data, analysis, decision, stakeholder]}
+      - {text: "Contributed to cost optimization and process improvement on maintenance engineering projects.", tags: [cost, process, strategy, operations]}
+      - {text: "Built tools for cross-functional teams in maintenance engineering.", tags: [cross-functional, stakeholder, customer, solution]}
+  - id: airbus_helicopters
+    org: Airbus Helicopters
+    role: Industrial and logistics experience
+    dates: ""
+    max_bullets: 2
+    bullets:
+      - {text: "Worked on industrial logistics and operational processes around industrial equipment.", tags: [operations, logistics, process]}
+      - {text: "Supported process improvement and industrial coordination.", tags: [process, coordination, stakeholder]}
+  - id: amundi
+    org: Amundi
+    role: Asset-management environment experience
+    dates: ""
+    max_bullets: 2
+    bullets:
+      - {text: "Worked in a financial-services and business-operations environment.", tags: [finance, fintech, operations, business]}
+      - {text: "Communicated with professional stakeholders.", tags: [stakeholder, communication, client, customer]}
+
+max_projects: 3
+projects:
+  - name: "Medical'IA, AI project lead (healthcare access)"
+    dates: ""
+    tags: [ai, product, startup, healthcare, medtech, go-to-market, presentation, stakeholder, customer]
+    bullets:
+      - {text: "Led a multidisciplinary AI project on access to healthcare, from problem identification to prototype."}
+      - {text: "Engaged stakeholders and presented the project publicly, explaining technical value to non-technical decision-makers."}
+      - {text: "Coordinated technical contributors; AI Startup of the Year distinction (Hauts-de-Seine)."}
+  - name: "Vinc'IA and student organizations, partnerships and events"
+    dates: ""
+    tags: [partnerships, business, development, outreach, events, executives, presentation]
+    bullets:
+      - {text: "Led partnership outreach and organized AI conferences and masterclasses with professionals and executives."}
+      - {text: "Coordinated teams and built professional relationships."}
+  - name: "ATLAS, B2B intelligent-workplace concept"
+    dates: ""
+    tags: [b2b, saas, enterprise, product, ai]
+    bullets:
+      - {text: "Designed a B2B intelligent-workplace technology concept."}
+
+skills:
+  Technical: [Python, Power Query, data analysis, process automation, AI product prototyping, industrial engineering, robotics]
+  Business: [stakeholder communication, public speaking, partnership outreach, project leadership, cost optimization, event organization]
+  Languages: ["French (fluent)", "English (professional, TOEIC 945)"]
+
+achievements:
+  - "AI Startup of the Year distinction, Hauts-de-Seine (Medical'IA)"

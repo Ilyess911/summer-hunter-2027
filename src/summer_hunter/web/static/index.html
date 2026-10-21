@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Summer Hunter</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Summer Hunter <span class="muted">2027</span></div>
+  <input id="search" type="search" placeholder="Rechercher un rôle, une entreprise, un pays" autocomplete="off">
+  <nav id="tabs" role="tablist">
+    <button data-view="new" class="on" role="tab">Nouveaux</button>
+    <button data-view="top" role="tab">Top</button>
+    <button data-view="saved" role="tab">Sauvés</button>
+    <button data-view="applied" role="tab">Postulés</button>
+    <button data-view="rejected" role="tab">Rejetés</button>
+  </nav>
+</header>
+<main id="list" aria-live="polite"></main>
+<section id="detail" hidden></section>
+<div id="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

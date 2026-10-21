@@ -12,6 +12,8 @@ dependencies = [
     "sqlalchemy>=2.0.30",
     "python-dotenv>=1.0",
     "anthropic>=1.0",
+    "starlette>=0.40",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]

@@ -38,7 +38,7 @@ def _dates_label(criteria: list[dict]) -> str:
 
 
 def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, priority: dict,
-         contacts: list[Contact]) -> tuple[str, list[list[dict[str, str]]]]:
+         contacts: list[Contact], webapp_url: str | None = None) -> tuple[str, list[list[dict[str, str]]]]:
     tier = priority.get("tier", "review")
     head = "🚀 SUMMER 2027 — NEW OPPORTUNITY" if tier in {"exceptional", "high"} else "🔎 SUMMER 2027 — WORTH REVIEWING"
     if priority.get("strategic_bypass"):
@@ -77,10 +77,10 @@ def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, pr
     else:
         lines.append("No verified recruiter or hiring manager.")
     lines.append(f"<i>#{opp.id}</i>")
-    return "\n".join(lines), buttons(opp, best)
+    return "\n".join(lines), buttons(opp, best, webapp_url)
 
 
-def buttons(opp: Opportunity, contact: Contact | None) -> list[list[dict[str, str]]]:
+def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = None) -> list[list[dict[str, str]]]:
     row1 = []
     apply = safe_url(opp.apply_url) or safe_url(opp.official_url)
     if apply:
@@ -94,7 +94,8 @@ def buttons(opp: Opportunity, contact: Contact | None) -> list[list[dict[str, st
     row2 = [{"text": "Save", "callback_data": f"sv:{opp.id}"}, {"text": "Dismiss", "callback_data": f"dm:{opp.id}"},
             {"text": "Applied", "callback_data": f"ap:{opp.id}"}]
     row3 = [{"text": "Explain Score", "callback_data": f"ex:{opp.id}"}, {"text": "Networking msg", "callback_data": f"nm:{opp.id}"}]
-    return [r for r in (row1, row2, row3) if r]
+    row0 = [{"text": "📱 Ouvrir · CV adapté", "web_app": {"url": f"{webapp_url}/#/o/{opp.id}"}}] if safe_url(webapp_url) else []
+    return [r for r in (row0, row1, row2, row3) if r]
 
 
 def dismiss_reason_buttons(opp_id: int) -> list[list[dict[str, str]]]:

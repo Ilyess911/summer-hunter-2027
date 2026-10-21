@@ -53,6 +53,7 @@ COUNTRIES: dict[str, tuple[list[str], list[str]]] = {
     "CL": (["chile"], ["santiago"]),
     "CO": (["colombia"], ["bogota", "medellin"]),
     "PE": (["peru"], ["lima"]),
+    "CR": (["costa rica"], ["heredia"]),
     "SG": (["singapore"], []),
     "HK": (["hong kong", "hong kong sar"], ["kowloon"]),
     "TW": (["taiwan"], ["taipei", "hsinchu", "taichung", "kaohsiung"]),
