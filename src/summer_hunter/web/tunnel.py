@@ -74,7 +74,12 @@ def serve(app_factory, settings, sessions, port: int = 8787) -> None:  # noqa: A
         print(f"Mini App URL: {url}", flush=True)
 
     stop = threading.Event()
-    threading.Thread(target=run_tunnel, args=(port, publish, stop), daemon=True).start()
+    fixed = os.environ.get("SH_WEB_PUBLIC_URL", "").rstrip("/")
+    if fixed:
+        # Stable URL served by another reverse proxy (e.g. `tailscale funnel 8787`): no quick tunnel needed.
+        threading.Timer(3, publish, args=(fixed,)).start()
+    else:
+        threading.Thread(target=run_tunnel, args=(port, publish, stop), daemon=True).start()
     try:
         uvicorn.run(app_factory(settings, sessions, telegram), host="127.0.0.1", port=port, log_level="warning")
     finally:
