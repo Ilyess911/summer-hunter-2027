@@ -104,3 +104,14 @@ def test_generation_plans_revises_and_renders_minimal_one_page(settings, tmp_pat
     assert r.named_pdf.name.startswith("LM I.ASSADI - Acmé & Co - Solutions Engineering Intern")
     for name in ("cover_letter.tex", "cover_letter.pdf", "job_description.txt", "analysis.json"):
         assert (r.folder / name).exists()
+
+
+def test_short_paragraphs_are_expanded_not_rewritten(settings, tmp_path):
+    short = dict(GOOD, p2=("At Air France Industries, I develop AI-enabled tools and automated workflows. "
+                           "As co-founder of Nexya Agency, I engaged industrial decision-makers on an AI-powered recruitment solution."))
+    provider = Seq([PLAN, short, {"text": GOOD["p2"]}])
+    r = generate_letter(settings.config_dir, tmp_path, provider, settings.llm, 2, "Acme", TITLE, "Singapore", POSTING,
+                        job_family="technical_sales")
+    assert r.attempts == 1 and r.warnings == []
+    assert "has 2" in provider.calls[2][1] or "words; rewrite it" in provider.calls[2][1]
+    assert r.analysis["paragraphs"]["p2"] == GOOD["p2"]

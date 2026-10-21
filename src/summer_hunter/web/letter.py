@@ -37,6 +37,8 @@ PARAGRAPHS = ["p1", "p2", "p3"]
 WORDS_PREFERRED = (200, 250)
 WORDS_MAX = 270
 WORDS_MIN = 180
+# Per-paragraph targets: local models follow a short local target far better than a global total.
+PARA_TARGETS = {"p1": (55, 80), "p2": (85, 115), "p3": (50, 75)}
 
 # Experience catalogue: id -> (display name, aliases used to detect mentions).
 CATALOGUE = {
@@ -209,7 +211,8 @@ def check_letter(paragraphs: dict[str, str], description: str, title: str, compa
     if n > WORDS_MAX:
         issues.append(f"too long: {n} words; the hard maximum is {WORDS_MAX}, aim for 200-250")
     elif n < WORDS_MIN:
-        issues.append(f"too short: {n} words; aim for 200-250")
+        counts = ", ".join(f"{k} has {len(_words(paragraphs.get(k, '')))} words (target {a}-{b})" for k, (a, b) in PARA_TARGETS.items())
+        issues.append(f"too short: {n} words; aim for 200-250 ({counts})")
     if any(len(_words(p)) < 25 for p in body):
         issues.append("exactly three substantial paragraphs are required")
     if re.search(r"(^|\n)\s*[-•*]\s", text):
@@ -387,13 +390,49 @@ def write_letter(provider: LLMProvider, posting_block: str, plan: dict[str, Any]
             "the facts say.\n"
             "- p3: what he would contribute to this team, how the internship fits his interest in technical and commercial roles, "
             "availability between April and August 2027. No organization names in p1 and p3 except ESILV and the employer.\n"
-            "- 200 to 250 words in total, never more than 270. No repeated ideas. No filler adjectives.\n"
+            f"- Length: p1 {PARA_TARGETS['p1'][0]}-{PARA_TARGETS['p1'][1]} words, p2 {PARA_TARGETS['p2'][0]}-{PARA_TARGETS['p2'][1]} words, "
+            f"p3 {PARA_TARGETS['p3'][0]}-{PARA_TARGETS['p3'][1]} words (200-250 in total, never more than 270). "
+            "p2 needs four or five sentences: for each experience, what he did and which requirement it answers. "
+            "No repeated ideas. No filler adjectives.\n"
             + ("\nPREVIOUS VERSION:\n" + "\n\n".join(previous.get(k, "") for k in PARAGRAPHS) if previous else "")
             + (f"\nREVISION REQUESTED: {neutralize_for_prompt(revision, 400)}" if revision else "")
             + (f"\nFIX THESE PROBLEMS FROM YOUR PREVIOUS ATTEMPT:\n{feedback}" if feedback else "")
             + "\nReturn JSON with p1, p2, p3.")
     data = provider.complete_json(SYSTEM, user, WRITE_SCHEMA, 900).data
     return {k: re.sub(r"\s+", " ", str(data.get(k, ""))).strip() for k in PARAGRAPHS}
+
+
+EXPAND_SCHEMA: dict[str, Any] = {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}}
+
+
+def expand_short_paragraphs(provider: LLMProvider, paragraphs: dict[str, str], plan: dict[str, Any],
+                            exp_facts: dict[str, str], company: str, title: str) -> dict[str, str]:
+    """Lengthen only the paragraphs under their target, with material they are allowed to use."""
+    out = dict(paragraphs)
+    material = {
+        "p1": "Responsibilities and requirements of the posting:\n" + "\n".join(f"- {r['quote']}" for r in plan["requirements"])
+              + "\n" + "\n".join(f"- {d['quote']}" for d in plan["company_details"]),
+        "p2": "Facts of the two experiences:\n" + "\n".join(f"- {CATALOGUE[e][0]}: {exp_facts[e]}" for e in plan["experiences"])
+              + "\nRequirements they answer:\n" + "\n".join(f"- {r['requirement']}" for r in plan["requirements"]),
+        "p3": "What the role involves:\n" + "\n".join(f"- {r['quote']}" for r in plan["requirements"])
+              + "\nHe is available between April and August 2027 and aims for technical and commercial roles.",
+    }
+    for key, (lo, hi) in PARA_TARGETS.items():
+        current = out.get(key, "")
+        n = len(_words(current))
+        if n >= lo:
+            continue
+        user = (f"Cover letter for \"{title}\" at {company}. This paragraph ({key}) has {n} words; rewrite it to "
+                f"{lo + 5}-{hi} words. Keep what it says, add one or two concrete sentences using ONLY this material, "
+                f"do not mention any other organization, no filler.\n{material[key]}\n\nPARAGRAPH:\n{current}\n"
+                "Return JSON {\"text\": ...}.")
+        try:
+            text = re.sub(r"\s+", " ", str(provider.complete_json(SYSTEM, user, EXPAND_SCHEMA, 400).data.get("text", ""))).strip()
+        except LLMError:
+            continue
+        if len(_words(text)) > n:
+            out[key] = text
+    return out
 
 
 def generate_letter(config_dir: Path, out_root: Path, provider: LLMProvider, cfg: dict[str, Any], opp_id: int,
@@ -416,6 +455,8 @@ def generate_letter(config_dir: Path, out_root: Path, provider: LLMProvider, cfg
     feedback, pages, pdf_path, attempts = "", 0, None, 0
     for attempts in range(1, attempts_max + 1):  # noqa: B007 - read after the loop
         paragraphs = write_letter(provider, posting_block, plan, exp_facts, company, title, feedback, previous, revision)
+        if len(_words(" ".join(paragraphs.values()))) < WORDS_MIN:   # too short to pass: lengthen the weak paragraphs
+            paragraphs = expand_short_paragraphs(provider, paragraphs, plan, exp_facts, company, title)
         issues = check_letter(paragraphs, description, title, company, facts, exp_facts, plan["experiences"])
         if not issues:
             work.write_text(render(template, _fields(content, company, title, recipient, paragraphs)), encoding="utf-8")
