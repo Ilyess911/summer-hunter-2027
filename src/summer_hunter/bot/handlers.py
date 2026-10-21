@@ -217,6 +217,23 @@ class Bot:
                 self.telegram.answer_callback(cq["id"])
                 if ev and fit:
                     self.send(formatter.explain(opp, ev.criteria, fit.report, fit.networking, fit.priority, ev.sponsorship))
+            elif action == "cv":
+                self.telegram.answer_callback(cq["id"], "CV en préparation…")
+                from summer_hunter.web.cv import build_cv
+
+                try:
+                    result = build_cv(self.settings.config_dir, self.settings.data_dir / "cv" / str(opp.id), opp.id,
+                                      opp.company_name, opp.title, opp.description_text or "", opp.job_family)
+                except FileNotFoundError as exc:
+                    self.send(f"CV impossible : {escape(str(exc))}")
+                else:
+                    for f in [p for p in (result.pdf_path, result.tex_path) if p]:
+                        try:
+                            self.telegram.send_document(self.chat_id, f, f"CV adapté #{opp.id} : {opp.title[:80]} @ {opp.company_name[:40]}")
+                        except TelegramError as exc:
+                            log.warning("sendDocument failed", extra={"error": str(exc)})
+                    if not result.pdf_path:
+                        self.send(f"PDF non compilé, le .tex est joint. {escape(result.log[:300])}")
             elif action == "nm":
                 self.telegram.answer_callback(cq["id"], "Drafting…")
                 contacts = repo.contacts(opp.id)

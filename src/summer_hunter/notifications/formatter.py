@@ -93,7 +93,8 @@ def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = 
         row1.append({"text": "Contact", "url": contact_url})
     row2 = [{"text": "Save", "callback_data": f"sv:{opp.id}"}, {"text": "Dismiss", "callback_data": f"dm:{opp.id}"},
             {"text": "Applied", "callback_data": f"ap:{opp.id}"}]
-    row3 = [{"text": "Explain Score", "callback_data": f"ex:{opp.id}"}, {"text": "Networking msg", "callback_data": f"nm:{opp.id}"}]
+    row3 = [{"text": "📄 CV adapté", "callback_data": f"cv:{opp.id}"}, {"text": "Explain Score", "callback_data": f"ex:{opp.id}"},
+            {"text": "Networking msg", "callback_data": f"nm:{opp.id}"}]
     row0 = [{"text": "📱 Ouvrir · CV adapté", "web_app": {"url": f"{webapp_url}/#/o/{opp.id}"}}] if safe_url(webapp_url) else []
     return [r for r in (row0, row1, row2, row3) if r]
 

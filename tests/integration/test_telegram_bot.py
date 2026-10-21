@@ -29,6 +29,8 @@ class FakeTelegram:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         method = request.url.path.rsplit("/", 1)[-1]
         self.calls.append(method)
+        if method == "sendDocument":
+            return httpx.Response(200, json={"ok": True, "result": {"message_id": 99}})
         body = json.loads(request.content or b"{}")
         if method == "sendMessage":
             self.sent.append(body)
@@ -143,3 +145,13 @@ def test_long_explain_is_cut_on_line_boundaries():
 
     text = _join_within([f"<b>line {i}</b> " + "x" * 80 for i in range(200)], 3900)
     assert len(text) <= 3900 and text.count("<b>") == text.count("</b>")
+
+
+def test_cv_button_sends_documents(world):
+    settings, sessions, client, fake = world
+    bot = Bot(settings, sessions, client, NullProvider())
+    with sessions() as session:
+        opp_id = Repository(session).top(1)[0].id
+    bot.handle_update({"update_id": 3, "callback_query": {"id": "cb", "data": f"cv:{opp_id}",
+                                                          "message": {"message_id": 5, "chat": {"id": int(CHAT)}}}})
+    assert fake.calls.count("sendDocument") >= 1
