@@ -76,6 +76,16 @@ class Bot:
             log.warning("message from unauthorized chat ignored")
             return
         text = (msg.get("text") or "").strip()
+        reply_to = (msg.get("reply_to_message") or {}).get("message_id")
+        if reply_to and text and not text.startswith("/"):
+            with self.session_factory() as session:
+                opp_id = Repository(session).get_kv(f"lm_msg:{reply_to}")
+            if opp_id:
+                from summer_hunter.web.letter import start_letter_job
+
+                self.send("Révision en cours (2 à 3 min)…")
+                start_letter_job(self.settings, self.session_factory, self.telegram, int(opp_id), revision=text)
+                return
         if text.startswith("/"):
             self.handle_command(text.split()[0][1:].split("@")[0].lower())
 
@@ -234,6 +244,19 @@ class Bot:
                             log.warning("sendDocument failed", extra={"error": str(exc)})
                     if not result.pdf_path:
                         self.send(f"PDF non compilé, le .tex est joint. {escape(result.log[:300])}")
+            elif action == "lm":
+                from summer_hunter.web.letter import start_letter_job
+
+                self.telegram.answer_callback(cq["id"], "Lettre en cours…")
+                self.send(f"✉️ Lettre pour #{opp.id} en cours de rédaction (modèle local, 2 à 3 min).")
+                start_letter_job(self.settings, self.session_factory, self.telegram, opp.id)
+            elif action == "lr" and len(parts) == 3:
+                from summer_hunter.web.letter import REVISIONS, start_letter_job
+
+                if parts[2] in REVISIONS:
+                    self.telegram.answer_callback(cq["id"], "Révision en cours…")
+                    self.send("Révision en cours (2 à 3 min)…")
+                    start_letter_job(self.settings, self.session_factory, self.telegram, opp.id, revision=REVISIONS[parts[2]])
             elif action == "nm":
                 self.telegram.answer_callback(cq["id"], "Drafting…")
                 contacts = repo.contacts(opp.id)

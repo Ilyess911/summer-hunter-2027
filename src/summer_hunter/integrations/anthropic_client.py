@@ -101,6 +101,40 @@ class AnthropicProvider(LLMProvider):
                            model=getattr(response, "model", self.model), stop_reason=response.stop_reason)
 
 
+class OllamaProvider(LLMProvider):
+    """Local model through Ollama's /api/chat with a JSON-schema `format` (structured output)."""
+
+    name = "ollama"
+
+    def __init__(self, model: str, url: str = "http://127.0.0.1:11434", temperature: float = 0.4, timeout: float = 600.0) -> None:
+        import httpx
+
+        self.model = model
+        self.url = url.rstrip("/")
+        self.temperature = temperature
+        self._client = httpx.Client(timeout=timeout)
+
+    def complete_json(self, system: str, user: str, schema: dict[str, Any], max_tokens: int) -> LLMResponse:
+        import httpx
+
+        payload = {"model": self.model, "stream": False, "format": schema,
+                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                   "options": {"temperature": self.temperature, "num_ctx": 12288, "num_predict": max_tokens}}
+        try:
+            resp = self._client.post(f"{self.url}/api/chat", json=payload)
+        except httpx.HTTPError as exc:
+            raise LLMError(f"Ollama unreachable ({type(exc).__name__}); is the Ollama app running?") from None
+        if resp.status_code != 200:
+            raise LLMError(f"Ollama HTTP {resp.status_code}: {resp.text[:200]}")
+        body = resp.json()
+        try:
+            data = json.loads(body["message"]["content"])
+        except (KeyError, json.JSONDecodeError) as exc:
+            raise LLMError("invalid JSON from local model") from exc
+        return LLMResponse(data=data, input_tokens=int(body.get("prompt_eval_count", 0)),
+                           output_tokens=int(body.get("eval_count", 0)), model=self.model)
+
+
 class FakeProvider(LLMProvider):
     """Test double returning canned payloads (also handy for offline demos)."""
 

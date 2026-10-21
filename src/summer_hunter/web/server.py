@@ -196,6 +196,16 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             await asyncio.to_thread(telegram.send_document, settings.telegram_chat_id, f, f.stem)
         return JSONResponse({"ok": True, "sent": [f.name for f in files]})
 
+    async def make_letter(request: Request) -> Response:
+        if telegram is None:
+            return JSONResponse({"error": "Telegram not configured"}, status_code=503)
+        from summer_hunter.web.letter import REVISIONS, start_letter_job
+
+        body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+        mode = body.get("revision")
+        start_letter_job(settings, sessions, telegram, int(request.path_params["opp_id"]), REVISIONS.get(mode) if mode else None)
+        return JSONResponse({"ok": True, "status": "started"}, status_code=202)
+
     async def download(request: Request) -> Response:
         path = request.url.path
         if not auth.verify_link(path, request.query_params.get("exp", ""), request.query_params.get("sig", ""),
@@ -219,6 +229,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
         Route("/api/opportunities/{opp_id:int}/action", action, methods=["POST"]),
         Route("/api/opportunities/{opp_id:int}/cv", make_cv, methods=["POST"]),
         Route("/api/opportunities/{opp_id:int}/cv/send", send_cv, methods=["POST"]),
+        Route("/api/opportunities/{opp_id:int}/letter", make_letter, methods=["POST"]),
         Route("/files/cv/{opp_id:int}/{name:str}", download),
         Mount("/static", StaticFiles(directory=STATIC), name="static"),
     ]

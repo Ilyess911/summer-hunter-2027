@@ -135,6 +135,7 @@ async function openDetail(id) {
       ${Object.entries(REASON).map(([k, v]) => `<button data-reason="${k}">${esc(v)}</button>`).join("")}
     </div>
     <div id="cvbox"></div>
+    <button class="file" id="letterbtn" style="margin-top:12px"><span>✉️ Générer ma lettre de motivation</span><small>2-3 min, reçue dans le chat</small></button>
     <div class="fallback" id="fallback" ${tg && tg.MainButton ? "hidden" : ""}>
       <button class="primary" data-act="cv">Générer mon CV adapté</button>
       <button class="primary" style="background:var(--surface);color:var(--text)" data-act="apply">Postuler sur le site</button>
@@ -154,6 +155,12 @@ async function openDetail(id) {
   box.querySelector('[data-act="dismiss"]').onclick = async (ev) => { await act(o.id, "dismiss", "Écarté", ev.currentTarget); $("#reasons").hidden = false; };
   box.querySelectorAll("[data-reason]").forEach((b) => b.onclick = async () => {
     await act(o.id, "reason", "Merci, préférence mise à jour", null, b.dataset.reason); $("#reasons").hidden = true; });
+  box.querySelector("#letterbtn").onclick = async (ev) => {
+    const b = ev.currentTarget; b.disabled = true;
+    try { await api(`/api/opportunities/${o.id}/letter`, { method: "POST", body: "{}" }); haptic("medium");
+      toast("Lettre en cours : tu la reçois dans le chat dans 2-3 min"); b.querySelector("span").textContent = "✉️ Lettre en cours…"; }
+    catch (e) { toast(`Erreur : ${e.message}`); b.disabled = false; }
+  };
   const cvBtn = box.querySelector('#fallback [data-act="cv"]'); if (cvBtn) cvBtn.onclick = () => makeCV(o.id);
   const apBtn = box.querySelector('#fallback [data-act="apply"]'); if (apBtn) apBtn.onclick = () => openLink(o.apply_url);
   showNativeButtons(o);

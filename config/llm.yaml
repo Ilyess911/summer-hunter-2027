@@ -20,3 +20,12 @@ pricing:
   claude-sonnet-5-5: {input: 2.00, output: 10.00}
   claude-haiku-5-5: {input: 0.10, output: 0.50}
 default_pricing: {input: 4.00, output: 20.00}
+
+# Cover letters: generated locally with Ollama (free, nothing leaves the Mac).
+letters:
+  provider: ollama
+  model: qwen2.5:14b
+  url: http://127.0.0.1:11434
+  temperature: 0.4
+  max_attempts: 3
+  words: [280, 350]

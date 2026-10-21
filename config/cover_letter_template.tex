@@ -1,0 +1,80 @@
+\documentclass[10pt,a4paper]{article}
+% Approved cover-letter template (source of truth for layout). Placeholders are double-braced upper-case names.
+% Adaptations for the local TeX install, same rendering: no babel (English hyphenation is
+% the default), \linespread instead of setspace, \parskip set directly instead of parskip.
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[top=1.65cm, bottom=1.65cm, left=2.05cm, right=2.05cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{ragged2e}
+\usepackage{fancyhdr}
+\definecolor{navy}{HTML}{17324D}
+\definecolor{graytext}{HTML}{555555}
+\definecolor{lightgray}{HTML}{D8DEE5}
+\hypersetup{colorlinks=true, urlcolor=navy, linkcolor=navy}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{10pt}
+\linespread{1.10}
+\sloppy
+\emergencystretch=2em
+\newcommand{\CandidateName}{\textbf{\fontsize{17}{20}\selectfont\color{navy} ILYESS ASSADI}}
+\newcommand{\CandidateTitle}{\textcolor{graytext}{Engineering Student | AI, Technology \& Business}}
+\newcommand{\SectionLine}{\vspace{5pt}{\color{lightgray}\hrule height 0.7pt}\vspace{12pt}}
+\begin{document}
+\CandidateName
+
+\vspace{4pt}
+
+\CandidateTitle
+
+\vspace{7pt}
+
+\small
+Paris, France \quad | \quad \href{mailto:{{EMAIL}}}{{{EMAIL}}}
+
+\vspace{3pt}
+
+\href{{{LINKEDIN_URL}}}{LinkedIn} \quad | \quad \href{https://github.com/Ilyess911}{GitHub} \quad | \quad \href{https://ilyess911.github.io}{Portfolio}
+
+\normalsize
+
+\SectionLine
+
+\textcolor{graytext}{{{APPLICATION_DATE}}}
+
+\vspace{10pt}
+
+\textbf{{{COMPANY_NAME}}}
+
+{{DEPARTMENT}}
+
+{{LOCATION}}
+
+\vspace{10pt}
+
+{\color{navy}\textbf{Re: {{JOB_TITLE}} -- {{INTERNSHIP_PERIOD}}}}
+
+\vspace{12pt}
+
+Dear {{RECIPIENT_NAME}},
+
+{{INTRODUCTION_PARAGRAPH}}
+
+{{TECHNICAL_EXPERIENCE_PARAGRAPH}}
+
+{{BUSINESS_EXPERIENCE_PARAGRAPH}}
+
+{{CONCLUSION_PARAGRAPH}}
+
+\vspace{14pt}
+
+Sincerely,
+
+\vspace{12pt}
+
+\textbf{\color{navy}Ilyess Assadi}
+\end{document}
