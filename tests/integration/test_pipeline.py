@@ -140,7 +140,7 @@ def test_restart_is_incremental_and_idempotent(wired):
     stats = asyncio.run(hunter.run_cycle())
     assert stats.new_opportunities == 0
     assert stats.sources["greenhouse:stripe"]["unchanged"] >= 2
-    assert not any("/jobs/101" in u for u in api.calls)      # unchanged detail not refetched
+    assert stats.sources["greenhouse:stripe"]["records"] == 0   # unchanged detail not re-ingested
     assert stats.evaluated == 0                               # unchanged content not re-evaluated
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(Opportunity)) == n_opps
@@ -204,3 +204,43 @@ def test_api_failure_handling_for_all_sources(settings, sessions):
     with sessions() as session:
         run = session.execute(select(CollectionRun)).scalar_one()
         assert run.status == "partial" and run.finished_at is not None
+
+
+def test_vanished_offers_are_closed_and_reopened(wired):
+    hunter, api, sessions = wired
+    asyncio.run(hunter.run_cycle())
+    with sessions() as session:
+        pmm = opp_by_title(session, "Product Marketing Intern")[0]
+        assert pmm.status == "active"
+    removed = GH_JOBS["jobs"].pop(0)                      # the PMM listing disappears from Greenhouse
+    try:
+        stats = asyncio.run(hunter.run_cycle())
+        with sessions() as session:
+            pmm = opp_by_title(session, "Product Marketing Intern")[0]
+            assert pmm.status == "closed" and stats.closed >= 1
+            assert pmm.id not in [o.id for o in Repository(session).top(50)]
+    finally:
+        GH_JOBS["jobs"].insert(0, removed)
+    asyncio.run(hunter.run_cycle())                       # it comes back: reopened
+    with sessions() as session:
+        assert opp_by_title(session, "Product Marketing Intern")[0].status == "active"
+
+
+def test_shortlisted_lever_offer_with_dead_page_is_closed(wired):
+    hunter, api, sessions = wired
+    asyncio.run(hunter.run_cycle())
+    original = api.__call__
+
+    def handler(request):
+        if request.url.host == "jobs.lever.co":
+            return httpx.Response(404)
+        return original(request)
+
+    hunter.transport = httpx.MockTransport(handler)
+    with sessions() as session:   # make the BD offer part of the shortlist the user sees
+        opp_by_title(session, "Business Development Intern")[0].notify = True
+        session.commit()
+    stats = asyncio.run(hunter.run_cycle())
+    with sessions() as session:
+        bd = opp_by_title(session, "Business Development Intern")[0]
+        assert bd.status == "closed" and stats.closed >= 1

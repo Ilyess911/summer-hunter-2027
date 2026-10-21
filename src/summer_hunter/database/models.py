@@ -90,6 +90,7 @@ class SourceRecord(Base):
     content_hash: Mapped[str] = mapped_column(String(64))
     updated_marker: Mapped[str | None] = mapped_column(String(80))
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     opportunity: Mapped[Opportunity] = relationship(back_populates="sources")

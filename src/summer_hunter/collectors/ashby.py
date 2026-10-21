@@ -53,4 +53,5 @@ class AshbyCollector(Collector):
                 employment_type_hint=j.get("employmentType"),
                 remote_hint=bool(j.get("isRemote")) or None,
             ))
-        return self.result(records=records, skipped_unchanged=unchanged, scanned=len(jobs))
+        return self.result(records=records, skipped_unchanged=unchanged, scanned=len(jobs),
+                           seen_ids=[str(j.get("id")) for j in jobs], listing_complete=isinstance(data, dict) and "jobs" in data)

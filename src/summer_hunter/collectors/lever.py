@@ -52,4 +52,5 @@ class LeverCollector(Collector):
                 employment_type_hint=cats.get("commitment"),
                 remote_hint=(p.get("workplaceType") == "remote") or None,
             ))
-        return self.result(records=records, skipped_unchanged=unchanged, scanned=len(postings))
+        return self.result(records=records, skipped_unchanged=unchanged, scanned=len(postings),
+                           seen_ids=[str(p.get("id")) for p in postings], listing_complete=True)

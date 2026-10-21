@@ -66,6 +66,9 @@ class Repository:
             select(SourceRecord).where(SourceRecord.source == source, SourceRecord.source_id == source_id)
         ).scalar_one_or_none()
 
+    def records_for_source(self, source: str) -> list[SourceRecord]:
+        return list(self.s.execute(select(SourceRecord).where(SourceRecord.source == source)).scalars())
+
     def dedupe_candidates(self, normalized_company: str) -> list[Candidate]:
         rows = self.s.execute(
             select(Opportunity.id, Opportunity.normalized_company, Opportunity.normalized_title,

@@ -49,7 +49,7 @@ def summary(o: Opportunity) -> dict[str, Any]:
             "city": o.city, "region": region_of(o.country_code),
             "country_code": o.country_code, "location": o.location_text, "decision": o.eligibility_status,
             "fit": o.fit_score, "networking": o.networking_score, "priority": o.priority_score, "tier": o.priority_tier,
-            "family": o.job_family, "user_status": o.user_status,
+            "family": o.job_family, "user_status": o.user_status, "status": o.status,
             "discovered": as_utc(o.first_discovered_at).date().isoformat() if o.first_discovered_at else None}
 
 
@@ -109,7 +109,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             elif view == "verify":
                 rows = [o for o in repo.top(300) if o.eligibility_status in ("ELIGIBLE", "NEEDS_VERIFICATION") and (o.family_tier or 0) > 0]
             elif view == "rejected":
-                rows = [o for o in repo.by_eligibility("REJECTED", limit=300) if (o.family_tier or 0) > 0]
+                rows = [o for o in repo.by_eligibility("REJECTED", limit=300) if (o.family_tier or 0) > 0 and o.status == "active"]
             else:
                 rows = repo.by_user_status({"saved": "saved", "applied": "applied"}[view], limit=300)
             if q:

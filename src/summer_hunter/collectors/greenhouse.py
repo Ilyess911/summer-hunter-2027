@@ -60,4 +60,5 @@ class GreenhouseCollector(Collector):
                 official_job_id=str(detail.get("requisition_id")) if detail.get("requisition_id") not in (None, "", "See Opening ID") else None,
             ))
         status = "partial" if errors and records else ("failed" if errors and not records and not unchanged else "ok")
-        return self.result(records=records, errors=errors, skipped_unchanged=unchanged, scanned=len(jobs), status=status)
+        return self.result(records=records, errors=errors, skipped_unchanged=unchanged, scanned=len(jobs), status=status,
+                           seen_ids=[str(j.get("id")) for j in jobs], listing_complete=bool(jobs) or isinstance(listing, dict))

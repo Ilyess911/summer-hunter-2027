@@ -59,6 +59,7 @@ function card(o) {
         ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
         <span class="tag ${cls}">${esc(d)}</span>
         ${STATUS[o.user_status] ? `<span class="tag state">${STATUS[o.user_status]}</span>` : ""}
+        ${o.status === "closed" ? `<span class="tag bad">Fermée</span>` : ""}
       </div>
     </div>
     ${ICONS.chev}
@@ -115,6 +116,7 @@ async function openDetail(id) {
         <div class="tags" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
           <span class="tag ${cls}">${esc(d)}</span>
+          ${o.status === "closed" ? `<span class="tag bad">Offre fermée</span>` : ""}
         </div>
       </div>
       ${ring(o.fit, true)}

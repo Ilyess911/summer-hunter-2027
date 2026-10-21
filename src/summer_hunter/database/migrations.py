@@ -29,8 +29,21 @@ def make_engine(database_url: str) -> Engine:
     return engine
 
 
+# Columns added after the first release: (table, column, SQL type). Applied idempotently.
+ADDED_COLUMNS = [("source_records", "closed_at", "DATETIME")]
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    with engine.begin() as conn:
+        for table, column, sqltype in ADDED_COLUMNS:
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {sqltype}")
+
+
 def init_db(engine: Engine) -> sessionmaker[Session]:
     Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory() as session:
         row = session.get(KeyValue, "schema_version")

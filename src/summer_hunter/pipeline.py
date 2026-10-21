@@ -51,6 +51,7 @@ class CycleStats:
     sources: dict[str, dict[str, Any]] = field(default_factory=dict)
     new_opportunities: int = 0
     merged_duplicates: int = 0
+    closed: int = 0
     updated: int = 0
     posts: int = 0
     evaluated: int = 0
@@ -238,6 +239,60 @@ class Hunter:
                 opp.evaluated_hash = None   # networking changed: re-evaluate
         return opp
 
+    async def verify_shortlist(self, repo: Repository, stats: CycleStats, limit: int = 120) -> None:
+        """Check that offers the user can see are still open on the real career site."""
+        from summer_hunter.collectors.liveness import is_gone
+
+        # Evaluated offers the user can see in the app (target families, not rejected).
+        targets = [o for o in repo.all_active()
+                   if (o.notify or (o.family_tier or 0) > 0) and o.eligibility_status not in (None, "REJECTED")]
+        targets.sort(key=lambda o: -(o.priority_score or 0))
+        checks = [(o, r) for o in targets[:limit] for r in o.sources
+                  if r.closed_at is None and r.source.split(":")[0] in {"lever", "workday", "greenhouse"}]
+        if not checks:
+            return
+        sem = asyncio.Semaphore(4)
+        async with self._http() as http:
+            async def one(rec):
+                async with sem:
+                    return await is_gone(http, rec.source, rec.source_id, rec.url)
+            verdicts = await asyncio.gather(*(one(r) for _, r in checks))
+        now = utcnow()
+        for (opp, rec), gone in zip(checks, verdicts):
+            if gone is True:
+                rec.closed_at = now
+                ats = [s for s in opp.sources if s.source.split(":")[0] in {"greenhouse", "lever", "ashby", "workday"}]
+                if ats and all(s.closed_at is not None for s in ats) and opp.status != "closed":
+                    opp.status, opp.notify = "closed", False
+                    stats.closed += 1
+
+    def close_missing(self, repo: Repository, res: CollectorResult, stats: CycleStats) -> None:
+        """Close source records absent from a complete listing; close an opportunity once all of its
+        verifiable (ATS) sources are closed. A record that reappears is reopened."""
+        if res.seen_ids is None or not res.listing_complete or res.status not in {"ok", "partial"}:
+            return
+        seen = set(res.seen_ids)
+        records = repo.records_for_source(res.source)
+        if not seen and records:
+            return  # an empty listing where offers existed is more likely a glitch than a mass closure
+        now = utcnow()
+        for rec in records:
+            opp = rec.opportunity
+            if rec.source_id in seen:
+                if rec.closed_at is not None:
+                    rec.closed_at = None
+                    if opp.status == "closed":
+                        opp.status = "active"
+                        opp.evaluated_hash = None
+                continue
+            if rec.closed_at is None:
+                rec.closed_at = now
+            ats = [s for s in opp.sources if s.source.split(":")[0] in {"greenhouse", "lever", "ashby", "workday"}]
+            if ats and all(s.closed_at is not None for s in ats) and opp.status != "closed":
+                opp.status = "closed"
+                opp.notify = False
+                stats.closed += 1
+
     def save_post(self, repo: Repository, post: LinkedInPostInfo, opp_id: int | None) -> LinkedInPost:
         row = repo.linkedin_post(post.post_url)
         if row is None:
@@ -371,6 +426,9 @@ class Hunter:
                             stats.errors.append(f"ingest {raw.source}/{raw.source_id}: {type(exc).__name__}")
                     for post in res.posts:
                         self.ingest_post(repo, post, stats, analyzer=self.analyzer(repo))
+                    self.close_missing(repo, res, stats)
+                if not should_stop() and not only:
+                    await self.verify_shortlist(repo, stats)
                 if not should_stop():
                     self.evaluate_pending(repo, stats)
                 failed = [s for s, v in stats.sources.items() if v["status"] == "failed"]

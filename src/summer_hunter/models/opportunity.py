@@ -107,4 +107,8 @@ class CollectorResult(BaseModel):
     skipped_unchanged: int = 0
     scanned: int = 0
     status: str = "ok"          # ok | partial | failed | disabled
+    # Every id currently listed by the source (not only internships), and whether that listing
+    # was complete. Used to close opportunities that disappeared from the source.
+    seen_ids: list[str] | None = None
+    listing_complete: bool = False
     detail: str | None = None

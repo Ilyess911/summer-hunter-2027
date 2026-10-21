@@ -8,7 +8,7 @@ from summer_hunter.utils.http import HttpError, RobotsDisallowed
 from summer_hunter.utils.text import html_to_text
 
 PAGE = 20
-MAX_PAGES = 8
+MAX_PAGES = 25
 SEARCH_TERMS = ("intern", "internship")
 
 
@@ -23,6 +23,7 @@ class WorkdayCollector(Collector):
         api = f"{self.base}/wday/cxs/{self.tenant}/{self.site}"
         seen: dict[str, dict] = {}
         errors: list[str] = []
+        truncated = False
         for term in SEARCH_TERMS:
             for page in range(MAX_PAGES):
                 try:
@@ -36,6 +37,8 @@ class WorkdayCollector(Collector):
                         seen.setdefault(p["externalPath"], p)
                 if len(postings) < PAGE:
                     break
+            else:
+                truncated = True   # more results than MAX_PAGES: absence proves nothing
         if not seen and errors:
             return self.result(status="failed", errors=errors)
         records, unchanged, fetched = [], 0, 0
@@ -73,4 +76,6 @@ class WorkdayCollector(Collector):
                 official_job_id=detail.get("jobReqId") or req_id,
             ))
         status = "partial" if errors else "ok"
-        return self.result(records=records, errors=errors, skipped_unchanged=unchanged, scanned=len(seen), status=status)
+        complete = not truncated and not any(e.startswith("search") for e in errors)
+        return self.result(records=records, errors=errors, skipped_unchanged=unchanged, scanned=len(seen), status=status,
+                           seen_ids=list(seen), listing_complete=complete)
