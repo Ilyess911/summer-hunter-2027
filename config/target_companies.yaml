@@ -1,0 +1,76 @@
+# Company watchlist.
+#
+# ats: greenhouse | lever | ashby | workday | career_page | none
+#   greenhouse/lever/ashby: `token` is the public board name.
+#   workday: `tenant`, `host` (e.g. wd5) and `site`.
+#   career_page: `urls` pages scanned for schema.org JobPosting JSON-LD.
+#   none: no supported public feed; covered only by LinkedIn alerts/search.
+# verified: date the public endpoint answered HTTP 200 (run `summer-hunter probe-boards`).
+# priority: 1 (highest) to 3. sector drives the industry signal in scoring.
+
+companies:
+  # Enterprise technology
+  - {name: Google, sector: enterprise_tech, priority: 1, ats: none, note: "Google Careers has no public ATS API; use LinkedIn alerts"}
+  - {name: Microsoft, sector: enterprise_tech, priority: 1, ats: none}
+  - {name: IBM, sector: enterprise_tech, priority: 2, ats: none}
+  - {name: Salesforce, sector: enterprise_saas, priority: 1, ats: workday, tenant: salesforce, host: wd12, site: Futureforce_Internships, verified: 2026-10-21}
+  - {name: Adobe, sector: enterprise_saas, priority: 1, ats: workday, tenant: adobe, host: wd5, site: external_experienced, verified: 2026-10-21}
+  - {name: Oracle, sector: enterprise_tech, priority: 2, ats: none}
+  - {name: SAP, sector: enterprise_saas, priority: 1, ats: none}
+  - {name: ServiceNow, sector: enterprise_saas, priority: 1, ats: none, note: "Workday probe returned 422"}
+  - {name: Workday, sector: enterprise_saas, priority: 1, ats: workday, tenant: workday, host: wd5, site: Workday, verified: 2026-10-21}
+  - {name: Snowflake, sector: cloud, priority: 1, ats: ashby, token: snowflake, verified: 2026-10-21}
+  - {name: Databricks, sector: cloud, priority: 1, ats: greenhouse, token: databricks, verified: 2026-10-21}
+  - {name: Cloudflare, sector: cloud, priority: 1, ats: greenhouse, token: cloudflare, verified: 2026-10-21}
+  - {name: Cisco, sector: enterprise_tech, priority: 2, ats: workday, tenant: cisco, host: wd5, site: Cisco_Careers, verified: 2026-10-21}
+  - {name: Dell Technologies, sector: enterprise_tech, priority: 2, ats: none, note: "Workday probe returned 422"}
+  - {name: Hewlett Packard Enterprise, sector: enterprise_tech, priority: 2, ats: workday, tenant: hpe, host: wd5, site: Jobsathpe, verified: 2026-10-21}
+  - {name: NVIDIA, sector: ai, priority: 1, ats: workday, tenant: nvidia, host: wd5, site: NVIDIAExternalCareerSite, verified: 2026-10-21}
+  - {name: Amazon Web Services, sector: cloud, priority: 1, ats: none}
+  - {name: Datadog, sector: cloud, priority: 2, ats: greenhouse, token: datadog, verified: 2026-10-21}
+  - {name: MongoDB, sector: cloud, priority: 2, ats: greenhouse, token: mongodb, verified: 2026-10-21}
+  - {name: Elastic, sector: enterprise_saas, priority: 2, ats: greenhouse, token: elastic, verified: 2026-10-21}
+  - {name: Okta, sector: enterprise_saas, priority: 2, ats: greenhouse, token: okta, verified: 2026-10-21}
+  - {name: Celonis, sector: enterprise_saas, priority: 2, ats: greenhouse, token: celonis, verified: 2026-10-21}
+  - {name: Samsara, sector: industrial_tech, priority: 2, ats: greenhouse, token: samsara, verified: 2026-10-21}
+  - {name: Notion, sector: enterprise_saas, priority: 3, ats: ashby, token: notion, verified: 2026-10-21}
+  - {name: Intel, sector: enterprise_tech, priority: 3, ats: workday, tenant: intel, host: wd1, site: External, verified: 2026-10-21}
+
+  # AI and emerging technology
+  - {name: Anthropic, sector: ai, priority: 1, ats: greenhouse, token: anthropic, verified: 2026-10-21}
+  - {name: OpenAI, sector: ai, priority: 1, ats: ashby, token: openai, verified: 2026-10-21}
+  - {name: Hugging Face, sector: ai, priority: 1, ats: none, note: "no Greenhouse/Ashby board found"}
+  - {name: Mistral AI, sector: ai, priority: 1, ats: lever, token: mistral, verified: 2026-10-21}
+  - {name: Scale AI, sector: ai, priority: 1, ats: greenhouse, token: scaleai, verified: 2026-10-21}
+  - {name: Cohere, sector: ai, priority: 1, ats: ashby, token: cohere, verified: 2026-10-21}
+  - {name: Palantir, sector: ai, priority: 1, ats: lever, token: palantir, verified: 2026-10-21}
+  - {name: ElevenLabs, sector: ai, priority: 2, ats: ashby, token: elevenlabs, verified: 2026-10-21}
+
+  # Fintech and payments
+  - {name: Mastercard, sector: fintech, priority: 1, ats: workday, tenant: mastercard, host: wd1, site: CorporateCareers, verified: 2026-10-21}
+  - {name: Visa, sector: fintech, priority: 1, ats: workday, tenant: visa, host: wd5, site: Visa, verified: 2026-10-21}
+  - {name: Stripe, sector: fintech, priority: 1, ats: greenhouse, token: stripe, verified: 2026-10-21}
+  - {name: Adyen, sector: fintech, priority: 1, ats: greenhouse, token: adyen, verified: 2026-10-21}
+  - {name: Revolut, sector: fintech, priority: 2, ats: none}
+  - {name: Wise, sector: fintech, priority: 2, ats: greenhouse, token: wise, verified: 2026-10-21}
+  - {name: Qonto, sector: fintech, priority: 2, ats: lever, token: qonto, verified: 2026-10-21}
+  - {name: Bloomberg, sector: fintech, priority: 2, ats: none}
+  - {name: Ramp, sector: fintech, priority: 3, ats: ashby, token: ramp, verified: 2026-10-21}
+
+  # Industrial technology
+  - {name: Schneider Electric, sector: industrial_tech, priority: 1, ats: none}
+  - {name: Siemens, sector: industrial_tech, priority: 1, ats: none, note: "Workday probe returned 401"}
+  - {name: ABB, sector: industrial_tech, priority: 1, ats: none}
+  - {name: Bosch, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Hilti, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Dassault Systèmes, sector: industrial_tech, priority: 1, ats: none}
+  - {name: Rockwell Automation, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Honeywell, sector: industrial_tech, priority: 2, ats: none}
+
+  # MedTech and healthcare technology
+  - {name: Siemens Healthineers, sector: medtech, priority: 1, ats: none, note: "Workday probe returned 401"}
+  - {name: GE HealthCare, sector: medtech, priority: 1, ats: none}
+  - {name: Philips, sector: medtech, priority: 1, ats: workday, tenant: philips, host: wd3, site: jobs-and-careers, verified: 2026-10-21}
+  - {name: Intuitive, sector: medtech, priority: 2, ats: none}
+  - {name: Medtronic, sector: medtech, priority: 2, ats: workday, tenant: medtronic, host: wd1, site: MedtronicCareers, verified: 2026-10-21}
+  - {name: Stryker, sector: medtech, priority: 2, ats: workday, tenant: stryker, host: wd1, site: StrykerCareers, verified: 2026-10-21}

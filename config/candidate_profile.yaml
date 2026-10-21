@@ -1,0 +1,126 @@
+# Candidate profile: the single source of truth about the candidate.
+#
+# Integrity rule: only verified facts live here. Anything not confirmed is the
+# literal string UNKNOWN. The engines never fill an UNKNOWN by guessing, and the
+# LLM is only allowed to cite experiences listed below by their `id`.
+
+identity:
+  school: ESILV
+  school_country: FR
+  degree_program: "Diplôme d'ingénieur (ESILV), industrial engineering and robotics"
+  previous_degrees:
+    - "BUT Génie Industriel et Maintenance"
+  expected_graduation_year: 2027
+  expected_graduation_month: UNKNOWN        # e.g. 9 for September. Unlocks graduation-window checks.
+  current_study_year: UNKNOWN               # final_year | penultimate_year | UNKNOWN
+  returning_to_studies_after_internship: UNKNOWN   # true | false | UNKNOWN
+  # Whether employers' degree requirements are satisfied. Do not set these to
+  # true without confirming per employer or per country.
+  degree_equivalence:
+    bachelors_enrolled: UNKNOWN
+    masters_enrolled: UNKNOWN
+    mba: false
+    phd: false
+
+languages:
+  # level: native | fluent | professional | basic
+  - {language: french, level: fluent}
+  - {language: english, level: professional, evidence: "TOEIC 945"}
+
+immigration:
+  citizenship: []                           # ISO2 codes once confirmed, e.g. [FR]
+  work_authorization: {}                    # e.g. {GB: false, US: false}
+  requires_visa_sponsorship: UNKNOWN        # true | false | UNKNOWN
+  willing_to_apply_internship_visa: UNKNOWN # true | false | UNKNOWN
+
+availability:
+  start: 2027-04-01
+  end: 2027-08-31
+  preferred_weeks: [8, 12]
+  acceptable_weeks: [4, 20]
+
+compensation:
+  allow_unpaid: false
+
+certifications: []          # none verified
+professional_licenses: []   # none verified
+
+experiences:
+  - id: air_france_industries
+    organization: Air France Industries
+    role: Engineering apprentice, aircraft maintenance engineering
+    type: professional
+    summary: >
+      Aircraft maintenance engineering and industrial process improvement.
+      Automated aircraft equipment data consolidation across fleets with Python
+      and Power Query; technical data analysis; cost optimization; tools for
+      operational decision-making; cross-functional collaboration.
+    keywords: [aerospace, aviation, maintenance, industrial, process improvement, automation,
+               python, power query, data analysis, cost optimization, operations,
+               decision support, cross-functional, stakeholder, engineering, data]
+  - id: airbus_helicopters
+    organization: Airbus Helicopters
+    role: Industrial and logistics experience
+    type: professional
+    summary: Industrial logistics, operational processes, industrial equipment, process improvement, industrial coordination.
+    keywords: [aerospace, logistics, supply chain, operations, industrial, process improvement,
+               coordination, manufacturing, equipment]
+  - id: amundi
+    organization: Amundi
+    role: Asset-management environment experience
+    type: professional
+    summary: Financial services and business operations; professional stakeholder communication.
+    keywords: [finance, financial services, asset management, fintech, banking, business operations,
+               stakeholder, communication, client]
+  - id: medicalia
+    organization: "Medical'IA"
+    role: AI project lead (healthcare access)
+    type: entrepreneurship
+    summary: >
+      Led a multidisciplinary AI project on healthcare access: problem identification,
+      data analysis, product prototyping, stakeholder engagement, public presentations,
+      coordination of technical contributors, communicating technology value to
+      non-technical decision-makers. AI Startup of the Year distinction (Hauts-de-Seine).
+    keywords: [artificial intelligence, ai, machine learning, healthcare, medtech, health,
+               product, prototype, prototyping, startup, entrepreneurship, leadership,
+               stakeholder, presentation, pitch, public speaking, go-to-market, value proposition,
+               decision-makers, customer discovery, data analysis]
+  - id: atlas
+    organization: ATLAS
+    role: Founder, B2B intelligent-workplace technology concept
+    type: project
+    summary: Intelligent workplace / B2B technology concept.
+    keywords: [b2b, saas, enterprise, ai, workplace, product, sales enablement]
+  - id: vincia_leadership
+    organization: "Vinc'IA and student organizations"
+    role: Partnerships and events
+    type: leadership
+    summary: >
+      Partnership outreach, organizing AI conferences and masterclasses, engaging with
+      professionals and executives, presenting projects, building professional
+      relationships, coordinating teams.
+    keywords: [partnerships, partnership, business development, outreach, events, conference,
+               executives, networking, relationship, presentation, team coordination,
+               community, ai]
+
+skills:
+  verified:
+    - python
+    - power query
+    - data analysis
+    - process automation
+    - process improvement
+    - cost optimization
+    - project leadership
+    - stakeholder communication
+    - public speaking
+    - partnership outreach
+    - event organization
+    - ai product prototyping
+    - industrial engineering
+    - robotics
+  # Explicitly NOT claimed (the integrity guard refuses them in drafts):
+  never_claim: [sales quota, closed deals, revenue generated, certifications, additional languages]
+
+achievements:
+  - "AI Startup of the Year distinction, Hauts-de-Seine (Medical'IA)"

@@ -1,0 +1,128 @@
+# Transparent scoring rules. Every number here is a heuristic, editable by hand.
+
+weights:
+  career_alignment: 0.30
+  experience_relevance: 0.25
+  mission_quality: 0.20
+  skill_development: 0.15
+  long_term_value: 0.10
+
+# Job families, matched against the title in order (first match wins).
+# alignment is the base career-alignment score of the family.
+job_families:
+  - {id: technical_sales, tier: 1, alignment: 96, patterns: ['sales engineer', 'solutions? engineer', 'solutions? consultant', 'technical sales', 'pre-?sales', 'customer engineer', 'solutions? architect intern', 'value engineer']}
+  - {id: enterprise_sales, tier: 1, alignment: 92, patterns: ['enterprise sales', 'account executive', 'enterprise account', 'strategic account', 'key account', 'technical business development']}
+  - {id: software_engineering, tier: 0, alignment: 8, patterns: ['software engineer', 'infrastructure engineer', 'reliability engineer', 'data engineer', 'ml engineer', 'machine learning engineer', 'developer', '\bswe\b', 'backend', 'frontend', 'full[- ]stack']}
+  - {id: product_marketing, tier: 2, alignment: 88, patterns: ['product marketing', '\bapmm\b', 'associate product marketing']}
+  - {id: go_to_market, tier: 2, alignment: 87, patterns: ['go-?to-?market', '\bgtm\b', 'product strategy', 'strategic partnerships?', 'partnerships?', 'alliances', 'business development', 'commercial excellence']}
+  - {id: sales_development, tier: 2, alignment: 50, patterns: ['sales development', '\bsdr\b', '\bbdr\b', 'inside sales', 'lead generation']}
+  - {id: sales_general, tier: 2, alignment: 72, patterns: ['\bsales\b']}
+  - {id: product_management, tier: 3, alignment: 80, patterns: ['product manag', '\bapm\b', 'associate product manager', 'ai product', 'product owner']}
+  - {id: ai_solutions, tier: 3, alignment: 80, patterns: ['ai solutions?', 'ai deployment', 'forward deployed', 'deployment strateg', 'ai strategy']}
+  - {id: program_management, tier: 3, alignment: 74, patterns: ['technical program manag', '\btpm\b', 'program manag']}
+  - {id: commercial_strategy, tier: 3, alignment: 76, patterns: ['commercial strategy', 'sales strategy', 'revenue operations', '\brevops\b', 'sales operations', 'business operations', 'bizops', 'strategy & operations', 'strategy and operations']}
+  - {id: strategy_consulting, tier: 4, alignment: 62, patterns: ['strategy analyst', 'business analyst', 'digital transformation', 'technology consult', 'consulting', 'innovation', 'corporate strategy', 'strategy intern', 'strategy']}
+  - {id: marketing_general, tier: 0, alignment: 40, patterns: ['marketing', 'growth', 'customer success', 'account manag']}
+  - {id: data_analytics, tier: 0, alignment: 30, patterns: ['data analy', 'analytics', 'data science', 'data scien']}
+  - {id: out_of_scope, tier: 0, alignment: 8, patterns: ['software', 'developer', '\bswe\b', 'engineer', 'research', 'scientist', '\brtl\b', 'asic', '\bdft\b', 'hardware', 'firmware', 'verification', 'design', 'finance', 'accounting', 'legal', 'recruit', 'talent', '\bhr\b', 'people', 'tax', 'audit', 'security', 'mechanical', 'electrical']}
+
+default_family: {id: unclassified, tier: 0, alignment: 35}
+
+# Families not even fetched in detail at collection time (saves requests; editable).
+skip_families_at_collection: [software_engineering, out_of_scope]
+
+# Families outside the target path (tier 0) cannot score above base + alignment / 2,
+# so a generic engineering internship is never pushed by keyword overlap alone.
+tier0_fit_cap_base: 40
+
+industry_signals:
+  points_each: 3
+  max_points: 10
+  keywords: [enterprise, b2b, saas, cloud, artificial intelligence, ' ai ', machine learning, llm, generative,
+             robotics, automation, fintech, payments, medtech, healthcare technology, medical device,
+             industrial, iot, digital transformation, platform, api, data platform]
+
+career_positive_signals:
+  points_each: 3
+  max_points: 12
+  keywords: [consultative, solution selling, complex sales, strategic accounts, enterprise customers,
+             technical demo, demonstrations, discovery, solution design, positioning, messaging,
+             go-to-market, launch, competitive analysis, customer-facing, pre-sales, proof of concept]
+
+mission_signals:
+  base: 55
+  positive_points: 4
+  positive_max: 35
+  negative_points: 8
+  negative_max: 40
+  positive: [cross-functional, strategy, strategic, ownership, own a project, mentor, executive,
+             customer, launch, analysis, research, presentation, impact, real project, stakeholder,
+             go-to-market, product, workshop, demo]
+  negative: [administrative, data entry, filing, scheduling, reception, door-to-door, retail store,
+             cashier, telemarketing, answering phones, coffee]
+
+skill_development:
+  base: 45
+  technical: [ai, machine learning, cloud, api, data, platform, architecture, software, automation,
+              technical, integration, saas, analytics, robotics]
+  commercial: [customer, client, sales, pricing, market, partner, account, revenue, pipeline,
+               negotiation, positioning, business case, roi]
+  points_each: 4
+  max_points: 55
+
+long_term_value:
+  base: 50
+  watchlist_priority_points: {1: 35, 2: 25, 3: 15}
+  structured_program_points: 10
+  structured_program_keywords: [internship program, intern program, mentorship, mentor, return offer,
+                                full-time conversion, graduate program, academy, cohort, training program]
+
+experience_relevance:
+  base: 30
+  points_per_keyword: 5
+  max_points: 70
+
+cold_calling:
+  # A position requiring more than `threshold_per_day` calls gets the major penalty.
+  threshold_per_day: 30
+  major_penalty: 35        # applied to career_alignment and mission_quality
+  mention_penalty: 8       # "cold calling" mentioned without a volume
+  high_volume_phrases: [high-volume cold calling, high volume cold calling, high volume of calls,
+                        high-volume outbound, 100+ dials, smile and dial]
+  structured_academy_relief: 10   # sales academy at a priority-1 watchlist company
+
+duration:
+  outside_preferred_penalty: 3
+  outside_acceptable_penalty: 8
+
+strategic_bypass:
+  # Notify even below the threshold when: tier-1 family + priority-1 company + fit >= min_fit.
+  min_fit: 70
+
+priority:
+  fit_weight: 0.75
+  networking_weight: 0.25
+  tiers:
+    exceptional: 90
+    high: 85
+    review: 75
+  notify_threshold: 75
+  max_cards_per_digest: 10
+
+networking_scores:
+  hiring_manager_post: 100
+  recruiter_post: 95
+  team_member_post: 85
+  named_recruiter_on_vacancy: 75
+  recruiting_team: 50
+  other_evidence: 40
+  none: 20
+  low_confidence_penalty: 15   # applied when contact confidence < 0.6
+
+feedback:
+  save_delta: 2
+  applied_delta: 3
+  dismiss_delta: -2
+  reason_delta: -3
+  min_adjustment: -15
+  max_adjustment: 10

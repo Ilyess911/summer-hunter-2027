@@ -1,0 +1,22 @@
+# LLM configuration. The provider is optional: without it the system runs fully
+# deterministic (eligibility, scoring, notifications all work).
+
+provider: anthropic          # anthropic | none
+model: claude-opus-5-5       # e.g. claude-haiku-5-5 is ~40x cheaper for extraction
+effort: low                  # low | medium | high
+max_tokens: 8000
+prompt_version: v1
+refusal_fallback: true       # server-side fallback model on a policy refusal
+daily_budget_usd: 0.50       # hard cap per Europe/Paris day
+max_analyses_per_run: 12
+min_deterministic_fit_for_llm: 60
+blend:
+  deterministic_weight: 0.6
+  llm_weight: 0.4
+
+# USD per million tokens (Anthropic first-party prices, 2026-10).
+pricing:
+  claude-opus-5-5: {input: 4.00, output: 20.00}
+  claude-sonnet-5-5: {input: 2.00, output: 10.00}
+  claude-haiku-5-5: {input: 0.10, output: 0.50}
+default_pricing: {input: 4.00, output: 20.00}

@@ -1,0 +1,70 @@
+# Search and geography preferences.
+
+geography:
+  # Hard personal exclusions (ISO2). Never expanded automatically.
+  excluded_countries: [FR, IL]
+  # Countries the user has personally decided to exclude for safety reasons.
+  # Empty by default: nothing is added without the user's decision.
+  safety_excluded_countries: []
+  # Optional rule on stored official advisories (see `summer-hunter safety refresh`).
+  # When true, a country whose advisory level is WHOLE_COUNTRY_ADVISED_AGAINST
+  # (set manually after reading the France Diplomatie page) is rejected.
+  exclude_whole_country_advised_against: true
+  # Manual overrides: force-allow a country even if a rule would exclude it.
+  # Hard personal exclusions (FR, IL) are only removed by editing excluded_countries.
+  country_overrides_allow: []
+  priority_countries:
+    asia_pacific: [SG, HK, TW, JP, KR, AU, CN, VN, ID, TH]
+    middle_east: [AE, QA]
+    europe: [IE, GB, CH, DE, NL, SE, DK, 'NO', FI, BE, LU, ES, IT]
+    north_america: [US, CA]
+  priority_country_bonus: 2
+
+# Title must look like an internship to be kept at collection time.
+internship_title_patterns:
+  - '\bintern(ship)?s?\b'
+  - '\bstagiaire\b'
+  - '\bstage\b'
+  - '\bpraktikum\b'
+  - '\bpraktikant(in)?\b'
+  - '\bco-?op\b'
+  - '\bsummer (analyst|associate)\b'
+  - '\bplacement\b'
+  - '\binternship program(me)?\b'
+
+# Titles that disqualify the record at collection time (not internships).
+excluded_title_patterns:
+  - '\bapprentice(ship)?\b'
+  - '\balternan(ce|t)\b'
+  - '\bworking student\b'
+  - '\bwerkstudent(in)?\b'
+  - '\bvolunteer\b'
+  - '\bph\.?d\.?\b'
+  - '\bpostdoc'
+  - '\bhigh school\b'
+  - '\bsenior\b'
+  - '\bprincipal\b'
+  - '\bdirector\b'
+  - '\bmanager, \b'   # people-manager titles such as "Manager, Sales Engineering"
+
+# Search phrases used by search-API discovery (LinkedIn public posts and jobs).
+discovery:
+  post_queries:
+    - '"summer 2027" intern hiring "solutions engineer"'
+    - '"summer 2027" internship "product marketing"'
+    - '"2027" internship "sales engineer" hiring'
+    - '"my team is hiring" intern 2027'
+    - '"we''re hiring" interns "summer 2027"'
+    - '"2027 internship" "business development"'
+    - '"internship" 2027 "go-to-market" hiring'
+    - '"internship opportunities in Singapore" 2027'
+    - '"nous recrutons" stagiaire 2027 "business developer"'
+    - '"stage" "avril 2027" "avant-vente"'
+  job_queries:
+    - 'intern 2027 "solutions engineer"'
+    - 'intern 2027 "sales engineer"'
+    - 'intern 2027 "product marketing"'
+    - 'internship 2027 "technical sales"'
+    - 'internship 2027 "business development"'
+  max_queries_per_run: 15
+  results_per_query: 10
