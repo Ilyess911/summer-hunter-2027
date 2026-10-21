@@ -74,3 +74,85 @@ companies:
   - {name: Intuitive, sector: medtech, priority: 2, ats: none}
   - {name: Medtronic, sector: medtech, priority: 2, ats: workday, tenant: medtronic, host: wd1, site: MedtronicCareers, verified: 2026-10-21}
   - {name: Stryker, sector: medtech, priority: 2, ats: workday, tenant: stryker, host: wd1, site: StrykerCareers, verified: 2026-10-21}
+
+  # Added 21 Oct 2026 after a live probe of ~130 B2B companies (board answered HTTP 200, >= 5 listings).
+  - {name: "Aircall", sector: enterprise_saas, priority: 2, ats: lever, token: aircall, verified: 2026-10-21}
+  - {name: "Vanta", sector: industrial_tech, priority: 2, ats: ashby, token: vanta, verified: 2026-10-21}
+  - {name: "Doctolib", sector: medtech, priority: 2, ats: greenhouse, token: doctolib, verified: 2026-10-21}
+  - {name: "Ninja Van", sector: industrial_tech, priority: 2, ats: lever, token: ninjavan, verified: 2026-10-21}
+  - {name: "Box", sector: enterprise_saas, priority: 2, ats: greenhouse, token: boxinc, verified: 2026-10-21}
+  - {name: "SumUp", sector: fintech, priority: 2, ats: greenhouse, token: sumup, verified: 2026-10-21}
+  - {name: "Pigment", sector: enterprise_saas, priority: 2, ats: lever, token: pigment, verified: 2026-10-21}
+  - {name: "Trade Republic", sector: fintech, priority: 2, ats: greenhouse, token: traderepublicbank, verified: 2026-10-21}
+  - {name: "Formlabs", sector: industrial_tech, priority: 2, ats: greenhouse, token: formlabs, verified: 2026-10-21}
+  - {name: "Zscaler", sector: enterprise_saas, priority: 3, ats: greenhouse, token: zscaler, verified: 2026-10-21}
+  - {name: "SentinelOne", sector: enterprise_saas, priority: 3, ats: greenhouse, token: sentinellabs, verified: 2026-10-21}
+  - {name: "GitLab", sector: enterprise_saas, priority: 3, ats: greenhouse, token: gitlab, verified: 2026-10-21}
+  - {name: "Figma", sector: enterprise_saas, priority: 3, ats: greenhouse, token: figma, verified: 2026-10-21}
+  - {name: "Twilio", sector: enterprise_saas, priority: 3, ats: greenhouse, token: twilio, verified: 2026-10-21}
+  - {name: "Asana", sector: enterprise_saas, priority: 3, ats: greenhouse, token: asana, verified: 2026-10-21}
+  - {name: "Miro", sector: enterprise_saas, priority: 3, ats: ashby, token: miro, verified: 2026-10-21}
+  - {name: "DeepL", sector: ai, priority: 3, ats: ashby, token: deepl, verified: 2026-10-21}
+  - {name: "Contentful", sector: enterprise_saas, priority: 3, ats: greenhouse, token: contentful, verified: 2026-10-21}
+  - {name: "UiPath", sector: ai, priority: 3, ats: ashby, token: uipath, verified: 2026-10-21}
+  - {name: "N26", sector: fintech, priority: 3, ats: greenhouse, token: n26, verified: 2026-10-21}
+  - {name: "Monzo", sector: fintech, priority: 3, ats: greenhouse, token: monzo, verified: 2026-10-21}
+  - {name: "Airwallex", sector: fintech, priority: 3, ats: ashby, token: airwallex, verified: 2026-10-21}
+  - {name: "GoCardless", sector: fintech, priority: 3, ats: greenhouse, token: gocardless, verified: 2026-10-21}
+  - {name: "Mollie", sector: fintech, priority: 3, ats: ashby, token: mollie, verified: 2026-10-21}
+  - {name: "Pleo", sector: fintech, priority: 3, ats: ashby, token: pleo, verified: 2026-10-21}
+  - {name: "Dataiku", sector: ai, priority: 3, ats: greenhouse, token: dataiku, verified: 2026-10-21}
+  - {name: "Algolia", sector: enterprise_saas, priority: 3, ats: greenhouse, token: algolia, verified: 2026-10-21}
+  - {name: "Contentsquare", sector: enterprise_saas, priority: 3, ats: lever, token: contentsquare, verified: 2026-10-21}
+  - {name: "Ledger", sector: fintech, priority: 3, ats: ashby, token: ledger, verified: 2026-10-21}
+  - {name: "PagerDuty", sector: enterprise_saas, priority: 3, ats: greenhouse, token: pagerduty, verified: 2026-10-21}
+  - {name: "Intercom", sector: enterprise_saas, priority: 3, ats: greenhouse, token: intercom, verified: 2026-10-21}
+  - {name: "Motive", sector: industrial_tech, priority: 3, ats: greenhouse, token: motive, verified: 2026-10-21}
+  - {name: "Verkada", sector: industrial_tech, priority: 3, ats: greenhouse, token: verkada, verified: 2026-10-21}
+  - {name: "Cognite", sector: industrial_tech, priority: 3, ats: greenhouse, token: cognite, verified: 2026-10-21}
+  - {name: "Supabase", sector: enterprise_saas, priority: 3, ats: ashby, token: supabase, verified: 2026-10-21}
+  - {name: "Vercel", sector: enterprise_saas, priority: 3, ats: greenhouse, token: vercel, verified: 2026-10-21}
+  - {name: "Linear", sector: enterprise_saas, priority: 3, ats: ashby, token: linear, verified: 2026-10-21}
+  - {name: "Brex", sector: fintech, priority: 3, ats: greenhouse, token: brex, verified: 2026-10-21}
+  - {name: "Mercury", sector: fintech, priority: 3, ats: greenhouse, token: mercury, verified: 2026-10-21}
+  - {name: "Plaid", sector: fintech, priority: 3, ats: ashby, token: plaid, verified: 2026-10-21}
+  - {name: "Affirm", sector: fintech, priority: 3, ats: greenhouse, token: affirm, verified: 2026-10-21}
+  - {name: "Bitpanda", sector: fintech, priority: 3, ats: greenhouse, token: bitpanda, verified: 2026-10-21}
+  - {name: "Perplexity", sector: ai, priority: 3, ats: ashby, token: perplexity, verified: 2026-10-21}
+  - {name: "Glean", sector: ai, priority: 3, ats: greenhouse, token: gleanwork, verified: 2026-10-21}
+  - {name: "Writer", sector: ai, priority: 3, ats: ashby, token: writer, verified: 2026-10-21}
+  - {name: "Harvey", sector: ai, priority: 3, ats: ashby, token: harvey, verified: 2026-10-21}
+  - {name: "Synthesia", sector: ai, priority: 3, ats: ashby, token: synthesia, verified: 2026-10-21}
+  - {name: "Augury", sector: industrial_tech, priority: 3, ats: greenhouse, token: augury, verified: 2026-10-21}
+  - {name: "Tulip", sector: industrial_tech, priority: 3, ats: greenhouse, token: tulip, verified: 2026-10-21}
+  - {name: "Flatiron Health", sector: medtech, priority: 3, ats: greenhouse, token: flatironhealth, verified: 2026-10-21}
+  - {name: "Owkin", sector: ai, priority: 3, ats: ashby, token: owkin, verified: 2026-10-21}
+  - {name: "Xendit", sector: fintech, priority: 3, ats: greenhouse, token: xendit, verified: 2026-10-21}
+  - {name: "Careem", sector: enterprise_saas, priority: 3, ats: greenhouse, token: careem, verified: 2026-10-21}
+  - {name: "Tamara", sector: fintech, priority: 3, ats: greenhouse, token: tamara, verified: 2026-10-21}
+  - {name: "Snyk", sector: enterprise_saas, priority: 3, ats: ashby, token: snyk, verified: 2026-10-21}
+  - {name: "Workato", sector: enterprise_saas, priority: 3, ats: greenhouse, token: workato, verified: 2026-10-21}
+  - {name: "Gong", sector: enterprise_saas, priority: 3, ats: greenhouse, token: gongio, verified: 2026-10-21}
+  - {name: "Outreach", sector: enterprise_saas, priority: 3, ats: lever, token: outreach, verified: 2026-10-21}
+  - {name: "Amplitude", sector: enterprise_saas, priority: 3, ats: ashby, token: amplitude, verified: 2026-10-21}
+  - {name: "Mixpanel", sector: enterprise_saas, priority: 3, ats: greenhouse, token: mixpanel, verified: 2026-10-21}
+  - {name: "Braze", sector: enterprise_saas, priority: 3, ats: greenhouse, token: braze, verified: 2026-10-21}
+  - {name: "Attentive", sector: enterprise_saas, priority: 3, ats: greenhouse, token: attentive, verified: 2026-10-21}
+  - {name: "Toast", sector: enterprise_saas, priority: 3, ats: greenhouse, token: toast, verified: 2026-10-21}
+  - {name: "Coupa", sector: enterprise_saas, priority: 3, ats: lever, token: coupa, verified: 2026-10-21}
+  - {name: "Anaplan", sector: enterprise_saas, priority: 3, ats: greenhouse, token: anaplan, verified: 2026-10-21}
+  - {name: "Dropbox", sector: enterprise_saas, priority: 3, ats: greenhouse, token: dropbox, verified: 2026-10-21}
+  - {name: "Collibra", sector: enterprise_saas, priority: 3, ats: greenhouse, token: collibra, verified: 2026-10-21}
+  - {name: "Fivetran", sector: enterprise_saas, priority: 3, ats: greenhouse, token: fivetran, verified: 2026-10-21}
+  - {name: "Starburst", sector: enterprise_saas, priority: 3, ats: greenhouse, token: starburst, verified: 2026-10-21}
+  - {name: "ClickHouse", sector: enterprise_saas, priority: 3, ats: ashby, token: clickhouse, verified: 2026-10-21}
+  - {name: "Pinecone", sector: ai, priority: 3, ats: ashby, token: pinecone, verified: 2026-10-21}
+  - {name: "Labelbox", sector: ai, priority: 3, ats: greenhouse, token: labelbox, verified: 2026-10-21}
+  - {name: "Sierra", sector: ai, priority: 3, ats: ashby, token: sierra, verified: 2026-10-21}
+  - {name: "Decagon", sector: ai, priority: 3, ats: ashby, token: decagon, verified: 2026-10-21}
+  - {name: "Abnormal Security", sector: enterprise_saas, priority: 3, ats: greenhouse, token: abnormalsecurity, verified: 2026-10-21}
+  - {name: "Wiz", sector: enterprise_saas, priority: 3, ats: greenhouse, token: wizinc, verified: 2026-10-21}
+  - {name: "Drata", sector: enterprise_saas, priority: 3, ats: ashby, token: drata, verified: 2026-10-21}
+  - {name: "Forto", sector: industrial_tech, priority: 3, ats: ashby, token: forto, verified: 2026-10-21}
+  - {name: "Flexport", sector: industrial_tech, priority: 3, ats: greenhouse, token: flexport, verified: 2026-10-21}
+  - {name: "Project44", sector: industrial_tech, priority: 3, ats: greenhouse, token: project44, verified: 2026-10-21}
