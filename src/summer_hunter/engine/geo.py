@@ -149,12 +149,17 @@ _AMBIGUOUS = {"cambridge", "georgia", "jordan", "washington", "santiago", "perth
 class LocationResolution:
     countries: list[str] = field(default_factory=list)
     cities: list[str] = field(default_factory=list)
+    city_country: dict[str, str] = field(default_factory=dict)   # city -> ISO2
     remote: bool = False
     evidence: list[str] = field(default_factory=list)
 
     @property
     def primary_country(self) -> str | None:
         return self.countries[0] if self.countries else None
+
+    def city_in(self, country: str | None) -> str | None:
+        """First city located in `country` (so 'Paris; Madrid' shown as Spain gets Madrid)."""
+        return next((c for c in self.cities if self.city_country.get(c) == country), None)
 
 
 def _resolve_part(part: str) -> tuple[str | None, str | None, str | None]:
@@ -204,6 +209,8 @@ def resolve_location(location_text: str | None, country_hint: str | None = None)
             result.evidence.append(ev or "")
         if city and city not in result.cities:
             result.cities.append(city)
+            if code:
+                result.city_country[city] = code
     return result
 
 

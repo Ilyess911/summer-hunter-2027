@@ -1,17 +1,38 @@
 "use strict";
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) {
+  tg.ready(); tg.expand();
+  try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); } catch (_) { /* older clients */ }
+}
 
-const state = { view: "new", q: "", items: [] };
-const $ = (s) => document.querySelector(s);
+const state = { view: "new", q: "", region: "", current: null };
+const $ = (s, root = document) => root.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 const DECISION = { ELIGIBLE: ["Éligible", "ok"], NEEDS_VERIFICATION: ["À vérifier", "warn"], REJECTED: ["Rejeté", "bad"] };
-const REASON_FR = { cold: "Trop de cold calling", role: "Ce type de poste ne m'intéresse pas", company: "Cette entreprise ne m'intéresse pas",
-  country: "Ce pays ne m'intéresse pas", other: "Autre raison" };
-const ICON = { PASS: "✅", FAIL: "❌", UNKNOWN: "❔", NOT_APPLICABLE: "➖" };
-const LABEL = { internship_status: "Type de contrat", dates: "Dates", duration: "Durée", country: "Pays", safety: "Sécurité",
+const STATUS = { saved: "Sauvé", applied: "Postulé", dismissed: "Écarté" };
+const FAMILY = { technical_sales: "Vente technique", enterprise_sales: "Vente grands comptes", product_marketing: "Product marketing",
+  go_to_market: "Go-to-market", sales_development: "Prospection", sales_general: "Vente", product_management: "Produit",
+  ai_solutions: "Solutions IA", program_management: "Programme", commercial_strategy: "Stratégie commerciale",
+  strategy_consulting: "Stratégie", marketing_general: "Marketing", data_analytics: "Data" };
+const CRIT = { internship_status: "Type de contrat", dates: "Dates", duration: "Durée", country: "Pays", safety: "Sécurité",
   language: "Langues", academic: "Diplôme", graduation: "Date de diplôme", citizenship: "Nationalité",
   work_authorization: "Autorisation de travail", qualifications: "Qualifications", compensation: "Rémunération" };
+const COMP = { career_alignment: "Alignement carrière", experience_relevance: "Expérience", mission_quality: "Mission",
+  skill_development: "Compétences", long_term_value: "Valeur long terme" };
+const REASON = { cold: "Trop de cold calling", role: "Ce type de poste", company: "Cette entreprise", country: "Ce pays", other: "Autre raison" };
+const DOT = { PASS: "✓", FAIL: "✕", UNKNOWN: "?", NOT_APPLICABLE: "–" };
+const ICONS = {
+  bookmark: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>',
+};
+
+const flag = (cc) => (cc && /^[A-Z]{2}$/.test(cc)) ? String.fromCodePoint(...[...cc].map((c) => 0x1f1a5 + c.charCodeAt(0))) : "🌐";
+const ringClass = (fit) => (fit >= 85 ? "good" : fit >= 70 ? "mid" : "");
+const ring = (fit, big = false) => `<div class="ring ${ringClass(fit)} ${big ? "lg" : ""}" style="--v:${fit || 0}"><b>${fit ?? "–"}</b></div>`;
+const haptic = (kind) => { try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred(kind || "light"); } catch (_) {} };
 
 async function api(path, opts = {}) {
   const headers = { "X-Telegram-Init-Data": tg ? tg.initData : "", ...(opts.body ? { "Content-Type": "application/json" } : {}) };
@@ -23,120 +44,170 @@ async function api(path, opts = {}) {
 
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.hidden = false;
-  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2600);
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2400);
 }
 
-function chip(text, cls = "") { return `<span class="chip ${cls}">${esc(text)}</span>`; }
-
-function row(o) {
+function card(o) {
   const [d, cls] = DECISION[o.decision] || ["?", ""];
-  const prio = o.priority == null ? "" : chip(`prio ${Math.round(o.priority)}`);
-  return `<button class="item" data-id="${o.id}">
-    <div class="t">${esc(o.title)}</div>
-    <div class="s">${esc(o.company)} · ${esc(o.country)}</div>
-    <div class="chips">${chip(`fit ${o.fit ?? "?"}`)}${prio}${chip(d, cls)}${o.user_status !== "new" ? chip(o.user_status) : ""}</div>
+  const place = [o.city, o.country].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ");
+  return `<button class="card" data-id="${o.id}">
+    ${ring(o.fit)}
+    <div class="body">
+      <div class="title">${esc(o.title)}</div>
+      <div class="meta">${esc(o.company)} · ${flag(o.country_code)} ${esc(place)}</div>
+      <div class="tags">
+        ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
+        <span class="tag ${cls}">${esc(d)}</span>
+        ${STATUS[o.user_status] ? `<span class="tag state">${STATUS[o.user_status]}</span>` : ""}
+      </div>
+    </div>
+    ${ICONS.chev}
   </button>`;
 }
 
 async function loadList() {
   const list = $("#list");
-  list.innerHTML = `<div class="empty">Chargement…</div>`;
+  list.innerHTML = Array.from({ length: 5 }, () => `<div class="skeleton"></div>`).join("");
   try {
-    const data = await api(`/api/opportunities?view=${state.view}&q=${encodeURIComponent(state.q)}`);
-    state.items = data.items;
-    list.innerHTML = data.items.length ? data.items.map(row).join("") : `<div class="empty">Rien ici pour l'instant.</div>`;
+    const params = new URLSearchParams({ view: state.view, q: state.q, region: state.region });
+    const data = await api(`/api/opportunities?${params}`);
+    const s = data.stats || {};
+    $("#s-target").textContent = s.target ?? "–"; $("#s-new").textContent = s.new ?? "–";
+    $("#s-saved").textContent = s.saved ?? "–"; $("#s-applied").textContent = s.applied ?? "–";
+    list.innerHTML = data.items.length ? data.items.map(card).join("")
+      : `<div class="empty">Rien ici pour l'instant.<br>Les nouvelles offres arrivent chaque nuit.</div>`;
   } catch (e) {
-    list.innerHTML = `<div class="empty">Impossible de charger : ${esc(e.message)}.<br>Ouvre l'app depuis le bouton du bot.</div>`;
+    list.innerHTML = `<div class="empty">Chargement impossible : ${esc(e.message)}<br>Rouvre l'app depuis le bouton du bot.</div>`;
   }
 }
 
-function section(title, html) { return html ? `<h2>${esc(title)}</h2>${html}` : ""; }
-function bullets(arr) { return arr && arr.length ? `<ul class="plain">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""; }
+/* Detail ------------------------------------------------------------------ */
+
+function block(title, html) { return html ? `<div class="block"><h3>${esc(title)}</h3>${html}</div>` : ""; }
+function list(items) { return items && items.length ? `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""; }
 
 async function openDetail(id) {
-  $("#list").hidden = true; $(".top").hidden = true;
-  const box = $("#detail"); box.hidden = false; box.innerHTML = `<div class="empty">Chargement…</div>`;
-  if (tg) { tg.BackButton.show(); }
+  $("#home").hidden = true;
+  const box = $("#detail"); box.hidden = false;
+  box.innerHTML = `<div class="skeleton" style="height:140px"></div>`;
+  window.scrollTo(0, 0);
+  if (tg) tg.BackButton.show();
   history.replaceState(null, "", `#/o/${id}`);
   let o;
   try { o = await api(`/api/opportunities/${id}`); } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  state.current = o;
   const fit = o.fit_report || {}, net = o.networking_report || {};
   const [d, cls] = DECISION[o.decision] || ["?", ""];
-  const unknowns = o.criteria.filter((c) => c.status !== "PASS" && c.status !== "NOT_APPLICABLE")
-    .map((c) => `${LABEL[c.criterion] || c.criterion} : ${c.explanation}`);
-  const crit = o.criteria.map((c) => `<div class="crit"><div>${ICON[c.status] || "?"}</div><div>
-      <div class="n">${esc(LABEL[c.criterion] || c.criterion)}</div><div>${esc(c.explanation)}</div>
-      ${c.evidence && c.evidence.length ? `<div class="e">« ${esc(c.evidence[0])} »</div>` : ""}</div></div>`).join("");
+  const open = o.criteria.filter((c) => c.status === "UNKNOWN" || c.status === "FAIL");
+  const checks = o.criteria.map((c) => `<div class="check"><span class="dot ${c.status}">${DOT[c.status] || "?"}</span>
+      <div><div class="n">${esc(CRIT[c.criterion] || c.criterion)}</div><div class="x">${esc(c.explanation)}</div></div></div>`).join("");
+  const bars = Object.entries(fit.components || {}).map(([k, v]) =>
+    `<div class="bar"><span>${esc(COMP[k] || k)}</span><i style="--w:${Math.round(v)}%"></i><span>${Math.round(v)}</span></div>`).join("");
   const contacts = o.contacts.map((c) => `<li>${c.url ? `<a href="#" data-link="${esc(c.url)}">${esc(c.name)}</a>` : esc(c.name)}
-      <span class="muted">· ${esc(c.relationship.replaceAll("_", " "))} · ${Math.round(c.confidence * 100)} %</span></li>`).join("");
+      <span class="x">· ${esc(c.relationship.replaceAll("_", " "))}</span></li>`).join("");
+
   box.innerHTML = `
-    <h1>${esc(o.title)}</h1>
-    <div class="muted">${esc(o.company)} · ${esc(o.location || o.country)}</div>
-    <div class="chips">${chip(d, cls)}${o.family ? chip(o.family.replaceAll("_", " ")) : ""}${o.user_status !== "new" ? chip(o.user_status) : ""}</div>
-    <div class="scores">
-      <div class="score"><b>${o.fit ?? "?"}</b><span>Fit carrière</span></div>
-      <div class="score"><b>${o.networking ?? "?"}</b><span>Networking</span></div>
-      <div class="score"><b>${o.priority == null ? "—" : Math.round(o.priority)}</b><span>Priorité</span></div>
-    </div>
-    <div class="actions">
-      <button class="btn primary" data-act="apply">Postuler sur le site</button>
-      <button class="btn primary" data-act="cv">Générer mon CV adapté</button>
-      <div class="cv" id="cvbox" style="grid-column:1/-1"></div>
-      <button class="btn ${o.user_status === "saved" ? "on" : ""}" data-act="save">Sauver</button>
-      <button class="btn ${o.user_status === "applied" ? "on" : ""}" data-act="applied">J'ai postulé</button>
-      <button class="btn" data-act="dismiss" style="grid-column:1/-1">Écarter</button>
-      <div class="reasons" id="reasons" hidden style="grid-column:1/-1">
-        ${Object.entries(o.dismiss_reasons).map(([k, v]) => `<button class="btn" data-reason="${k}">${esc(REASON_FR[k] || v)}</button>`).join("")}
+    <div class="d-head">
+      <div>
+        <div class="d-company">${esc(o.company)}</div>
+        <h2 class="d-title">${esc(o.title)}</h2>
+        <div class="d-place">${flag(o.country_code)} ${esc(o.location || o.country)}</div>
+        <div class="tags" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
+          <span class="tag ${cls}">${esc(d)}</span>
+        </div>
       </div>
+      ${ring(o.fit, true)}
     </div>
-    ${section("Pourquoi ça colle", bullets(fit.reasons))}
-    ${section("À vérifier", bullets(unknowns.slice(0, 5).concat((fit.weaknesses || []).filter((w) => !w.startsWith("Unverified")))))}
-    ${section("Contact", contacts ? `<ul class="plain">${contacts}</ul>` : `<div class="muted">${esc(net.rationale || "Aucun contact vérifié.")}</div>`)}
-    ${o.linkedin_post_url ? `<p><a href="#" data-link="${esc(o.linkedin_post_url)}">Voir le post LinkedIn</a></p>` : ""}
-    ${section("Éligibilité, critère par critère", crit)}
-    ${section("Score détaillé", bullets(Object.entries(fit.components || {}).map(([k, v]) => `${k.replaceAll("_", " ")} : ${Math.round(v)}`)
-      .concat((fit.adjustments || []).map((a) => `${a.label} (${a.delta > 0 ? "+" : ""}${a.delta})`))))}
-    <details><summary>Description de l'offre</summary><div class="desc">${esc(o.description)}</div></details>
-    <p class="muted">Sources : ${o.sources.map((s) => esc(s.source)).join(", ")}</p>`;
+    <div class="d-metrics">
+      <div class="metric"><b>${o.fit ?? "–"}</b><span>Fit carrière</span></div>
+      <div class="metric"><b>${o.networking ?? "–"}</b><span>Networking</span></div>
+      <div class="metric"><b>${o.priority == null ? "–" : Math.round(o.priority)}</b><span>Priorité</span></div>
+    </div>
+    <div class="row-actions">
+      <button class="act ${o.user_status === "saved" ? "on" : ""}" data-act="save">${ICONS.bookmark}Sauver</button>
+      <button class="act ${o.user_status === "applied" ? "on" : ""}" data-act="applied">${ICONS.check}Postulé</button>
+      <button class="act ${o.user_status === "dismissed" ? "on" : ""}" data-act="dismiss">${ICONS.x}Écarter</button>
+    </div>
+    <div class="reasons" id="reasons" hidden>
+      ${Object.entries(REASON).map(([k, v]) => `<button data-reason="${k}">${esc(v)}</button>`).join("")}
+    </div>
+    <div id="cvbox"></div>
+    <div class="fallback" id="fallback" ${tg && tg.MainButton ? "hidden" : ""}>
+      <button class="primary" data-act="cv">Générer mon CV adapté</button>
+      <button class="primary" style="background:var(--surface);color:var(--text)" data-act="apply">Postuler sur le site</button>
+    </div>
+    ${block("Pourquoi ça colle", list(fit.reasons))}
+    ${block("Points à vérifier", list(open.map((c) => `${CRIT[c.criterion] || c.criterion} : ${c.explanation}`).slice(0, 5)))}
+    ${block("Contact", contacts ? `<ul>${contacts}</ul>` : `<div class="x">${esc(net.rationale || "Aucun contact vérifié.")}</div>`)}
+    ${o.linkedin_post_url ? block("Post LinkedIn", `<a href="#" data-link="${esc(o.linkedin_post_url)}">Ouvrir le post</a>`) : ""}
+    ${block("Score détaillé", bars + list((fit.adjustments || []).map((a) => `${a.label} (${a.delta > 0 ? "+" : ""}${a.delta})`)))}
+    ${block("Éligibilité", checks)}
+    <div class="block"><details class="desc"><summary>Description de l'offre</summary><div>${esc(o.description)}</div></details></div>
+    <div class="src">Sources : ${o.sources.map((s) => esc(s.source)).join(", ")}</div>`;
 
   box.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); openLink(a.dataset.link); }));
-  box.querySelector('[data-act="apply"]').onclick = () => openLink(o.apply_url);
-  box.querySelector('[data-act="save"]').onclick = () => act(o.id, "save", "Sauvé");
-  box.querySelector('[data-act="applied"]').onclick = () => act(o.id, "applied", "Marqué comme postulé");
-  box.querySelector('[data-act="dismiss"]').onclick = async () => { await act(o.id, "dismiss", "Écarté"); $("#reasons").hidden = false; };
-  box.querySelectorAll("[data-reason]").forEach((b) => b.onclick = async () => { await act(o.id, "reason", "Merci, préférence mise à jour", b.dataset.reason); $("#reasons").hidden = true; });
-  box.querySelector('[data-act="cv"]').onclick = (ev) => makeCV(o.id, ev.currentTarget);
+  box.querySelector('[data-act="save"]').onclick = (ev) => act(o.id, "save", "Sauvé", ev.currentTarget);
+  box.querySelector('[data-act="applied"]').onclick = (ev) => act(o.id, "applied", "Marqué comme postulé", ev.currentTarget);
+  box.querySelector('[data-act="dismiss"]').onclick = async (ev) => { await act(o.id, "dismiss", "Écarté", ev.currentTarget); $("#reasons").hidden = false; };
+  box.querySelectorAll("[data-reason]").forEach((b) => b.onclick = async () => {
+    await act(o.id, "reason", "Merci, préférence mise à jour", null, b.dataset.reason); $("#reasons").hidden = true; });
+  const cvBtn = box.querySelector('#fallback [data-act="cv"]'); if (cvBtn) cvBtn.onclick = () => makeCV(o.id);
+  const apBtn = box.querySelector('#fallback [data-act="apply"]'); if (apBtn) apBtn.onclick = () => openLink(o.apply_url);
+  showNativeButtons(o);
+}
+
+function showNativeButtons(o) {
+  if (!tg || !tg.MainButton) return;
+  tg.MainButton.setParams({ text: "Générer mon CV adapté", is_visible: true, is_active: true });
+  tg.MainButton.offClick(onMain); tg.MainButton.onClick(onMain);
+  if (tg.SecondaryButton) {
+    tg.SecondaryButton.setParams({ text: "Postuler sur le site", is_visible: true, position: "top" });
+    tg.SecondaryButton.offClick(onSecondary); tg.SecondaryButton.onClick(onSecondary);
+  } else {
+    $("#fallback").hidden = false; $('#fallback [data-act="cv"]').hidden = true;
+  }
+}
+function onMain() { if (state.current) makeCV(state.current.id); }
+function onSecondary() { if (state.current) openLink(state.current.apply_url); }
+function hideNativeButtons() {
+  if (!tg) return;
+  tg.MainButton.hide(); tg.MainButton.hideProgress && tg.MainButton.hideProgress();
+  if (tg.SecondaryButton) tg.SecondaryButton.hide();
 }
 
 function openLink(url) { if (!url) return; if (tg) tg.openLink(url); else window.open(url, "_blank", "noopener"); }
 
-async function act(id, action, msg, reason) {
+async function act(id, action, msg, btn, reason) {
   try {
-    await api(`/api/opportunities/${id}/action`, { method: "POST", body: JSON.stringify({ action, reason }) });
-    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
-    toast(msg);
+    const r = await api(`/api/opportunities/${id}/action`, { method: "POST", body: JSON.stringify({ action, reason }) });
+    haptic("medium"); toast(msg);
+    document.querySelectorAll(".row-actions .act").forEach((b) => b.classList.toggle("on", r.user_status === { save: "saved", applied: "applied", dismiss: "dismissed" }[b.dataset.act]));
   } catch (e) { toast(`Erreur : ${e.message}`); }
 }
 
-async function makeCV(id, btn) {
-  btn.disabled = true; btn.textContent = "Génération du CV…";
+async function makeCV(id) {
   const box = $("#cvbox");
+  if (tg && tg.MainButton) tg.MainButton.showProgress(false);
+  box.innerHTML = `<div class="block"><h3>CV adapté</h3><div class="x">Génération et compilation…</div></div>`;
   try {
     const r = await api(`/api/opportunities/${id}/cv`, { method: "POST" });
-    const dl = (path, name) => `<button class="btn" data-dl="${esc(path)}" data-name="${esc(name)}">${esc(name)}</button>`;
-    box.innerHTML = (r.files.pdf ? dl(r.files.pdf, "Télécharger le PDF") : `<div class="muted">PDF non compilé : ${esc(r.log)}</div>`)
-      + dl(r.files.tex, "Télécharger le code LaTeX")
-      + `<button class="btn" id="sendtg">Recevoir les fichiers dans Telegram</button>`;
+    const file = (path, label, sub) => `<button class="file" data-dl="${esc(path)}"><span>${esc(label)}</span><small>${esc(sub)}</small></button>`;
+    box.innerHTML = `<div class="block"><h3>CV adapté</h3><div class="cv-files">
+      ${r.files.pdf ? file(r.files.pdf, "Télécharger le PDF", "PDF") : `<div class="x">PDF non compilé : ${esc(r.log)}</div>`}
+      ${file(r.files.tex, "Télécharger le code LaTeX", ".tex")}
+      <button class="file" id="sendtg"><span>Recevoir dans le chat</span><small>Telegram</small></button></div></div>`;
     box.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => download(b.dataset.dl));
     $("#sendtg").onclick = async (ev) => {
       ev.currentTarget.disabled = true;
-      try { await api(`/api/opportunities/${id}/cv/send`, { method: "POST" }); toast("Envoyé dans le chat"); }
+      try { await api(`/api/opportunities/${id}/cv/send`, { method: "POST" }); haptic("medium"); toast("Envoyé dans le chat"); }
       catch (e) { toast(`Erreur : ${e.message}`); }
       ev.currentTarget.disabled = false;
     };
-    btn.textContent = "Régénérer le CV";
-  } catch (e) { box.innerHTML = `<div class="muted">Erreur : ${esc(e.message)}</div>`; btn.textContent = "Générer mon CV adapté"; }
-  btn.disabled = false;
+    if (tg && tg.MainButton) tg.MainButton.setText("Régénérer le CV");
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) { box.innerHTML = `<div class="block"><h3>CV adapté</h3><div class="x">Erreur : ${esc(e.message)}</div></div>`; }
+  if (tg && tg.MainButton) tg.MainButton.hideProgress();
 }
 
 function download(path) {
@@ -147,19 +218,26 @@ function download(path) {
 }
 
 function closeDetail() {
-  $("#detail").hidden = true; $("#list").hidden = false; $(".top").hidden = false;
+  $("#detail").hidden = true; $("#home").hidden = false; state.current = null;
   if (tg) tg.BackButton.hide();
+  hideNativeButtons();
   history.replaceState(null, "", "#");
   loadList();
 }
 
-$("#tabs").addEventListener("click", (ev) => {
-  const b = ev.target.closest("button[data-view]"); if (!b) return;
-  document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
-  state.view = b.dataset.view; loadList();
-});
-$("#list").addEventListener("click", (ev) => { const it = ev.target.closest(".item"); if (it) openDetail(it.dataset.id); });
-let t; $("#search").addEventListener("input", (ev) => { clearTimeout(t); t = setTimeout(() => { state.q = ev.target.value; loadList(); }, 250); });
+/* Wiring ------------------------------------------------------------------ */
+
+function bindChips(containerSel, key, attr) {
+  $(containerSel).addEventListener("click", (ev) => {
+    const b = ev.target.closest("button"); if (!b) return;
+    $(containerSel).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    state[key] = b.dataset[attr]; haptic(); loadList();
+  });
+}
+bindChips("#tabs", "view", "view");
+bindChips("#regions", "region", "region");
+$("#list").addEventListener("click", (ev) => { const c = ev.target.closest(".card"); if (c) { haptic(); openDetail(c.dataset.id); } });
+let debounce; $("#search").addEventListener("input", (ev) => { clearTimeout(debounce); debounce = setTimeout(() => { state.q = ev.target.value; loadList(); }, 250); });
 if (tg) tg.BackButton.onClick(closeDetail);
 
 const start = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || "";

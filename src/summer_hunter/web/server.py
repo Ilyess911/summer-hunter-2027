@@ -30,8 +30,22 @@ STATIC = Path(__file__).parent / "static"
 VIEWS = {"top", "new", "saved", "applied", "rejected", "verify"}
 
 
+REGIONS = {
+    "europe": {"GB", "IE", "CH", "DE", "NL", "SE", "DK", "NO", "FI", "BE", "LU", "ES", "IT", "PT", "AT", "PL", "CZ", "HU",
+               "RO", "GR", "EE", "LT", "LV", "BG", "HR", "SK", "SI", "MT", "CY", "IS", "MC"},
+    "asia": {"SG", "HK", "TW", "JP", "KR", "CN", "AU", "NZ", "VN", "ID", "TH", "MY", "PH"},
+    "middle_east": {"AE", "QA", "SA", "KW", "BH", "OM", "JO", "LB", "MA", "TN", "DZ"},
+    "americas": {"US", "CA", "MX", "BR", "AR", "CL", "CO", "PE", "CR"},
+}
+
+
+def region_of(code: str | None) -> str:
+    return next((r for r, codes in REGIONS.items() if code in codes), "other")
+
+
 def summary(o: Opportunity) -> dict[str, Any]:
     return {"id": o.id, "title": o.title, "company": o.company_name, "country": country_name(o.country_code),
+            "city": o.city, "region": region_of(o.country_code),
             "country_code": o.country_code, "location": o.location_text, "decision": o.eligibility_status,
             "fit": o.fit_score, "networking": o.networking_score, "priority": o.priority_score, "tier": o.priority_tier,
             "family": o.job_family, "user_status": o.user_status,
@@ -89,8 +103,14 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
                 rows = repo.by_user_status({"saved": "saved", "applied": "applied"}[view], limit=300)
             if q:
                 rows = [o for o in rows if q in f"{o.title} {o.company_name} {o.location_text}".lower()]
-            counts = repo.counts()
-        return JSONResponse({"items": [summary(o) for o in rows], "counts": counts})
+            region = request.query_params.get("region")
+            if region in REGIONS:
+                rows = [o for o in rows if region_of(o.country_code) == region]
+            active = [o for o in repo.top(500) if (o.family_tier or 0) > 0]
+            stats = {"target": len(active), "new": sum(o.user_status == "new" and bool(o.notify) for o in active),
+                     "saved": sum(o.user_status == "saved" for o in active),
+                     "applied": sum(o.user_status == "applied" for o in active)}
+        return JSONResponse({"items": [summary(o) for o in rows], "stats": stats})
 
     async def detail(request: Request) -> Response:
         with sessions() as session:
