@@ -65,9 +65,12 @@ def _link_key(bot_token: str) -> bytes:
 
 
 def sign_link(path: str, bot_token: str, now: float | None = None) -> str:
+    """Sign the decoded path; return it URL-encoded (file names contain spaces)."""
+    from urllib.parse import quote
+
     exp = int((now or time.time()) + LINK_TTL_S)
     sig = hmac.new(_link_key(bot_token), f"{path}|{exp}".encode(), hashlib.sha256).hexdigest()[:32]
-    return f"{path}?exp={exp}&sig={sig}"
+    return f"{quote(path)}?exp={exp}&sig={sig}"
 
 
 def verify_link(path: str, exp: str, sig: str, bot_token: str, now: float | None = None) -> bool:

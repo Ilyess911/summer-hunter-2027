@@ -217,8 +217,45 @@ def build_cv(config_dir: Path, out_dir: Path, opp_id: int, company: str, title: 
     content = load_content(config_dir)
     cv = tailor(content, title, description, job_family)
     out_dir.mkdir(parents=True, exist_ok=True)
-    safe = re.sub(r"[^A-Za-z0-9]+", "_", f"{company}_{title}")[:60].strip("_")
-    tex_path = out_dir / f"CV_{opp_id}_{safe}.tex"
-    tex_path.write_text(render(cv, f"{title} @ {company}"), encoding="utf-8")
-    pdf, log = compile_pdf(tex_path)
-    return CVResult(tex_path, pdf, log)
+    for old in list(out_dir.glob("*.tex")) + list(out_dir.glob("*.pdf")):
+        old.unlink()   # one current version per offer
+    # Compile under a plain ASCII name (pdflatex dislikes spaces/accents), then give the files their final name.
+    work = out_dir / "cv_build.tex"
+    work.write_text(render(cv, f"{title} @ {company}"), encoding="utf-8")
+    pdf, log = compile_pdf(work)
+    final = document_name("CV", content.get("header", {}).get("name", ""), company, title)
+    tex_path = work.rename(out_dir / f"{final}.tex")
+    pdf_path = pdf.rename(out_dir / f"{final}.pdf") if pdf else None
+    return CVResult(tex_path, pdf_path, log)
+
+
+_ROLE_NOISE = re.compile(
+    r"\((?:x|m|f|h|w|d)(?:/(?:x|m|f|h|w|d))+\)|\b(?:summer|spring|fall|autumn|winter|off[- ]cycle)\b|\b20[2-3]\d\b|"
+    r"\[[^\]]*\]|\((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* intake\)", re.I)
+
+
+def initial_name(full_name: str) -> str:
+    """'ILYESS ASSADI' -> 'I.ASSADI'."""
+    parts = [p for p in re.split(r"\s+", full_name.strip()) if p]
+    if len(parts) < 2:
+        return full_name.strip().upper()
+    return f"{parts[0][0].upper()}.{' '.join(parts[1:]).upper()}"
+
+
+def clean_role(title: str) -> str:
+    role = _ROLE_NOISE.sub(" ", title)
+    role = re.sub(r"\s*[-|,:]\s*(?=[-|,:]|$)", " ", role)       # dangling separators
+    role = re.sub(r"\(\s*\)", " ", role)                          # emptied brackets
+    lead = re.match(r"^\s*(intern(?:ship)?)\s*[-|,:]\s*(.+)$", role, flags=re.I)
+    if lead:                                                         # 'Intern - Product GTM' -> 'Product GTM Intern'
+        role = f"{lead.group(2)} {lead.group(1).title()}"
+    role = re.sub(r"\s*\|\s*", " ", role)
+    role = re.sub(r"\s{2,}", " ", role).strip(" -|,:()")
+    return role or title.strip()
+
+
+def document_name(kind: str, full_name: str, company: str, title: str) -> str:
+    """e.g. 'CV I.ASSADI - Databricks - Product Management Intern'. Filesystem- and Telegram-safe."""
+    name = f"{kind} {initial_name(full_name)} - {company.strip()} - {clean_role(title)}"
+    name = re.sub(r'[\\/:*?"<>|\n\r\t]+', " ", name)
+    return re.sub(r"\s{2,}", " ", name).strip()[:120]

@@ -189,11 +189,11 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             return JSONResponse({"error": "Telegram not configured"}, status_code=503)
         opp_id = request.path_params["opp_id"]
         folder = cv_dir / str(int(opp_id))
-        files = sorted(folder.glob("CV_*.pdf")) + sorted(folder.glob("CV_*.tex")) if folder.exists() else []
+        files = sorted(folder.glob("*.pdf")) + sorted(folder.glob("*.tex")) if folder.exists() else []
         if not files:
             return JSONResponse({"error": "generate the CV first"}, status_code=400)
         for f in files:
-            await asyncio.to_thread(telegram.send_document, settings.telegram_chat_id, f, f"CV #{opp_id}: {f.suffix[1:].upper()}")
+            await asyncio.to_thread(telegram.send_document, settings.telegram_chat_id, f, f.stem)
         return JSONResponse({"ok": True, "sent": [f.name for f in files]})
 
     async def download(request: Request) -> Response:

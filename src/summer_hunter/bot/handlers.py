@@ -229,7 +229,7 @@ class Bot:
                 else:
                     for f in [p for p in (result.pdf_path, result.tex_path) if p]:
                         try:
-                            self.telegram.send_document(self.chat_id, f, f"CV adapté #{opp.id} : {opp.title[:80]} @ {opp.company_name[:40]}")
+                            self.telegram.send_document(self.chat_id, f, f.stem)
                         except TelegramError as exc:
                             log.warning("sendDocument failed", extra={"error": str(exc)})
                     if not result.pdf_path:
