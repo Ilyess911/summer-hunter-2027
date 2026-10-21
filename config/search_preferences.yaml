@@ -2,7 +2,7 @@
 
 geography:
   # Hard personal exclusions (ISO2). Never expanded automatically.
-  excluded_countries: [FR, IL]
+  excluded_countries: [FR, IL, IN, PK]   # personal choices (IN, PK added 21 Oct 2026)
   # Countries the user has personally decided to exclude for safety reasons.
   # Empty by default: nothing is added without the user's decision.
   safety_excluded_countries: []
