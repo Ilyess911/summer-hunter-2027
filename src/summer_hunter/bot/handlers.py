@@ -38,6 +38,7 @@ COMMANDS = [
 ]
 
 HELP = "\n".join(f"/{c}: {d}" for c, d in COMMANDS) + (
+    "\n\nEnvoie un lien d'offre (ou colle son texte) : je l'évalue, puis je génère ton CV et ta lettre."
     "\n\nButtons: Save, Dismiss (asks why, to learn), Applied, Explain Score, Networking msg (a draft for you to "
     "send yourself; nothing is ever sent to recruiters automatically)."
 )
@@ -86,8 +87,31 @@ class Bot:
                 self.send("Révision en cours (2 à 3 min)…")
                 start_letter_job(self.settings, self.session_factory, self.telegram, int(opp_id), revision=text)
                 return
+        if reply_to and text and not text.startswith("/"):
+            with self.session_factory() as session:
+                pasted_for = Repository(session).get_kv(f"paste_msg:{reply_to}")
+            if pasted_for is not None:
+                from summer_hunter.bot import links
+
+                self.send("📥 Texte reçu, analyse de l'offre…")
+                links.start(self.settings, self.session_factory, self.telegram, pasted_for or None, text)
+                return
         if text.startswith("/"):
             self.handle_command(text.split()[0][1:].split("@")[0].lower())
+            return
+        from summer_hunter.collectors.link_ingest import first_url
+
+        url = first_url(text)
+        if url:
+            from summer_hunter.bot import links
+
+            self.send("🔎 Lecture de l'offre… (carte, puis CV, puis lettre)")
+            links.start(self.settings, self.session_factory, self.telegram, url)
+        elif len(text) > 400:
+            from summer_hunter.bot import links
+
+            self.send("📥 Texte d'offre reçu, analyse…")
+            links.start(self.settings, self.session_factory, self.telegram, None, text)
 
     def poll_forever(self, stop_after_s: float | None = None) -> None:
         started = time.monotonic()
