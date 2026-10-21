@@ -73,7 +73,8 @@ class CandidateProfile(BaseModel):
 
     @property
     def language_names(self) -> set[str]:
-        return {lang.language.lower() for lang in self.languages}
+        """Languages good enough to meet a job requirement (basic levels never count)."""
+        return {lang.language.lower() for lang in self.languages if lang.level in {"native", "fluent", "professional"}}
 
     @property
     def window_weeks(self) -> float:

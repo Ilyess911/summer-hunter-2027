@@ -83,66 +83,103 @@ def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: s
                              key=lambda p: -_score(" ".join(b["text"] for b in p.get("bullets", [])) + p.get("name", ""),
                                                    p.get("tags", []), keys))[: int(content.get("max_projects", 3))]
     skills = {}
+    fixed = set(content.get("fixed_order_skills", []))
     for group, items in (content.get("skills") or {}).items():
-        skills[group] = sorted(items, key=lambda s: -len(_tokens(s) & keys))
+        skills[group] = list(items) if group in fixed else sorted(items, key=lambda s: -len(_tokens(s) & keys))
     out["skills"] = skills
     return out
 
 
-def render(cv: dict[str, Any], target: str) -> str:
-    h = cv.get("header", {})
-    contact = " \\textbar{} ".join(tex(x) for x in (h.get("location"), h.get("email"), h.get("phone"), h.get("linkedin")) if x)
-    parts = [r"""\documentclass[10pt,a4paper]{article}
-\usepackage[T1]{fontenc}
+PREAMBLE = r"""\documentclass[10pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=1.5cm]{geometry}
+\usepackage{geometry}
+\usepackage{xcolor}
 \usepackage{enumitem}
 \usepackage{titlesec}
-\usepackage[hidelinks]{hyperref}
-\usepackage{xcolor}
-\definecolor{accent}{HTML}{1F3A5F}
-\titleformat{\section}{\large\bfseries\color{accent}}{}{0em}{}[\titlerule]
-\titlespacing*{\section}{0pt}{8pt}{4pt}
-\setlist[itemize]{leftmargin=1.2em,itemsep=1pt,topsep=2pt}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{microtype}
+\usepackage{ragged2e}
+\geometry{top=1.25cm, bottom=1.25cm, left=1.58cm, right=1.58cm}
 \pagestyle{empty}
 \setlength{\parindent}{0pt}
-\begin{document}
-""",
-             f"{{\\LARGE\\bfseries {tex(h.get('name', 'Prénom Nom'))}}}\\\\[2pt]\n",
-             f"{{\\color{{accent}}{tex(cv.get('headline', ''))}}}\\\\[2pt]\n" if cv.get("headline") else "",
-             f"{{\\small {contact}}}\n" if contact else "",
-             f"% Tailored for: {tex(target)}\n"]
-    if cv.get("summary"):
-        parts.append(f"\\section*{{{tex(cv.get('labels', {}).get('summary', 'Profile'))}}}\n{tex(cv['summary'])}\n")
+\setlength{\parskip}{0pt}
+\linespread{1.055}
+\definecolor{navy}{HTML}{17324D}
+\definecolor{darkgray}{HTML}{333333}
+\definecolor{lightgray}{HTML}{666666}
+\hypersetup{colorlinks=true, urlcolor=navy, linkcolor=navy}
+\titleformat{\section}{\color{navy}\bfseries\fontsize{10.5}{12}\selectfont}{}{0pt}{}[\vspace{-3pt}\color{navy}\titlerule]
+\titlespacing*{\section}{0pt}{8pt}{5pt}
+\setlist[itemize]{leftmargin=1.3em, topsep=2pt, itemsep=1.5pt, parsep=0pt, partopsep=0pt}
+\newcommand{\cvrole}[4]{\textbf{#1} \hfill {\color{lightgray}\small #2}\\ \textit{#3} \hfill {\color{lightgray}\small #4}\vspace{-3pt}}
+\newcommand{\cvedu}[3]{\textbf{#1} \hfill {\color{lightgray}\small #2}\\ #3}
+"""
+
+
+def _href(url: str, label: str) -> str:
+    safe_url = re.sub(r"[^A-Za-z0-9:/._~?=&@+-]", "", url or "").replace("%", "").replace("#", "")
+    return f"\\href{{{safe_url}}}{{{tex(label)}}}"
+
+
+def _itemize(bullets: list[dict]) -> str:
+    if not bullets:
+        return ""
+    return "\\begin{itemize}\n" + "".join(f"    \\item {tex(b['text'])}\n" for b in bullets) + "\\end{itemize}\n"
+
+
+def render(cv: dict[str, Any], target: str) -> str:
+    h = cv.get("header", {})
     labels = cv.get("labels", {})
-    parts.append(f"\\section*{{{tex(labels.get('education', 'Education'))}}}\n")
-    for ed in cv.get("education", []):
-        where = (r" \hfill " + tex(ed.get("location"))) if ed.get("location") else ""
-        parts.append(f"\\textbf{{{tex(ed.get('school'))}}} \\hfill {tex(ed.get('dates'))}\\\\\n{tex(ed.get('degree'))}{where}\n")
-        if ed.get("details"):
-            parts.append("\\begin{itemize}\n" + "".join(f"\\item {tex(d)}\n" for d in ed["details"]) + "\\end{itemize}\n")
-        parts.append("\\smallskip\n")
-    parts.append(f"\\section*{{{tex(labels.get('experience', 'Experience'))}}}\n")
-    for exp in cv.get("experiences", []):
-        parts.append(f"\\textbf{{{tex(exp.get('role'))}}}, {tex(exp.get('org'))} \\hfill {tex(exp.get('dates'))}\n")
-        if exp.get("bullets"):
-            parts.append("\\begin{itemize}\n" + "".join(f"\\item {tex(b['text'])}\n" for b in exp["bullets"]) + "\\end{itemize}\n")
+    out = [PREAMBLE, f"% Tailored for: {tex(target)}\n", "\\begin{document}\n\\begin{center}\n",
+           f"{{\\fontsize{{19}}{{21}}\\selectfont\\bfseries\\color{{navy}} {tex(h.get('name', ''))}}}\n\n\\vspace{{3pt}}\n\n"]
+    if cv.get("headline"):
+        out.append(f"{{\\fontsize{{10}}{{12}}\\selectfont\\textbf{{{tex(cv['headline'])}}}}}\n\n\\vspace{{4pt}}\n\n")
+    contact = []
+    if h.get("email"):
+        contact.append(_href(f"mailto:{h['email']}", h["email"]))
+    if h.get("phone"):
+        contact.append(tex(h["phone"]))
+    if contact:
+        out.append(" \\quad | \\quad ".join(contact) + "\n\n\\vspace{2pt}\n\n")
+    links = [_href(l["url"], l["label"]) for l in h.get("links", []) if l.get("url")]
+    if links:
+        out.append(" \\quad | \\quad ".join(links) + "\n\n\\vspace{3pt}\n\n")
+    if h.get("availability"):
+        parts = [f"\\textbf{{{tex(p.strip())}}}" for p in h["availability"].split("|")]
+        out.append("{\\small " + " \\quad | \\quad ".join(parts) + "}\n")
+    out.append("\\end{center}\n\\vspace{-5pt}\n")
+    if cv.get("summary"):
+        out.append(f"\\section*{{{tex(labels.get('summary', 'PROFILE'))}}}\n{tex(cv['summary'])}\n")
+    out.append(f"\\section*{{{tex(labels.get('experience', 'PROFESSIONAL EXPERIENCE'))}}}\n")
+    for i, exp in enumerate(cv.get("experiences", [])):
+        if i:
+            out.append("\\vspace{2pt}\n")
+        out.append(f"\\cvrole{{{tex(exp.get('org'))}}}{{{tex(exp.get('dates'))}}}{{{tex(exp.get('role'))}}}{{{tex(exp.get('location'))}}}\n")
+        out.append(_itemize(exp.get("bullets", [])))
     if cv.get("projects"):
-        parts.append(f"\\section*{{{tex(labels.get('projects', 'Projects and leadership'))}}}\n")
-        for pr in cv["projects"]:
-            parts.append(f"\\textbf{{{tex(pr.get('name'))}}} \\hfill {tex(pr.get('dates'))}\n")
-            if pr.get("bullets"):
-                parts.append("\\begin{itemize}\n" + "".join(f"\\item {tex(b['text'])}\n" for b in pr["bullets"]) + "\\end{itemize}\n")
+        out.append(f"\\section*{{{tex(labels.get('projects', 'LEADERSHIP & ENTREPRENEURSHIP'))}}}\n")
+        for i, pr in enumerate(cv["projects"]):
+            if i:
+                out.append("\\vspace{2pt}\n")
+            out.append(f"\\textbf{{{tex(pr.get('name'))}}}\n" + _itemize(pr.get("bullets", [])))
+    if cv.get("education"):
+        out.append(f"\\section*{{{tex(labels.get('education', 'EDUCATION'))}}}\n")
+        for i, ed in enumerate(cv["education"]):
+            if i:
+                out.append("\\vspace{3pt}\n\n")
+            out.append(f"\\cvedu{{{tex(ed.get('school'))}}}{{{tex(ed.get('dates'))}}}{{{tex(ed.get('degree'))}}}\n\n")
     if cv.get("skills"):
-        parts.append(f"\\section*{{{tex(labels.get('skills', 'Skills'))}}}\n")
-        for group, items in cv["skills"].items():
-            parts.append(f"\\textbf{{{tex(group)}:}} {tex(', '.join(items))}\\\\\n")
-    if cv.get("achievements"):
-        parts.append(f"\\section*{{{tex(labels.get('achievements', 'Awards'))}}}\n\\begin{{itemize}}\n"
-                     + "".join(f"\\item {tex(a)}\n" for a in cv["achievements"]) + "\\end{itemize}\n")
-    parts.append("\\end{document}\n")
-    return "".join(parts)
+        out.append(f"\\section*{{{tex(labels.get('skills', 'SKILLS & LANGUAGES'))}}}\n")
+        groups = list(cv["skills"].items())
+        for i, (group, items) in enumerate(groups):
+            out.append(f"\\textbf{{{tex(group)}:}} {tex(', '.join(items))}\n\n")
+            if i < len(groups) - 1:
+                out.append("\\vspace{2pt}\n\n")
+    out.append("\\end{document}\n")
+    return "".join(out)
 
 
 def _pdflatex() -> str | None:

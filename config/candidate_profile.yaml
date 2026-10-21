@@ -11,7 +11,7 @@ identity:
   previous_degrees:
     - "BUT Génie Industriel et Maintenance"
   expected_graduation_year: 2027
-  expected_graduation_month: 9              # September 2027 (confirmed by the candidate, 21 Oct 2026)
+  expected_graduation_month: 8              # August 2027 (from the candidate's CV, 21 Oct 2026)
   current_study_year: final_year            # final_year | penultimate_year | UNKNOWN
   returning_to_studies_after_internship: false     # end-of-studies internship
   # Whether employers' degree requirements are satisfied. Do not set these to
@@ -24,8 +24,11 @@ identity:
 
 languages:
   # level: native | fluent | professional | basic
-  - {language: french, level: fluent}
-  - {language: english, level: professional, evidence: "TOEIC 945"}
+  # Only native / fluent / professional levels satisfy a listing's language requirement.
+  - {language: french, level: native}
+  - {language: english, level: professional, evidence: "TOEIC 945/990"}
+  - {language: spanish, level: basic, evidence: "academic level (CV)"}
+  - {language: dutch, level: basic, evidence: "beginner (CV)"}
 
 immigration:
   citizenship: [FR, MA]                     # confirmed 21 Oct 2026; FR gives EU/EEA/CH free movement
@@ -65,6 +68,17 @@ experiences:
     summary: Industrial logistics, operational processes, industrial equipment, process improvement, industrial coordination.
     keywords: [aerospace, logistics, supply chain, operations, industrial, process improvement,
                coordination, manufacturing, equipment]
+  - id: nexya_agency
+    organization: Nexya Agency
+    role: Co-Founder, SaaS and AI solutions
+    type: entrepreneurship
+    summary: >
+      B2B customer outreach through prospecting calls and email campaigns, identifying business needs
+      and presenting tailored digital solutions; built a SaaS booking solution for driving schools with
+      lead tracking and prospect management; engaged industrial decision-makers on an AI-powered
+      recruitment solution (technical integration, business requirements, pricing).
+    keywords: [b2b, saas, sales, business development, prospecting, outreach, customer, crm, lead generation,
+               pipeline, pricing, decision-makers, enterprise, ai, solution, consultative, discovery, startup]
   - id: amundi
     organization: Amundi
     role: Asset-management environment experience
