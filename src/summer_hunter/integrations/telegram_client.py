@@ -80,6 +80,26 @@ class TelegramClient:
             raise TelegramError(f"sendDocument: {data.get('error_code')} {data.get('description', '')[:200]}")
         return int(data["result"]["message_id"])
 
+    def download_file(self, file_id: str, dest, max_bytes: int = 10_000_000):  # noqa: ANN001, ANN201
+        """Download a file the user sent to the bot (getFile, then the file endpoint)."""
+        from pathlib import Path
+
+        info = self._call("getFile", {"file_id": file_id})
+        if int(info.get("file_size") or 0) > max_bytes:
+            raise TelegramError("getFile: file too large")
+        file_path = str(info.get("file_path") or "")
+        if not file_path or ".." in file_path:
+            raise TelegramError("getFile: no usable file path")
+        try:
+            resp = self._client.get(self._base.replace("/bot", "/file/bot", 1) + "/" + file_path, timeout=60)
+        except httpx.HTTPError as exc:
+            raise TelegramError(f"download: network error ({type(exc).__name__})") from None
+        if resp.status_code != 200 or len(resp.content) > max_bytes:
+            raise TelegramError(f"download: HTTP {resp.status_code}")
+        dest = Path(dest)
+        dest.write_bytes(resp.content)
+        return dest
+
     def set_menu_button(self, chat_id: str | int, text: str, url: str) -> None:
         self._call("setChatMenuButton", {"chat_id": int(chat_id),
                                          "menu_button": {"type": "web_app", "text": text, "web_app": {"url": url}}})

@@ -79,6 +79,16 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
         return
     if not auto_documents:
         return
+    from summer_hunter.crm.service import CRM
+
+    with sessions() as session:
+        tracked = CRM(session).application_for(opp_id)
+        submitted_on = tracked.date_applied if tracked else None
+    if submitted_on:
+        telegram.send_message(chat, f"📎 Candidature déjà envoyée le {submitted_on:%d/%m} : je ne régénère pas tes documents "
+                                    "(la version envoyée est conservée). Utilise les boutons CV / Lettre si tu veux "
+                                    "vraiment une nouvelle version.")
+        return
     from summer_hunter.web.cv import build_cv
     from summer_hunter.web.letter import run_letter_job
 

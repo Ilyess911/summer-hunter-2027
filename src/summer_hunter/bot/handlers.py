@@ -10,6 +10,10 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from summer_hunter.bot.crm_handlers import COMMANDS as CRM_COMMANDS
+from summer_hunter.bot.crm_handlers import HELP as CRM_HELP
+from summer_hunter.bot.crm_handlers import CRMBot
+
 from summer_hunter.database.models import utcnow
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine.ai_analysis import Analyzer, draft_networking_message
@@ -37,11 +41,13 @@ COMMANDS = [
     ("settings", "Current non-secret configuration"),
 ]
 
+COMMANDS += CRM_COMMANDS
+
 HELP = "\n".join(f"/{c}: {d}" for c, d in COMMANDS) + (
     "\n\nEnvoie un lien d'offre (ou colle son texte) : je l'évalue, puis je génère ton CV et ta lettre."
-    "\n\nButtons: Save, Dismiss (asks why, to learn), Applied, Explain Score, Networking msg (a draft for you to "
-    "send yourself; nothing is ever sent to recruiters automatically)."
-)
+    "\n\nButtons: Save, Track (creates the CRM record), Applied (asks for confirmation), Dismiss (asks why, to learn), "
+    "Explain Score, Networking msg (a draft for you to send yourself; nothing is ever sent to recruiters automatically)."
+) + CRM_HELP
 
 
 def _line(o) -> str:  # noqa: ANN001
@@ -59,6 +65,7 @@ class Bot:
         self.provider = provider or NullProvider()
         self.chat_id = str(settings.telegram_chat_id)
         self.profile = CandidateProfile.from_yaml(settings.profile_raw)
+        self.crm = CRMBot(self)
 
     # Entry points ----------------------------------------------------------------------------
 
@@ -75,6 +82,9 @@ class Bot:
         chat = str((msg.get("chat") or {}).get("id"))
         if chat != self.chat_id:
             log.warning("message from unauthorized chat ignored")
+            return
+        if msg.get("document"):
+            self.crm.receive_document(msg["document"])
             return
         text = (msg.get("text") or "").strip()
         reply_to = (msg.get("reply_to_message") or {}).get("message_id")
@@ -97,7 +107,8 @@ class Bot:
                 links.start(self.settings, self.session_factory, self.telegram, pasted_for or None, text)
                 return
         if text.startswith("/"):
-            self.handle_command(text.split()[0][1:].split("@")[0].lower())
+            head, _, args = text.partition(" ")
+            self.handle_command(head[1:].split("@")[0].lower(), args)
             return
         from summer_hunter.collectors.link_ingest import first_url
 
@@ -150,7 +161,9 @@ class Bot:
         except TelegramError as exc:
             log.warning("send failed", extra={"error": str(exc)})
 
-    def handle_command(self, cmd: str) -> None:
+    def handle_command(self, cmd: str, args: str = "") -> None:
+        if self.crm.handle_command(cmd, args):
+            return
         with self.session_factory() as session:
             repo = Repository(session)
             if cmd in {"start", "help"}:
@@ -169,9 +182,6 @@ class Bot:
             elif cmd == "saved":
                 rows = repo.by_user_status("saved")
                 self.send("<b>Saved</b>\n" + ("\n".join(_line(o) for o in rows) or "None yet."))
-            elif cmd == "applied":
-                rows = repo.by_user_status("applied")
-                self.send("<b>Applied</b>\n" + ("\n".join(_line(o) for o in rows) or "None yet."))
             elif cmd == "rejected":
                 rows = repo.by_eligibility("REJECTED", limit=10)
                 lines = []
@@ -216,6 +226,8 @@ class Bot:
             self.telegram.answer_callback(cq["id"], "Unknown action")
             return
         action, opp_id = parts[0], int(parts[1])
+        if self.crm.handle_callback(cq, action, parts):
+            return
         message = cq.get("message") or {}
         with self.session_factory() as session:
             repo = Repository(session)
@@ -227,10 +239,8 @@ class Bot:
                 repo.record_feedback(opp, "save")
                 recompute(repo, self.settings.scoring)
                 self.telegram.answer_callback(cq["id"], "Saved")
-            elif action == "ap":
-                repo.record_feedback(opp, "applied")
-                recompute(repo, self.settings.scoring)
-                self.telegram.answer_callback(cq["id"], "Marked as applied")
+            elif self.crm.handle_opportunity_callback(cq, action, opp, repo):
+                pass
             elif action == "dm":
                 repo.record_feedback(opp, "dismiss")
                 recompute(repo, self.settings.scoring)

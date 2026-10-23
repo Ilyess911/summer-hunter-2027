@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from summer_hunter.database.models import (
     AIAnalysis,
-    Application,
     CollectionRun,
     Company,
     Contact,
@@ -177,16 +176,22 @@ class Repository:
         return [(r[0], r[1], float(r[2] or 0)) for r in rows]
 
     # Feedback ---------------------------------------------------------------------------------
-    def record_feedback(self, opp: Opportunity | None, action: str, reason: str | None = None) -> UserFeedback:
+    def record_feedback(self, opp: Opportunity | None, action: str, reason: str | None = None,
+                        source: str = "telegram", data_dir=None, timezone: str = "Europe/Paris") -> UserFeedback:  # noqa: ANN001
         fb = UserFeedback(opportunity_id=opp.id if opp else None, action=action, reason=reason,
                           job_family=opp.job_family if opp else None, company=opp.normalized_company if opp else None,
                           country=opp.country_code if opp else None)
         self.s.add(fb)
         if opp and action in {"save", "dismiss", "applied"}:
-            opp.user_status = {"save": "saved", "dismiss": "dismissed", "applied": "applied"}[action]
-        if opp and action == "applied":
-            if not self.s.execute(select(Application).where(Application.opportunity_id == opp.id)).scalar_one_or_none():
-                self.s.add(Application(opportunity_id=opp.id))
+            from summer_hunter.crm.service import CRM
+
+            tracked = CRM(self.s).application_for(opp.id)
+            if not (tracked and tracked.date_applied and action != "applied"):   # a submission is never undone by Save/Dismiss
+                opp.user_status = {"save": "saved", "dismiss": "dismissed", "applied": "applied"}[action]
+        if opp and action == "applied":   # an explicit, confirmed submission: the CRM records date and status
+            from summer_hunter.crm.service import CRM
+
+            CRM(self.s, data_dir, timezone).confirm_applied(opp, source)
         self.s.flush()
         return fb
 

@@ -10,6 +10,9 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from summer_hunter.crm import briefing as crm_briefing
+from summer_hunter.crm import followups
+from summer_hunter.crm.service import CRM
 from summer_hunter.database.models import utcnow
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.integrations.telegram_client import TelegramClient, TelegramError
@@ -18,6 +21,7 @@ from summer_hunter.notifications import formatter
 from summer_hunter.utils.settings import Settings
 
 log = logging.getLogger(__name__)
+DIRECT_CONTACTS = {"recruiter_post", "hiring_manager_post", "named_recruiter_on_vacancy"}
 
 
 @dataclass
@@ -78,6 +82,9 @@ class Notifier:
                 "needs_verification": sum(o.eligibility_status == "NEEDS_VERIFICATION" for o in new),
                 "eligible": sum(o.eligibility_status == "ELIGIBLE" for o in new),
                 "shortlisted": sum(bool(o.notify) for o in new),
+                "exceptional": sum(bool(o.notify) and o.priority_tier == "exceptional" for o in new),
+                "with_contacts": sum(bool(o.notify) and any(c.relationship_type in DIRECT_CONTACTS for c in repo.contacts(o.id))
+                                     for o in new),
             }
             # Cards: everything shortlisted and not yet carded (new tonight or re-scored above threshold).
             candidates = [o for o in repo.top(limit=60) if o.notify and o.user_status == "new"]
@@ -86,9 +93,19 @@ class Notifier:
             issues = [f"{h.source}: {h.consecutive_failures} consecutive failures ({h.last_error})"
                       for h in repo.health() if (h.consecutive_failures or 0) >= 2]
             window = f"since {as_utc(since).astimezone(tz):%a %d %b %H:%M} (Europe/Paris)"
-            text = formatter.digest(stats, best, leads, issues, window)
+            crm = CRM(session, self.settings.data_dir, self.settings.timezone)
+            if not report.dry_run:
+                for app in crm.applications():
+                    crm.sync_documents(app)
+                session.commit()               # release the write lock before the export opens its own session
+                warning = self._refresh_workbook()
+                if warning:
+                    issues.append(warning)
+            crm_part = crm_briefing.section(crm)
+            text = formatter.digest(stats, best, leads, issues, window, crm_part.lines, crm_part.actions)
             digest_key = f"digest:{today}" if not force else f"digest:{today}:{utcnow().isoformat()}"
-            self._send(repo, report, digest_key, "digest", None, text)
+            if self._send(repo, report, digest_key, "digest", None, text, crm_part.buttons or None):
+                followups.mark_sent(crm, crm_part.reminders)
             cap = int(rules.get("max_cards_per_digest") or 0)
             for opp, _ in (best[:cap] if cap > 0 else best):
                 if self.send_card(repo, opp, report):
@@ -102,6 +119,16 @@ class Notifier:
             else:
                 session.rollback()
         return report
+
+    def _refresh_workbook(self) -> str | None:
+        """Regenerate the Excel mirror (in its own sessions), unless it holds edits not imported yet."""
+        from summer_hunter.crm import sync
+
+        try:
+            return sync.nightly_export(self.settings, self.session_factory)
+        except Exception as exc:  # noqa: BLE001 - the briefing must go out even if Excel fails
+            log.warning("crm workbook refresh failed", extra={"error": str(exc)})
+            return f"Excel CRM export failed: {type(exc).__name__}"
 
     def digest_sent_today(self) -> bool:
         tz = ZoneInfo(self.settings.timezone)

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -190,6 +191,93 @@ class Application(Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
+class CRMApplication(Base):
+    """One application you chose to track. SQLite is the source of truth; the Excel workbook mirrors it."""
+    __tablename__ = "crm_applications"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(30), index=True)
+    furthest_status: Mapped[str] = mapped_column(String(30))     # deepest pipeline stage ever reached (for funnel metrics)
+    deadline: Mapped[date | None] = mapped_column(Date)
+    deadline_source: Mapped[str | None] = mapped_column(String(20))   # posting | manual
+    date_applied: Mapped[date | None] = mapped_column(Date)
+    next_action: Mapped[str | None] = mapped_column(String(300))
+    next_action_date: Mapped[date | None] = mapped_column(Date)
+    interview_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recruiter_name: Mapped[str | None] = mapped_column(String(160))
+    recruiter_linkedin: Mapped[str | None] = mapped_column(String(500))
+    compensation: Mapped[str | None] = mapped_column(String(200))
+    internship_start: Mapped[date | None] = mapped_column(Date)
+    internship_end: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+    folder: Mapped[str | None] = mapped_column(String(500))
+    cv_path: Mapped[str | None] = mapped_column(String(500))
+    cv_hash: Mapped[str | None] = mapped_column(String(64))
+    cv_version: Mapped[int] = mapped_column(Integer, default=0)
+    cv_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    letter_path: Mapped[str | None] = mapped_column(String(500))
+    letter_hash: Mapped[str | None] = mapped_column(String(64))
+    letter_version: Mapped[int] = mapped_column(Integer, default=0)
+    letter_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    submitted_folder: Mapped[str | None] = mapped_column(String(500))    # frozen copy of the documents actually sent
+    version: Mapped[int] = mapped_column(Integer, default=1)             # bumped on every change; guards Excel imports
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    opportunity: Mapped[Opportunity] = relationship()
+
+
+class CRMContact(Base):
+    """A professional contact you manage. Only public-evidence contacts or ones you entered yourself."""
+    __tablename__ = "crm_contacts"
+    __table_args__ = (UniqueConstraint("company", "normalized_name"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(160))
+    normalized_name: Mapped[str] = mapped_column(String(160))
+    position: Mapped[str | None] = mapped_column(String(200))
+    linkedin_url: Mapped[str | None] = mapped_column(String(500))
+    application_id: Mapped[int | None] = mapped_column(ForeignKey("crm_applications.id"), index=True)
+    contact_type: Mapped[str] = mapped_column(String(30))
+    first_contact_date: Mapped[date | None] = mapped_column(Date)
+    last_interaction_date: Mapped[date | None] = mapped_column(Date)
+    interaction_status: Mapped[str] = mapped_column(String(30))
+    next_followup_date: Mapped[date | None] = mapped_column(Date)
+    next_action: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(300))      # manual | public evidence URL
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CRMEvent(Base):
+    """Append-only activity log. Rows are never updated or deleted."""
+    __tablename__ = "crm_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    application_id: Mapped[int | None] = mapped_column(ForeignKey("crm_applications.id"), index=True)
+    contact_id: Mapped[int | None] = mapped_column(ForeignKey("crm_contacts.id"))
+    company: Mapped[str | None] = mapped_column(String(200))
+    event_type: Mapped[str] = mapped_column(String(40))
+    previous_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(20))       # telegram | excel | miniapp | cli | system | migration
+    notes: Mapped[str | None] = mapped_column(Text)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200), unique=True)
+
+
+class CRMReminder(Base):
+    """One row per reminder ever delivered, so the same reminder is never sent twice."""
+    __tablename__ = "crm_reminders"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dedupe_key: Mapped[str] = mapped_column(String(200), unique=True)
+    kind: Mapped[str] = mapped_column(String(30))         # followup_application | followup_contact | deadline
+    application_id: Mapped[int | None] = mapped_column(ForeignKey("crm_applications.id"))
+    contact_id: Mapped[int | None] = mapped_column(ForeignKey("crm_contacts.id"))
+    due_date: Mapped[date | None] = mapped_column(Date)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Notification(Base):
     __tablename__ = "notification_history"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -267,4 +355,4 @@ class KeyValue(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2

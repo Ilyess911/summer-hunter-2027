@@ -51,8 +51,10 @@ flowchart LR
     E -->|ELIGIBLE / NEEDS_VERIFICATION| F[Fit 0-100<br/>règles + IA bornée]
     F --> W[Networking 0-100]
     W --> P[Priorité<br/>0,75 fit + 0,25 réseau]
-    P --> T[Digest Telegram 06:00<br/>cartes + boutons]
+    P --> T[Briefing Telegram 06:00<br/>cartes + boutons]
     T --> U[Feedback] --> F
+    T --> M[CRM candidatures<br/>Track, Applied, relances]
+    M <--> XL[Classeur Excel<br/>export / import]
 ```
 
 ## Architecture « la douane et le jury »
@@ -74,6 +76,7 @@ flowchart LR
 | IA (optionnelle) | API Anthropic, sortie JSON contrainte par schéma, cache et plafond quotidien |
 | Notifications | Telegram Bot API (HTML échappé, boutons inline) |
 | Planification | launchd (LaunchAgent utilisateur) + `caffeinate` |
+| CRM / Excel | OpenPyXL (graphiques natifs, import contrôlé, aucune macro) |
 
 ## Structure du dépôt
 
@@ -90,12 +93,14 @@ summer-hunter-2027/
 │   ├── engine/                  # extraction, géo, éligibilité, scoring, réseau, IA, feedback
 │   ├── integrations/            # Anthropic, Telegram, API de recherche, France Diplomatie
 │   ├── notifications/           # digest et cartes, dédoublonnage des envois
-│   ├── bot/                     # commandes et boutons Telegram
+│   ├── bot/                     # commandes et boutons Telegram (dont CRM)
+│   ├── crm/                     # candidatures, contacts, journal, relances, export/import Excel
 │   ├── database/                # schéma, dépôt, migrations, sauvegardes
 │   ├── scheduler/               # fenêtre de nuit, verrou, LaunchAgents
 │   ├── pipeline.py              # orchestration d'un cycle
 │   └── cli.py                   # commande summer-hunter
 ├── tests/                       # unitaires, intégration (API simulées), live (-m live)
+├── templates/                   # classeur CRM vide (structure de référence)
 ├── scripts/                     # install / uninstall macOS, run_once
 └── docs/
 ```
@@ -108,6 +113,7 @@ summer-hunter-2027/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Flux de données, modules, schéma de base, sécurité |
 | [docs/SCORING.md](docs/SCORING.md) | Règles d'éligibilité, calcul des scores, apprentissage |
 | [docs/LINKEDIN_LIMITATIONS.md](docs/LINKEDIN_LIMITATIONS.md) | Ce qui est collecté sur LinkedIn, comment, et ce qui ne l'est pas |
+| [docs/CRM.md](docs/CRM.md) | Suivi des candidatures, statuts, Excel, relances, documents |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Pannes courantes et diagnostics |
 
 ## Démarrage
@@ -153,6 +159,7 @@ scripts/install_macos.sh                   # planification nocturne (launchd)
 - [x] Analyse IA bornée (Anthropic), cache, plafond de dépenses
 - [x] Telegram : digest, cartes, commandes, boutons, feedback
 - [x] Planification launchd, fenêtre de nuit, rattrapage, verrou
+- [x] CRM des candidatures : Track/Applied, statuts validés, journal, relances, briefing quotidien, classeur Excel synchronisé
 - [ ] Connexion de tes clés Telegram et Anthropic (étape manuelle)
 - [ ] Remplir les UNKNOWN du profil (nationalité, mois de diplôme, équivalences)
 

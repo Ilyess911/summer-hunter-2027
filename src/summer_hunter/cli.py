@@ -370,10 +370,89 @@ def cmd_feedback(app: App, args) -> int:  # noqa: ANN001
         if not opp:
             print("Not found.")
             return 1
-        repo.record_feedback(opp, args.action, args.reason)
+        repo.record_feedback(opp, args.action, args.reason, source="cli", data_dir=app.settings.data_dir,
+                             timezone=app.settings.timezone)
         recompute(repo, app.settings.scoring)
         session.commit()
         print(f"Recorded {args.action} for #{opp.id}.")
+    return 0
+
+
+def cmd_crm(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.crm import followups, metrics, sync
+    from summer_hunter.crm.excel_export import export_workbook
+    from summer_hunter.crm.excel_import import WorkbookError
+    from summer_hunter.crm.service import CRM
+    from summer_hunter.crm.statuses import TransitionError
+    from summer_hunter.crm.validation import ValidationError, app_code, parse_app_id, parse_date
+
+    settings = app.settings
+    if args.action == "export":
+        print(sync.export(settings, app.sessions, Path(args.path) if args.path else None))
+        return 0
+    if args.action == "template":
+        from summer_hunter.database.migrations import init_db, make_engine
+
+        target = Path(args.path or settings.root / "templates" / "Summer_Hunter_2027_CRM.xlsx")
+        with init_db(make_engine("sqlite://"))() as empty:
+            export_workbook(CRM(empty, None, settings.timezone), target, settings.timezone)
+        print(target)
+        return 0
+    if args.action == "import":
+        try:
+            report = sync.import_file(settings, app.sessions, Path(args.target or sync.workbook_path(settings)),
+                                      prefer_excel=args.prefer_excel, dry_run=args.dry_run)
+        except WorkbookError as exc:
+            print(f"Refused: {exc}")
+            return 2
+        print(report.summary())
+        for line in report.applied + report.errors + report.ignored:
+            print(" ", line)
+        for c in report.conflicts:
+            print(f"  CONFLICT {c.record} {c.field}: workbook={c.workbook!r} database={c.database!r}")
+        if report.conflicts:
+            print("Nothing was applied for conflicting rows. Re-run with --prefer-excel to keep the workbook values, "
+                  "or `crm export` to keep the database.")
+        return 1 if report.conflicts or report.errors else 0
+    with app.sessions() as session:
+        crm = CRM(session, settings.data_dir, settings.timezone)
+        try:
+            if args.action == "summary":
+                _print(metrics.compute(crm).__dict__)
+            elif args.action == "list":
+                for a in crm.applications():
+                    print(f"{app_code(a.id)}  {a.status:<18} {a.opportunity.company_name[:28]:<28} {a.opportunity.title[:60]}")
+            elif args.action == "followups":
+                for r in followups.all_suggestions(crm):
+                    print(f"[{r.kind}] {r.text}")
+            elif args.action == "track":
+                opp = Repository(session).opportunity(int(args.target))
+                if not opp:
+                    print("Opportunity not found.")
+                    return 1
+                a, created = crm.track(opp, "cli")
+                print(f"{app_code(a.id)} {'created' if created else 'already tracked'}")
+            elif args.action == "applied":
+                opp = Repository(session).opportunity(int(args.target))
+                if not opp:
+                    print("Opportunity not found.")
+                    return 1
+                applied_on = parse_date(args.date, "date") if args.date else None   # validated before any file is copied
+                a = crm.confirm_applied(opp, "cli", applied_on)
+                Repository(session).record_feedback(opp, "applied", source="cli", data_dir=settings.data_dir,
+                                                    timezone=settings.timezone)
+                print(f"{app_code(a.id)} APPLIED on {a.date_applied}")
+            elif args.action == "status":
+                a = crm.application(parse_app_id(args.target))
+                if not a:
+                    print("Application not found.")
+                    return 1
+                crm.set_status(a, args.value, "cli", force=args.force)
+                print(f"{app_code(a.id)} -> {a.status}")
+        except (ValidationError, TransitionError, ValueError) as exc:
+            print(f"Refused: {exc}")
+            return 2
+        session.commit()
     return 0
 
 
@@ -535,6 +614,17 @@ def build_parser() -> argparse.ArgumentParser:
     fb.add_argument("action", choices=["save", "dismiss", "applied", "reason"])
     fb.add_argument("--reason", choices=["cold", "role", "company", "country", "other"])
     fb.set_defaults(fn=cmd_feedback)
+    cr = sub.add_parser("crm", help="application CRM: export/import the Excel workbook, track, statuses")
+    cr.add_argument("action", choices=["summary", "list", "followups", "export", "import", "template", "track", "applied",
+                                       "status"])
+    cr.add_argument("target", nargs="?", help="opportunity id (track/applied), APP-id (status) or workbook (import)")
+    cr.add_argument("value", nargs="?", help="new status (status)")
+    cr.add_argument("--path", help="output path (export/template)")
+    cr.add_argument("--date", help="application date YYYY-MM-DD (applied)")
+    cr.add_argument("--prefer-excel", action="store_true", help="on conflict, keep the workbook values")
+    cr.add_argument("--dry-run", action="store_true", help="import: show what would change")
+    cr.add_argument("--force", action="store_true", help="status: allow a deliberate backward correction")
+    cr.set_defaults(fn=cmd_crm)
     sub.add_parser("backup", help="snapshot the SQLite database").set_defaults(fn=cmd_backup)
     sub.add_parser("status", help="runs, counts, spend").set_defaults(fn=cmd_status)
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")

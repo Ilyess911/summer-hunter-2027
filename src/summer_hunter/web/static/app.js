@@ -158,7 +158,12 @@ async function openDetail(id) {
 
   box.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); openLink(a.dataset.link); }));
   box.querySelector('[data-act="save"]').onclick = (ev) => act(o.id, "save", "Sauvé", ev.currentTarget);
-  box.querySelector('[data-act="applied"]').onclick = (ev) => act(o.id, "applied", "Postulé : l'offre quitte ta liste", ev.currentTarget);
+  box.querySelector('[data-act="applied"]').onclick = async (ev) => {
+    const btn = ev.currentTarget;
+    if (o.user_status === "applied") return toast("Déjà enregistrée comme envoyée");
+    if (!(await confirmAsk("Ta candidature est bien envoyée ? Elle sera datée d'aujourd'hui dans le CRM."))) return;
+    act(o.id, "applied", "Postulé : l'offre quitte ta liste", btn);
+  };
   box.querySelector('[data-act="dismiss"]').onclick = async (ev) => { await act(o.id, "dismiss", "Écarté", ev.currentTarget); $("#reasons").hidden = false; };
   box.querySelectorAll("[data-reason]").forEach((b) => b.onclick = async () => {
     await act(o.id, "reason", "Merci, préférence mise à jour", null, b.dataset.reason); $("#reasons").hidden = true; });
@@ -190,6 +195,13 @@ function hideNativeButtons() {
   if (!tg) return;
   tg.MainButton.hide(); tg.MainButton.hideProgress && tg.MainButton.hideProgress();
   if (tg.SecondaryButton) tg.SecondaryButton.hide();
+}
+
+function confirmAsk(message) {
+  return new Promise((resolve) => {
+    if (tg && tg.showConfirm && tg.isVersionAtLeast && tg.isVersionAtLeast("6.2")) tg.showConfirm(message, (ok) => resolve(!!ok));
+    else resolve(window.confirm(message));
+  });
 }
 
 function openLink(url) { if (!url) return; if (tg) tg.openLink(url); else window.open(url, "_blank", "noopener"); }

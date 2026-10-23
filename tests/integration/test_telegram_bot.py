@@ -66,7 +66,7 @@ def test_digest_cards_and_dedup(world):
     report = notifier.morning_digest()
     assert report.sent >= 2 and not report.errors
     digest, card = fake.sent[0], fake.sent[1]
-    assert "MORNING DIGEST" in digest["text"] and "Discovered: <b>2</b>" in digest["text"]
+    assert "DAILY BRIEFING" in digest["text"] and "Discovered: <b>2</b>" in digest["text"]
     assert "Rejected: 1" in digest["text"]
     assert "&lt;script&gt;" in card["text"] and "<script>" not in card["text"]   # escaped
     assert "Career Fit:" in card["text"] and "Eligibility:" in card["text"] and "Networking:" in card["text"]

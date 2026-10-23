@@ -51,6 +51,11 @@ def init_db(engine: Engine) -> sessionmaker[Session]:
             session.add(KeyValue(key="schema_version", value=str(SCHEMA_VERSION)))
         elif int(row.value) > SCHEMA_VERSION:
             raise RuntimeError(f"Database schema v{row.value} is newer than this code (v{SCHEMA_VERSION}).")
+        elif int(row.value) < SCHEMA_VERSION:
+            row.value = str(SCHEMA_VERSION)
+        from summer_hunter.crm.migrate import migrate_legacy_applications
+
+        migrate_legacy_applications(session)   # v2: legacy "applied" rows become CRM applications (once)
         session.commit()
     return factory
 

@@ -91,8 +91,8 @@ def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = 
     contact_url = safe_url(contact.profile_url or contact.source_post_url) if contact else None
     if contact_url:
         row1.append({"text": "Contact", "url": contact_url})
-    row2 = [{"text": "Save", "callback_data": f"sv:{opp.id}"}, {"text": "Dismiss", "callback_data": f"dm:{opp.id}"},
-            {"text": "Applied", "callback_data": f"ap:{opp.id}"}]
+    row2 = [{"text": "Save", "callback_data": f"sv:{opp.id}"}, {"text": "Track", "callback_data": f"tr:{opp.id}"},
+            {"text": "Applied", "callback_data": f"ap:{opp.id}"}, {"text": "Dismiss", "callback_data": f"dm:{opp.id}"}]
     row3 = [{"text": "📄 CV adapté", "callback_data": f"cv:{opp.id}"}, {"text": "✉️ Lettre", "callback_data": f"lm:{opp.id}"}]
     row4 = [{"text": "Explain Score", "callback_data": f"ex:{opp.id}"}, {"text": "Networking msg", "callback_data": f"nm:{opp.id}"}]
     row0 = [{"text": "📱 Ouvrir · CV adapté", "web_app": {"url": f"{webapp_url}/#/o/{opp.id}"}}] if safe_url(webapp_url) else []
@@ -139,17 +139,25 @@ def _join_within(lines: list[str], limit: int) -> str:
 
 
 def digest(stats: dict[str, int], best: list[tuple[Opportunity, dict]], leads: list[Any], source_issues: list[str],
-           window_label: str) -> str:
+           window_label: str, crm_lines: list[str] | None = None, crm_actions: list[str] | None = None) -> str:
+    """Daily briefing: new opportunities, then the application CRM and the actions due (all from stored records)."""
     lines = [
-        "<b>☀️ SUMMER HUNTER — MORNING DIGEST</b>",
+        "<b>☀️ SUMMER HUNTER 2027 — DAILY BRIEFING</b>",
         f"<i>{e(window_label)}</i>",
         "",
+        "<b>NEW OPPORTUNITIES</b>",
+        f"• {stats.get('shortlisted', 0)} high-fit internship(s) shortlisted"
+        + (f", {stats['with_contacts']} with a direct recruiter or hiring-manager contact" if stats.get("with_contacts") else "")
+        + (f", {stats['exceptional']} exceptional" if stats.get("exceptional") else ""),
         f"Discovered: <b>{stats.get('discovered', 0)}</b>",
         f"Rejected: {stats.get('rejected', 0)}",
         f"Needs verification: {stats.get('needs_verification', 0)}",
         f"Eligible (all checks passed): {stats.get('eligible', 0)}",
         f"Shortlisted: <b>{stats.get('shortlisted', 0)}</b>",
     ]
+    if crm_lines is not None:   # before the long opportunity list, so truncation can never cut the actions
+        lines += ["", "<b>APPLICATION CRM</b>", *crm_lines]
+        lines += ["", "<b>ACTIONS REQUIRED</b>", *([f"• {a}" for a in crm_actions] if crm_actions else ["• Rien à faire aujourd'hui."])]
     if best:
         lines += ["", "<b>Best new opportunities:</b>"]
         for opp, fit in best[:25]:
@@ -165,4 +173,4 @@ def digest(stats: dict[str, int], best: list[tuple[Opportunity, dict]], leads: l
             lines.append(f"• <a href=\"{escape(url, quote=True)}\">{label}</a>: {e(post.classification.replace('_', ' '))}" if url else f"• {label}")
     if source_issues:
         lines += ["", "<b>Source issues:</b>", *[f"• {e(s, 160)}" for s in source_issues[:5]]]
-    return "\n".join(lines)
+    return _join_within(lines, 4000)

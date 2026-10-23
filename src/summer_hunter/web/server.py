@@ -163,7 +163,8 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             if act == "reset":
                 opp.user_status = "new"
             else:
-                repo.record_feedback(opp, act, reason)
+                repo.record_feedback(opp, act, reason, source="miniapp", data_dir=settings.data_dir,
+                                     timezone=settings.timezone)
                 recompute(repo, settings.scoring)
             session.commit()
             return JSONResponse({"ok": True, "user_status": opp.user_status})

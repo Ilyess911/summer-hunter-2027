@@ -20,6 +20,8 @@
 | `engine/*` | géo, normalisation, extraction, éligibilité, scoring, networking, IA, feedback |
 | `integrations/*` | Anthropic, Telegram, Brave/Google CSE, France Diplomatie |
 | `bot/handlers.py` | commandes, boutons, autorisation par `chat_id` |
+| `bot/crm_handlers.py` | commandes et boutons du CRM, import d'un `.xlsx` envoyé au bot |
+| `crm/*` | candidatures, transitions de statut, contacts, journal, relances, métriques, documents, export et import Excel ([CRM.md](CRM.md)) |
 | `scheduler/*` | fenêtre de nuit, verrou `fcntl`, génération des LaunchAgents |
 
 ## Base SQLite
@@ -34,7 +36,12 @@
 | `eligibility_evaluations` | les 12 critères en JSON, décision, statut de sponsorship |
 | `fit_evaluations` | rapport de fit, networking, priorité |
 | `ai_analyses` | cache des analyses validées (empreinte, modèle, version de prompt) |
-| `user_feedback`, `applications`, `preference_adjustments` | apprentissage explicite |
+| `user_feedback`, `preference_adjustments` | apprentissage explicite |
+| `applications` | ancienne table du bouton Applied, conservée ; migrée vers `crm_applications` (v2) |
+| `crm_applications` | une candidature suivie par opportunité : statut, dates, prochaine action, entretien, documents, version de ligne |
+| `crm_contacts` | contacts gérés (preuve publique ou saisie manuelle), statut d'interaction |
+| `crm_events` | journal en ajout seul (ancienne et nouvelle valeur, source) |
+| `crm_reminders` | rappels déjà envoyés (anti-doublon) |
 | `notification_history` | envois Telegram et leur statut |
 | `collection_runs`, `source_health` | historique des cycles, santé par source |
 | `llm_usage` | jetons et coût par appel, par jour de Paris |
