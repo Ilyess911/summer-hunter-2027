@@ -65,7 +65,7 @@ ROLE_EVIDENCE = {
 FILLER = ["passionate", "thrilled", "excited", "unique opportunity", "perfectly", "cutting-edge", "dynamic environment",
           "fast-paced", "meaningful impact", "leverage my", "innovative solutions", "synergy", "world-class",
           "game-changer", "dream", "eager to", "honed", "equipped me", "deeply", "aligns with my", "journey"]
-FORBIDDEN = ["i am writing to express", "i am writing to apply", "i'm writing to", "proven track record",
+FORBIDDEN = ["ingénieur d'affaires", "ingenieur d'affaires", "business engineering degree", "i am writing to express", "i am writing to apply", "i'm writing to", "proven track record",
              "years of experience", "extensive experience", "quota", "closed deals", "revenue", "%"]
 TOOLS = ["sql", "python", "power query", "excel", "power bi", "tableau", "looker", "salesforce", "hubspot", "java",
          "javascript", "typescript", "react", "kubernetes", "docker", "aws", "azure", "gcp", "google cloud", "spark",

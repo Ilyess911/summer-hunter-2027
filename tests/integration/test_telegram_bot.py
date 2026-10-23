@@ -72,7 +72,7 @@ def test_digest_cards_and_dedup(world):
     assert "Career Fit:" in card["text"] and "Eligibility:" in card["text"] and "Networking:" in card["text"]
     buttons = [b for row in card["reply_markup"]["inline_keyboard"] for b in row]
     labels = {b["text"] for b in buttons}
-    assert {"Apply", "Save", "Dismiss", "Applied", "Explain Score", "Networking msg"} <= labels
+    assert {"Apply", "Save", "Dismiss", "Applied", "Explain Score", "🤝 Contact recruiter"} <= labels
     assert all(len(b.get("callback_data", "")) <= 64 for b in buttons)
     assert "Paris" not in "".join(m["text"] for m in fake.sent[1:])          # rejected never carded
     # Second run the same day: nothing re-sent.

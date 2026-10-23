@@ -6,6 +6,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from html import escape
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from summer_hunter.crm import briefing as crm_briefing
 from summer_hunter.crm import followups
 from summer_hunter.crm.service import CRM
-from summer_hunter.database.models import utcnow
+from summer_hunter.database.models import RecruitmentSignal, utcnow
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.integrations.telegram_client import TelegramClient, TelegramError
 from summer_hunter.models.opportunity import ACTIONABLE_POST_CLASSES
@@ -63,7 +64,7 @@ class Notifier:
         if ev is None or fit is None:
             return False
         text, buttons = formatter.card(opp, ev.criteria, fit.report, fit.networking, fit.priority, repo.contacts(opp.id),
-                                       repo.get_kv("webapp_url"), fit.recruitability)
+                                       repo.get_kv("webapp_url"), fit.recruitability, fit.compensation, fit.strategy)
         return self._send(repo, report, f"card:{opp.id}", "card", opp.id, text, buttons)
 
     def morning_digest(self, dry_run: bool = False, force: bool = False) -> DeliveryReport:
@@ -102,10 +103,20 @@ class Notifier:
                 if warning:
                     issues.append(warning)
             crm_part = crm_briefing.section(crm)
-            text = formatter.digest(stats, best, leads, issues, window, crm_part.lines, crm_part.actions)
+            from summer_hunter.notifications import briefing_v3
+
+            v3 = briefing_v3.build(repo, new, self.settings.scoring, datetime.now(tz).date())
+            v3_actions = [escape(r.text) for r in v3.reminders]
+            text = formatter.digest(stats, best, leads, issues, window, crm_part.lines, crm_part.actions + v3_actions,
+                                    v3.headline, v3.sections)
             digest_key = f"digest:{today}" if not force else f"digest:{today}:{utcnow().isoformat()}"
-            if self._send(repo, report, digest_key, "digest", None, text, crm_part.buttons or None):
-                followups.mark_sent(crm, crm_part.reminders)
+            buttons = (crm_part.buttons or []) + v3.buttons
+            if self._send(repo, report, digest_key, "digest", None, text, buttons or None):
+                followups.mark_sent(crm, crm_part.reminders + v3.reminders)
+                for sig in v3.signal_ids:
+                    row = session.get(RecruitmentSignal, sig)
+                    if row:
+                        row.notified = True
             cap = int(rules.get("max_cards_per_digest") or 0)
             for opp, _ in (best[:cap] if cap > 0 else best):
                 if self.send_card(repo, opp, report):

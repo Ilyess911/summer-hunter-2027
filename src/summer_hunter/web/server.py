@@ -22,6 +22,7 @@ from summer_hunter.database.models import Opportunity
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
 from summer_hunter.engine.geo import country_name
+from summer_hunter.engine.regions import REGIONS, region_of
 from summer_hunter.utils.settings import Settings
 from summer_hunter.web import auth
 from summer_hunter.web.cv import build_cv
@@ -31,19 +32,6 @@ STATIC = Path(__file__).parent / "static"
 VIEWS = {"top", "new", "saved", "applied", "rejected", "verify"}
 
 
-REGIONS = {
-    "europe": {"GB", "IE", "CH", "DE", "NL", "SE", "DK", "NO", "FI", "BE", "LU", "ES", "IT", "PT", "AT", "PL", "CZ", "HU",
-               "RO", "GR", "EE", "LT", "LV", "BG", "HR", "SK", "SI", "MT", "CY", "IS", "MC"},
-    "asia": {"SG", "HK", "TW", "JP", "KR", "CN", "AU", "NZ", "VN", "ID", "TH", "MY", "PH"},
-    "middle_east": {"AE", "QA", "SA", "KW", "BH", "OM", "JO", "LB", "MA", "TN", "DZ"},
-    "americas": {"US", "CA", "MX", "BR", "AR", "CL", "CO", "PE", "CR"},
-}
-
-
-def region_of(code: str | None) -> str:
-    return next((r for r, codes in REGIONS.items() if code in codes), "other")
-
-
 def summary(o: Opportunity) -> dict[str, Any]:
     return {"id": o.id, "title": o.title, "company": o.company_name, "country": country_name(o.country_code),
             "city": o.city, "region": region_of(o.country_code),
@@ -51,6 +39,9 @@ def summary(o: Opportunity) -> dict[str, Any]:
             "fit": o.fit_score, "networking": o.networking_score, "priority": o.priority_score, "tier": o.priority_tier,
             "family": o.job_family, "user_status": o.user_status, "status": o.status,
             "recruitability": o.recruitability_score, "track": o.career_track, "category": o.career_category,
+            "global": o.global_priority, "provisional": o.global_provisional, "next_action": o.next_action,
+            "strategy": o.strategy_category, "comp_status": o.compensation_status, "monthly_eur": o.monthly_min_eur,
+            "monthly_max_eur": o.monthly_max_eur, "balance_eur": o.monthly_balance_eur, "comp_confidence": o.compensation_confidence,
             "discovered": as_utc(o.first_discovered_at).date().isoformat() if o.first_discovered_at else None}
 
 
@@ -142,6 +133,8 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
                 "fit_report": fit.report if fit else None, "networking_report": fit.networking if fit else None,
                 "priority_report": fit.priority if fit else None,
                 "recruitability_report": fit.recruitability if fit else None,
+                "compensation_report": fit.compensation if fit else None,
+                "strategy_report": fit.strategy if fit else None,
                 "contacts": [{"name": c.name, "role": c.role, "relationship": c.relationship_type, "confidence": c.confidence,
                               "url": c.profile_url or c.source_post_url, "evidence": c.evidence} for c in repo.contacts(opp.id)],
                 "sources": [{"source": s.source, "url": s.url} for s in opp.sources],

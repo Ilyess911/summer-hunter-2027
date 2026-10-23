@@ -27,12 +27,31 @@ def track_queries(track: dict[str, Any], yearless: bool) -> list[tuple[str, str]
     return out
 
 
-def plan(discovery: dict[str, Any], rotation: int = 0) -> list[tuple[str, str]]:
+def plan(discovery: dict[str, Any], rotation: int = 0, mode: str | None = None) -> list[tuple[str, str]]:
     """The queries to run now, as (kind, phrase). See `plan_by_track`."""
-    return [(kind, q) for _, kind, q in plan_by_track(discovery, rotation)]
+    return [(kind, q) for _, kind, q in plan_by_track(discovery, rotation, mode)]
 
 
-def plan_by_track(discovery: dict[str, Any], rotation: int = 0) -> list[tuple[str, str, str]]:
+def _pick(pool: list[tuple[str, str]], count: int, rotation: int, job_share: float | None) -> list[tuple[str, str]]:
+    """`count` phrases from a rotating window; with a job share, jobs and posts rotate separately."""
+    if not pool or count <= 0:
+        return []
+    if job_share is None:
+        start = (rotation * count) % len(pool)
+        return [pool[(start + i) % len(pool)] for i in range(min(count, len(pool)))]
+    jobs = [x for x in pool if x[0] == "job"]
+    posts = [x for x in pool if x[0] == "post"]
+    n_jobs = min(len(jobs), round(count * job_share))
+    n_posts = min(len(posts), count - n_jobs)
+    n_jobs = min(len(jobs), count - n_posts)          # give unused post slots back to jobs
+    picked_jobs, picked_posts = _pick(jobs, n_jobs, rotation, None), _pick(posts, n_posts, rotation, None)
+    out = []
+    for i in range(max(len(picked_jobs), len(picked_posts))):     # interleave, jobs first
+        out += [x[i] for x in (picked_jobs, picked_posts) if i < len(x)]
+    return out
+
+
+def plan_by_track(discovery: dict[str, Any], rotation: int = 0, mode: str | None = None) -> list[tuple[str, str, str]]:
     """(track, kind, phrase) to run now. Legacy configs (flat post_queries/job_queries) stay a single track."""
     budget = int(discovery.get("max_queries_per_run", 15))
     yearless = bool(discovery.get("add_yearless_variants", False))
@@ -61,8 +80,8 @@ def plan_by_track(discovery: dict[str, Any], rotation: int = 0) -> list[tuple[st
         if not pool or not shares[n]:
             picked[n] = []
             continue
-        start = (rotation * shares[n]) % len(pool)
-        picked[n] = [(n, *pool[(start + i) % len(pool)]) for i in range(shares[n])]
+        share = (discovery.get("job_share_by_mode") or {}).get(mode) if mode else None
+        picked[n] = [(n, *x) for x in _pick(pool, shares[n], rotation, share)]
     out = []                                       # alternate tracks so a cut-off run still covers both
     lead = names[rotation % len(names):] + names[:rotation % len(names)] if names else []
     for i in range(max((len(v) for v in picked.values()), default=0)):

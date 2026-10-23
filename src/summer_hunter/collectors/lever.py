@@ -33,6 +33,12 @@ class LeverCollector(Collector):
             for block in p.get("lists", []) or []:
                 text += f"\n{block.get('text', '')}\n{html_to_text(block.get('content'))}"
             text += "\n" + (p.get("additionalPlain") or html_to_text(p.get("additional")))
+            salary = p.get("salaryRange") or {}
+            if salary.get("min") and salary.get("currency"):
+                period = {"per-hour-wage": "per hour", "per-month-salary": "per month", "per-year-salary": "per year",
+                          "per-week-wage": "per week", "one-time": "total"}.get(str(salary.get("interval")), "")
+                text += (f"\nCompensation: {salary['currency']} {float(salary['min']):,.2f} - {salary['currency']} "
+                         f"{float(salary.get('max') or salary['min']):,.2f} {period}")
             marker = str(p.get("updatedAt") or p.get("createdAt") or "")
             if ctx.is_unchanged(self.name, pid, marker):
                 unchanged += 1

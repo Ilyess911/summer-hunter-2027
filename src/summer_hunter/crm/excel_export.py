@@ -59,6 +59,13 @@ APPLICATION_COLUMNS = [
     ("Internship End Date", 13, "date"), ("Notes", 44, "edit-note"),
     ("Career Category", 22, "text"), ("Recruitability Score", 12, "int"), ("Industrial Priority Score", 12, "int"),
     ("Relevant Industrial Experience", 40, "text"), ("Missing Technical Requirements", 34, "text"),
+    ("Compensation Status", 20, "text"), ("Salary Minimum", 12, "num"), ("Salary Maximum", 12, "num"),
+    ("Salary Currency", 9, "text"), ("Salary Period", 9, "text"), ("Salary Basis", 9, "text"), ("Monthly Salary EUR", 12, "num"),
+    ("Estimated Monthly Living Costs", 12, "num"), ("Estimated Disposable Monthly Balance", 13, "num"),
+    ("Housing Benefits", 22, "text"), ("Relocation Benefits", 22, "text"), ("Visa Support", 22, "text"),
+    ("Compensation Confidence", 11, "text"), ("Compensation Attractiveness Score", 12, "int"),
+    ("Global Application Priority Score", 12, "num"), ("Recommended Next Action", 20, "text"),
+    ("Application Strategy Category", 12, "text"), ("Opportunity Source", 18, "text"), ("Last Verification Date", 13, "date"),
     ("Row Version", 8, "int"),
 ]
 CONTACT_COLUMNS = [
@@ -115,6 +122,8 @@ def _write_cell(ws, row: int, col: int, value: Any, kind: str) -> None:  # noqa:
         cell.number_format = DATE_FMT
     elif base == "datetime" and value is not None:
         cell.number_format = DATETIME_FMT
+    if base == "num" and value is not None:
+        cell.number_format = "#,##0"
     if base in {"text", "note", "status"}:
         cell.alignment = Alignment(vertical="top", wrap_text=base == "note")
 
@@ -150,6 +159,27 @@ def _version_label(version: int | None, generated: datetime | None, tz: ZoneInfo
     return f"v{version}" + (f" · {when:%Y-%m-%d}" if when else "")
 
 
+def _comp(repo: Repository, opp_id: int) -> dict[str, Any]:
+    fit = repo.latest_fit(opp_id)
+    return (fit.compensation or {}) if fit else {}
+
+
+def _benefit(comp: dict[str, Any], *names: str) -> str | None:
+    found = [f"{n.replace('_', ' ')}: {comp['benefits'][n]}" for n in names if n in (comp.get("benefits") or {})]
+    return "; ".join(found) or None
+
+
+def compensation_cells(repo: Repository, o: Opportunity, tz: ZoneInfo) -> list[Any]:
+    comp = _comp(repo, o.id)
+    sources = sorted({s.source.split(":")[0] for s in o.sources})
+    return [o.compensation_status, o.salary_min, o.salary_max, o.salary_currency, o.salary_period, o.salary_basis,
+            o.monthly_min_eur, o.living_cost_eur, o.monthly_balance_eur,
+            _benefit(comp, "housing_provided", "housing_allowance"), _benefit(comp, "relocation", "flight"),
+            _benefit(comp, "visa_support"), o.compensation_confidence, o.compensation_score,
+            o.global_priority, o.next_action, o.strategy_category, ", ".join(sources) or None,
+            _local(o.last_verified_at, tz).date() if o.last_verified_at else None]
+
+
 def _recruit(repo: Repository, opp_id: int) -> dict[str, Any]:
     fit = repo.latest_fit(opp_id)
     return (fit.recruitability or {}) if fit else {}
@@ -171,6 +201,7 @@ def application_rows(crm: CRM, tz: ZoneInfo) -> list[list[Any]]:
             a.compensation, a.internship_start, a.internship_end, a.notes,
             o.career_category, o.recruitability_score, round(o.industrial_priority) if o.industrial_priority is not None else None,
             "; ".join(rec.get("relevant_experience") or []) or None, ", ".join(rec.get("missing_requirements") or []) or None,
+            *compensation_cells(repo, o, tz),
             a.version,
         ])
     return rows
@@ -361,7 +392,129 @@ def snapshot(crm: CRM) -> dict[str, dict[str, Any]]:
     return snap
 
 
+def _block(ws, top: int, col: int, title: str, headers: list[str], rows: list[list[Any]], widths: list[int] | None = None) -> int:  # noqa: ANN001
+    ws.cell(row=top, column=col, value=title).font = _font(bold=True, color=NAVY, size=12)
+    for i, h in enumerate(headers):
+        c = ws.cell(row=top + 1, column=col + i, value=h)
+        c.font = _font(bold=True, color=WHITE)
+        c.fill = PatternFill("solid", fgColor=NAVY)
+    data = rows or [["(none yet)"] + [None] * (len(headers) - 1)]
+    for r, row in enumerate(data, start=top + 2):
+        for i, v in enumerate(row):
+            cell = ws.cell(row=r, column=col + i, value=excel_safe(v) if isinstance(v, str) else v)
+            if isinstance(v, float):
+                cell.number_format = "#,##0"
+    for i, w in enumerate(widths or []):
+        ws.column_dimensions[get_column_letter(col + i)].width = w
+    return top + len(data) + 3
+
+
+def _relevant(crm: CRM) -> list[Opportunity]:
+    rows = crm.s.execute(select(Opportunity).where(Opportunity.status == "active")).scalars()
+    return [o for o in rows if (o.family_tier or 0) > 0 and o.eligibility_status != "REJECTED"]
+
+
+def _compensation_sheet(ws, crm: CRM, tz: ZoneInfo) -> None:  # noqa: ANN001
+    """Pay is shown as advertised (range minimum in EUR); unknown pay is listed, never counted as zero."""
+    ws.sheet_view.showGridLines = False
+    opps = _relevant(crm)
+    repo = Repository(crm.s)
+    ws["A1"] = "COMPENSATION ANALYSIS"
+    ws["A1"].font = _font(bold=True, size=16, color=NAVY)
+    ws["A2"] = ("Monthly EUR = minimum of the advertised range, converted at the stored ECB / fallback rate. Balances need a "
+                "sourced living-cost row in config/compensation.yaml. Unknown pay is not unpaid.")
+    ws["A2"].font = _font(italic=True, color="7F7F7F", size=9)
+    head = ["Company", "Role", "Country", "Monthly EUR", "Gross / net", "Status", "Confidence", "Global priority"]
+    widths = [24, 44, 14, 12, 10, 22, 11, 12]
+
+    def row(o: Opportunity) -> list[Any]:
+        return [o.company_name, o.title, country_name(o.country_code) if o.country_code else None, o.monthly_min_eur,
+                o.salary_basis, o.compensation_status, o.compensation_confidence, o.global_priority]
+    paid = sorted((o for o in opps if o.monthly_min_eur is not None), key=lambda o: -o.monthly_min_eur)
+    top = _block(ws, 4, 1, "Highest-paying internships", head, [row(o) for o in paid[:15]], widths)
+    bal = sorted((o for o in opps if o.monthly_balance_eur is not None), key=lambda o: -o.monthly_balance_eur)
+    top = _block(ws, top, 1, "Best estimated disposable monthly balance", head[:3] + ["Balance EUR", "Living cost EUR", "Monthly EUR", "Confidence"],
+                 [[o.company_name, o.title, country_name(o.country_code), o.monthly_balance_eur, o.living_cost_eur,
+                   o.monthly_min_eur, o.compensation_confidence] for o in bal[:15]])
+    groups: dict[str, list[Opportunity]] = {}
+    for o in opps:
+        groups.setdefault(country_name(o.country_code) if o.country_code else "Unknown", []).append(o)
+
+    def summary(items: list[Opportunity]) -> list[Any]:
+        amounts = [o.monthly_min_eur for o in items if o.monthly_min_eur is not None]
+        return [len(items), sum(o.compensation_status == "PAID_CONFIRMED" for o in items),
+                sum(o.compensation_status in (None, "COMPENSATION_UNKNOWN") for o in items),
+                round(sorted(amounts)[len(amounts) // 2], 0) if amounts else None]
+    country_rows = sorted(([k, *summary(v)] for k, v in groups.items()), key=lambda r: -r[1])
+    top = _block(ws, top, 1, "Compensation by country", ["Country", "Relevant", "Paid confirmed", "Unknown", "Median monthly EUR"],
+                 country_rows[:20])
+    fam: dict[str, list[Opportunity]] = {}
+    for o in opps:
+        fam.setdefault(o.career_category or "Other", []).append(o)
+    top = _block(ws, top, 1, "Compensation by career family", ["Category", "Relevant", "Paid confirmed", "Unknown", "Median monthly EUR"],
+                 sorted(([k, *summary(v)] for k, v in fam.items()), key=lambda r: -r[1]))
+    statuses = ["PAID_CONFIRMED", "PAID_AMOUNT_UNKNOWN", "MIXED_OR_CONDITIONAL", "UNPAID_CONFIRMED", "COMPENSATION_UNKNOWN"]
+    status_top = top
+    top = _block(ws, top, 1, "Paid versus unpaid", ["Status", "Opportunities"],
+                 [[s, sum((o.compensation_status or "COMPENSATION_UNKNOWN") == s for o in opps)] for s in statuses])
+    chart = BarChart()
+    chart.type, chart.title, chart.legend = "bar", "Paid versus unpaid (relevant opportunities)", None
+    chart.add_data(Reference(ws, min_col=2, min_row=status_top + 1, max_row=status_top + 1 + len(statuses)), titles_from_data=True)
+    chart.set_categories(Reference(ws, min_col=1, min_row=status_top + 2, max_row=status_top + 1 + len(statuses)))
+    chart.series[0].graphicalProperties.solidFill = NAVY
+    chart.height, chart.width = 7, 14
+    ws.add_chart(chart, "I4")
+    unknown = sorted((o for o in opps if o.compensation_status in (None, "COMPENSATION_UNKNOWN", "PAID_AMOUNT_UNKNOWN")),
+                     key=lambda o: -(o.global_priority or 0))
+    top = _block(ws, top, 1, "Relevant opportunities with unknown pay (verify before applying)", head,
+                 [row(o) for o in unknown[:25]])
+    with_benefit = []
+    for o in opps:
+        comp = _comp(repo, o.id)
+        ben = comp.get("benefits") or {}
+        if ben:
+            with_benefit.append([o.company_name, o.title, country_name(o.country_code),
+                                 "yes" if {"housing_provided", "housing_allowance"} & set(ben) else None,
+                                 "yes" if {"relocation", "flight"} & set(ben) else None, "yes" if "visa_support" in ben else None])
+    _block(ws, top, 1, "Housing / relocation / visa support stated", ["Company", "Role", "Country", "Housing", "Relocation", "Visa"],
+           with_benefit[:30])
+
+
+def _performance_sheet(ws, crm: CRM) -> None:  # noqa: ANN001
+    from summer_hunter.engine import analytics
+    from summer_hunter.engine.regions import REGIONS
+
+    p = analytics.compute(crm.s, REGIONS)
+    ws.sheet_view.showGridLines = False
+    ws["A1"] = "HUNTER PERFORMANCE"
+    ws["A1"].font = _font(bold=True, size=16, color=NAVY)
+    ws["A2"] = f"Rates show their sample; under {analytics.SMALL_SAMPLE} they are indicative only. No hiring probability is inferred."
+    ws["A2"].font = _font(italic=True, color="7F7F7F", size=9)
+    rows = [["Opportunities discovered", p.discovered], ["Relevant (target family, not rejected)", p.relevant],
+            ["Confirmed paid", p.paid_confirmed], ["Unknown compensation", p.compensation_unknown],
+            ["Ineligible (rejected)", p.ineligible], ["Duplicate listings merged", p.duplicates_merged],
+            ["Recruiter / manager contacts", p.contacts], ["Applications created", p.applications_created],
+            ["Applications submitted", p.applications_submitted], ["Reached interview", p.interviews], ["Offers", p.offers],
+            ["Precision@10 (your ratings)", p.precision_at_10.label()], ["Actionability rate", p.actionability.label()],
+            ["Paid opportunity rate", p.paid_rate.label()], ["Compensation coverage", p.compensation_coverage.label()],
+            ["LLM calls / cost (USD)", f"{p.llm_calls} / {p.llm_cost_usd:.2f}"]]
+    rows += [[f"Relevant in {k.replace('_', ' ')}", v] for k, v in p.by_region.items()]
+    top = _block(ws, 4, 1, "Discovery and conversion", ["Metric", "Value"], rows, [42, 26])
+    _block(ws, top, 1, "Source reliability", ["Source", "Last status", "Runs", "Consecutive failures", "Last items"],
+           [[s["source"], s["status"], s["runs"], s["failures"], s["last_items"]] for s in p.sources], [42, 14, 8, 12, 10])
+
+
 def build_workbook(crm: CRM, tz_name: str, export_id: str | None = None) -> Workbook:
+    repo = Repository(crm.s)
+    ids = [i for (i,) in crm.s.execute(select(Opportunity.id).where(Opportunity.status == "active"))]
+    repo.prefetch_fits(ids + [a.opportunity_id for a in crm.applications()])
+    try:
+        return _build(crm, tz_name, export_id)
+    finally:
+        repo.clear_fit_cache()
+
+
+def _build(crm: CRM, tz_name: str, export_id: str | None = None) -> Workbook:
     tz = ZoneInfo(tz_name)
     synced = datetime.now(tz)
     wb = Workbook()
@@ -387,6 +540,9 @@ def build_workbook(crm: CRM, tz_name: str, export_id: str | None = None) -> Work
 
     events = wb.create_sheet("Activity Log")
     _sheet_table(events, "ActivityLog", EVENT_COLUMNS, event_rows(crm, tz), "A2")
+
+    _compensation_sheet(wb.create_sheet("Compensation Analysis"), crm, tz)
+    _performance_sheet(wb.create_sheet("Hunter Performance"), crm)
 
     meta = wb.create_sheet("_meta")
     for i, (k, v) in enumerate([("format_version", FORMAT_VERSION), ("export_id", export_id or uuid.uuid4().hex),

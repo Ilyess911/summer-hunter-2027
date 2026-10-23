@@ -114,7 +114,8 @@ class CandidateProfile(BaseModel):
             certifications=raw.get("certifications", []) or [],
             licenses=raw.get("professional_licenses", []) or [],
             experiences=[Experience(**e) for e in raw.get("experiences", [])],
-            verified_skills=[s.lower() for s in (raw.get("skills", {}) or {}).get("verified", [])],
+            verified_skills=[s.lower() for key in ("verified", "user_confirmed")
+                             for s in ((raw.get("skills", {}) or {}).get(key) or [])],
             achievements=raw.get("achievements", []) or [],
         )
 

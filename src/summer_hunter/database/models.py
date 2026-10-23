@@ -75,6 +75,27 @@ class Opportunity(Base):
     industrial_priority: Mapped[float | None] = mapped_column(Float)
     career_track: Mapped[str | None] = mapped_column(String(30), index=True)       # business_tech | industry_robotics
     career_category: Mapped[str | None] = mapped_column(String(60))
+    # V3 (23 Oct 2026): compensation, global priority, strategist, deadlines. NULL = not evaluated yet.
+    semantic_family: Mapped[str | None] = mapped_column(String(60))
+    compensation_status: Mapped[str | None] = mapped_column(String(30))
+    salary_min: Mapped[float | None] = mapped_column(Float)
+    salary_max: Mapped[float | None] = mapped_column(Float)
+    salary_currency: Mapped[str | None] = mapped_column(String(3))
+    salary_period: Mapped[str | None] = mapped_column(String(12))
+    salary_basis: Mapped[str | None] = mapped_column(String(8))           # gross | net | unknown, as stated
+    monthly_min_eur: Mapped[float | None] = mapped_column(Float)
+    monthly_max_eur: Mapped[float | None] = mapped_column(Float)
+    living_cost_eur: Mapped[float | None] = mapped_column(Float)
+    monthly_balance_eur: Mapped[float | None] = mapped_column(Float)
+    compensation_confidence: Mapped[str | None] = mapped_column(String(10))
+    compensation_score: Mapped[int | None] = mapped_column(Integer)
+    global_priority: Mapped[float | None] = mapped_column(Float)
+    global_provisional: Mapped[bool | None] = mapped_column(Boolean)
+    next_action: Mapped[str | None] = mapped_column(String(30))
+    strategy_category: Mapped[str | None] = mapped_column(String(12))
+    application_deadline: Mapped[date | None] = mapped_column(Date)
+    deadline_type: Mapped[str | None] = mapped_column(String(12))
+    reopened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     evaluated_hash: Mapped[str | None] = mapped_column(String(64))
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sources: Mapped[list["SourceRecord"]] = relationship(back_populates="opportunity", cascade="all, delete-orphan")
@@ -132,6 +153,7 @@ class Contact(Base):
     confidence: Mapped[float] = mapped_column(Float)
     evidence: Mapped[str] = mapped_column(String(400))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     opportunity: Mapped[Opportunity] = relationship(back_populates="contacts")
 
 
@@ -157,6 +179,8 @@ class FitEvaluation(Base):
     networking: Mapped[dict] = mapped_column(JSON)
     priority: Mapped[dict] = mapped_column(JSON)
     recruitability: Mapped[dict | None] = mapped_column(JSON)
+    compensation: Mapped[dict | None] = mapped_column(JSON)
+    strategy: Mapped[dict | None] = mapped_column(JSON)
     content_hash: Mapped[str] = mapped_column(String(64))
     evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -283,6 +307,34 @@ class CRMReminder(Base):
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RecruitmentSignal(Base):
+    """Public hint that internships may open (never shown as a vacancy until confirmed)."""
+    __tablename__ = "recruitment_signals"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    level: Mapped[str] = mapped_column(String(24), index=True)     # CONFIRMED_OPENING | RECRUITMENT_SIGNAL | COMPANY_WATCH
+    company: Mapped[str | None] = mapped_column(String(200))
+    summary: Mapped[str] = mapped_column(String(500))
+    source: Mapped[str] = mapped_column(String(60))
+    source_url: Mapped[str] = mapped_column(String(1000), unique=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id"))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class FxRate(Base):
+    """Euro reference rates, one row per currency and day, with their source."""
+    __tablename__ = "fx_rates"
+    __table_args__ = (UniqueConstraint("currency", "rate_date"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    currency: Mapped[str] = mapped_column(String(3), index=True)
+    per_eur: Mapped[float] = mapped_column(Float)                  # units of currency for 1 EUR
+    rate_date: Mapped[date] = mapped_column(Date)
+    source: Mapped[str] = mapped_column(String(200))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Notification(Base):
     __tablename__ = "notification_history"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -360,4 +412,4 @@ class KeyValue(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3

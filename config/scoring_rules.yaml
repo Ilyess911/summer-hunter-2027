@@ -255,3 +255,59 @@ feedback:
   reason_delta: -3
   min_adjustment: -15
   max_adjustment: 10
+
+# Semantic classification from responsibilities (23 Oct 2026, V3). Used when the title is not
+# conclusive: a vague or generic title takes the family its responsibilities describe best.
+semantic:
+  apply_when_title_family_in: [unclassified, marketing_general, data_analytics, strategy_consulting]
+  min_hits: 3          # distinct responsibility cues needed
+  min_margin: 2        # lead over the runner-up family
+  families:
+    technical_sales: [technical demo, product demonstrations, discovery calls, pre-sales, presales, solution design,
+                      proof of concept, customer requirements, technical questions, rfp, solution architecture, customer solutions]
+    robotics_raas: [robot deployment, deploy robots, robotic systems, fleet of robots, autonomous mobile robots, amr,
+                    on-site deployment, commissioning, robot fleet, field deployment, robotics]
+    maintenance_reliability: [preventive maintenance, corrective maintenance, maintenance planning, reliability, mtbf, mttr,
+                              cmms, gmao, equipment availability, root cause analysis, failure analysis, spare parts, technical services]
+    commercial_strategy: [sales strategy, commercial excellence, pricing strategy, sales performance, sales operations,
+                          revenue growth, sales analytics, pipeline analysis, commercial performance]
+    industrial_operations: [continuous improvement, lean, kaizen, 5s, oee, production line, shop floor, process optimization,
+                            value stream, waste reduction, industrial performance, operational performance]
+    industrial_project_management: [project planning, project schedule, gantt, milestones, stakeholder coordination,
+                                    implementation project, customer implementation, go-live, deployment plan, project reporting,
+                                    budget tracking]
+    product_management: [product roadmap, user stories, backlog, product requirements, user research, feature prioritization]
+    product_marketing: [positioning, messaging, launch plan, competitive analysis, sales enablement, value proposition]
+    industrial_digital: [industry 4.0, digital twin, iiot, mes, scada, smart factory, industrial data, predictive maintenance model]
+
+# Global application priority (V3). Initial, configurable weights; not validated probabilities.
+global_priority:
+  weights:
+    exploration: {recruitability: 0.25, career_fit: 0.25, compensation: 0.15, networking: 0.10, quality: 0.15, urgency: 0.05, ease: 0.05}
+    conversion: {recruitability: 0.30, career_fit: 0.20, compensation: 0.20, networking: 0.10, quality: 0.10, urgency: 0.05, ease: 0.05}
+  default_mode: conversion
+  unknown_compensation_penalty: 5      # points off a provisional score when pay is unknown
+  unpaid_penalty: 25                   # confirmed unpaid (when unpaid internships are not excluded)
+  unpaid_filtered_when_excluded: true  # include_unpaid_internships=false keeps them out of the ranked lists
+
+# Application strategist (V3).
+strategist:
+  apply_now_priority: 70
+  prepare_priority: 55
+  low_priority_below: 40
+  ambitious_recruitability_below: 60   # strong fit, weaker match: a stretch
+  safety_recruitability_from: 82       # very strong match
+  allocation: {AMBITIOUS: 0.25, TARGETED: 0.50, SAFETY: 0.25}
+  ambitious_watchlist_priority: 1      # priority-1 companies with modest recruitability count as ambitious
+
+# Recommendation ratings (V3). Same explainable, bounded learning as Save / Dismiss.
+ratings:
+  EXCELLENT: {delta: 3, label: Excellente}
+  RELEVANT: {delta: 1, label: Pertinente}
+  NOT_INTERESTING: {delta: -2, label: Pas intéressante}
+  INELIGIBLE: {delta: 0, label: Inéligible, note: "reviewed by hand, never changes hard eligibility rules"}
+  TOO_TECHNICAL: {delta: -2, label: Trop technique}
+  COMPENSATION_TOO_LOW: {delta: -1, label: Rémunération trop basse}
+  WRONG_LOCATION: {delta: -2, label: Mauvais lieu, dimension: country}
+  WRONG_CAREER_PATH: {delta: -3, label: Mauvaise voie}
+  min_ratings_before_adjusting: 3      # avoid overfitting to one or two ratings

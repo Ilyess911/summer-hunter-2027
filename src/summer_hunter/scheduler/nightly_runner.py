@@ -111,6 +111,12 @@ def run_night(hunter, notifier, settings, stop: StopFlag | None = None, now_fn=N
     now_fn = now_fn or (lambda: datetime.now(window.tz))
     interval = timedelta(minutes=settings.cycle_interval_minutes)
     summary = {"cycles": 0, "mode": None, "digest": None, "errors": []}
+    refresh_fx = getattr(hunter, "refresh_fx", None)
+    if callable(refresh_fx):
+        try:
+            summary["fx"] = refresh_fx()          # exchange rates for the compensation engine (ECB first)
+        except Exception as exc:  # noqa: BLE001 - never block the night on rates
+            summary["errors"].append(f"fx: {type(exc).__name__}")
     current = window.current(now_fn())
     if current:
         summary["mode"] = "night_window"

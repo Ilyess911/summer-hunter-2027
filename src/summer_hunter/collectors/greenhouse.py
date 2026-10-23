@@ -39,7 +39,7 @@ class GreenhouseCollector(Collector):
                 errors.append("detail fetch cap reached; remaining jobs deferred to next cycle")
                 break
             try:
-                detail = await ctx.http.get_json(f"{API}/{self.token}/jobs/{job_id}")
+                detail = await ctx.http.get_json(f"{API}/{self.token}/jobs/{job_id}", params={"pay_transparency": "true"})
                 fetched += 1
             except (HttpError, RobotsDisallowed, ValueError) as exc:
                 errors.append(f"job {job_id}: {exc}")
@@ -54,7 +54,7 @@ class GreenhouseCollector(Collector):
                 title=title,
                 company=detail.get("company_name") or self.company,
                 location_text="; ".join(dict.fromkeys([x for x in [location, *offices] if x])) or None,
-                description_text=html_to_text(detail.get("content")),
+                description_text=html_to_text(detail.get("content")) + pay_line(detail.get("pay_input_ranges")),
                 posted_at=parse_dt(detail.get("first_published") or job.get("first_published")),
                 updated_marker=marker,
                 official_job_id=str(detail.get("requisition_id")) if detail.get("requisition_id") not in (None, "", "See Opening ID") else None,
@@ -62,3 +62,20 @@ class GreenhouseCollector(Collector):
         status = "partial" if errors and records else ("failed" if errors and not records and not unchanged else "ok")
         return self.result(records=records, errors=errors, skipped_unchanged=unchanged, scanned=len(jobs), status=status,
                            seen_ids=[str(j.get("id")) for j in jobs], listing_complete=bool(jobs) or isinstance(listing, dict))
+
+
+def pay_line(ranges) -> str:  # noqa: ANN001
+    """Greenhouse pay-transparency ranges (official, in cents) as a plain sentence the extractor reads."""
+    out = []
+    for r in ranges or []:
+        try:
+            lo, hi = int(r["min_cents"]) / 100, int(r["max_cents"]) / 100
+        except (KeyError, TypeError, ValueError):
+            continue
+        cur = str(r.get("currency_type") or "").upper()
+        if cur and lo > 0:
+            title = str(r.get("title") or "")
+            period = next((p for k, p in (("hour", "per hour"), ("month", "per month"), ("week", "per week"),
+                                          ("annual", "per year"), ("year", "per year")) if k in title.lower()), "")
+            out.append(f"\nPay range ({title or 'base'}): {cur} {lo:,.2f} - {cur} {hi:,.2f} {period}".rstrip())
+    return "".join(out)

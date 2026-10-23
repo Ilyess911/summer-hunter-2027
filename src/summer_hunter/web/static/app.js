@@ -94,6 +94,21 @@ async function loadList() {
 
 /* Detail ------------------------------------------------------------------ */
 
+const ACTION = { APPLY_NOW: "Postuler maintenant", PREPARE_APPLICATION: "Préparer la candidature", CONTACT_RECRUITER: "Contacter le recruteur",
+  VERIFY_ELIGIBILITY: "Vérifier l'éligibilité", VERIFY_COMPENSATION: "Vérifier la rémunération", MONITOR_OPENING: "Surveiller",
+  LOW_PRIORITY: "Priorité basse", DISCARD: "Écarter" };
+const PAY = { PAID_CONFIRMED: "Payé (montant indiqué)", PAID_AMOUNT_UNKNOWN: "Payé, montant non indiqué", UNPAID_CONFIRMED: "Non payé",
+  MIXED_OR_CONDITIONAL: "Conditionnel", COMPENSATION_UNKNOWN: "Non indiqué (≠ non payé)" };
+function payBlock(o) {
+  const c = o.compensation_report; if (!c) return "";
+  const eur = (v) => `${Math.round(v).toLocaleString("fr-FR")} €`;
+  const rows = [`<div><b>${esc(PAY[c.status] || c.status)}</b> · confiance ${esc(c.confidence)}</div>`];
+  if (c.monthly_min_eur != null) rows.push(`<div>${eur(c.monthly_min_eur)}${c.monthly_max_eur && c.monthly_max_eur !== c.monthly_min_eur ? " – " + eur(c.monthly_max_eur) : ""} / mois${c.monthly_is_estimate ? " (estimation)" : ""}</div>`);
+  if (c.monthly_balance_eur != null) rows.push(`<div>Solde estimé : ${eur(c.monthly_balance_eur)} / mois</div>`);
+  if (c.pay && c.pay.wording) rows.push(`<div class="x">« ${esc(c.pay.wording)} »</div>`);
+  return rows.join("");
+}
+
 function block(title, html) { return html ? `<div class="block"><h3>${esc(title)}</h3>${html}</div>` : ""; }
 function list(items) { return items && items.length ? `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""; }
 
@@ -136,7 +151,7 @@ async function openDetail(id) {
       <div class="metric"><b>${o.fit ?? "–"}</b><span>Fit carrière</span></div>
       <div class="metric"><b>${o.recruitability ?? "–"}</b><span>Recrutabilité</span></div>
       <div class="metric"><b>${o.networking ?? "–"}</b><span>Networking</span></div>
-      <div class="metric"><b>${o.priority == null ? "–" : Math.round(o.priority)}</b><span>Priorité</span></div>
+      <div class="metric"><b>${o.global == null ? "–" : Math.round(o.global)}${o.provisional ? "*" : ""}</b><span>Priorité</span></div>
     </div>
     <div class="row-actions">
       <button class="act ${o.user_status === "saved" ? "on" : ""}" data-act="save">${ICONS.bookmark}Sauver</button>
@@ -152,6 +167,10 @@ async function openDetail(id) {
       <button class="primary press" data-act="cv">Générer mon CV adapté</button>
       <button class="primary ghost press" data-act="apply">Postuler sur le site</button>
     </div>
+    ${o.strategy_report ? block("Recommandation", `<div><b>${esc(ACTION[o.strategy_report.action] || o.strategy_report.action)}</b>`
+        + `${o.strategy_report.caveat ? ` · ${esc(o.strategy_report.caveat)}` : ""}</div>`
+        + list([...(o.strategy_report.arguments || []), o.strategy_report.effort ? `Préparation : ${o.strategy_report.effort}` : ""].filter(Boolean))) : ""}
+    ${block("Rémunération", payBlock(o))}
     ${block("Pourquoi ça colle", list(fit.reasons))}
     ${o.recruitability_report ? block("Recrutabilité (correspondance avec ton expérience, pas une probabilité)",
         list([...(o.recruitability_report.reasons || []), ...(o.recruitability_report.missing_requirements || []).map((m) => `À combler : ${m}`)])) : ""}

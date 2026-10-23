@@ -207,3 +207,29 @@ companies:
   - {name: "Forto", sector: industrial_tech, priority: 3, ats: ashby, token: forto, verified: 2026-10-21}
   - {name: "Flexport", sector: industrial_tech, priority: 3, ats: greenhouse, token: flexport, verified: 2026-10-21}
   - {name: "Project44", sector: industrial_tech, priority: 3, ats: greenhouse, token: project44, verified: 2026-10-21}
+
+  # Africa (added 23 Oct 2026, V3). Discovery targets, not verified providers; boards marked verified
+  # answered HTTP 200 with listings on 23 Oct 2026, the others rely on LinkedIn and manual links.
+  - {name: OCP Group, sector: industrial_tech, priority: 1, ats: none, note: "Morocco; phosphates, industrial operations"}
+  - {name: UM6P, sector: industrial_tech, priority: 2, ats: none, note: "Mohammed VI Polytechnic University ecosystem, Benguerir"}
+  - {name: GE Vernova, sector: industrial_tech, priority: 1, ats: workday, tenant: gevernova, host: wd5, site: Vernova_ExternalSite, verified: 2026-10-23}
+  - {name: Orange, sector: telecom, priority: 2, ats: none, note: "Orange Middle East and Africa"}
+  - {name: MTN, sector: telecom, priority: 2, ats: none}
+  - {name: Vodafone, sector: telecom, priority: 2, ats: none, note: "Vodacom / Safaricom"}
+  - {name: Safaricom, sector: telecom, priority: 2, ats: none}
+  - {name: Sasol, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Absa, sector: fintech, priority: 3, ats: workday, tenant: absa, host: wd3, site: ABSAcareersite, verified: 2026-10-23}
+  - {name: Andela, sector: enterprise_tech, priority: 3, ats: ashby, token: andela, verified: 2026-10-23}
+  - {name: M-KOPA, sector: fintech, priority: 2, ats: ashby, token: m-kopa, verified: 2026-10-23, note: "Kenya, connected assets"}
+  - {name: Jumia, sector: enterprise_tech, priority: 2, ats: greenhouse, token: jumia, verified: 2026-10-23}
+  - {name: Moniepoint, sector: fintech, priority: 2, ats: greenhouse, token: moniepoint, verified: 2026-10-23}
+  - {name: Zipline, sector: robotics, priority: 1, ats: greenhouse, token: flyzipline, verified: 2026-10-23, note: "autonomous delivery, Rwanda / Ghana / Kenya / Nigeria"}
+  - {name: Copia Global, sector: logistics, priority: 3, ats: lever, token: copia, verified: 2026-10-23}
+  - {name: Flutterwave, sector: fintech, priority: 2, ats: none}
+  - {name: Paystack, sector: fintech, priority: 2, ats: none}
+  - {name: Wave, sector: fintech, priority: 2, ats: none, note: "Senegal / Côte d'Ivoire"}
+  - {name: InstaDeep, sector: ai, priority: 2, ats: none, note: "Tunis / Lagos"}
+  - {name: Royal Air Maroc, sector: aerospace_mro, priority: 1, ats: none, note: "MRO activity in Casablanca"}
+  - {name: Safran Morocco, sector: aerospace_mro, priority: 1, ats: none, note: "Safran sites in Casablanca"}
+  - {name: Airbus Atlantic Maroc, sector: aerospace_mro, priority: 1, ats: none, note: "Airbus industrial operations, Casablanca"}
+  - {name: Renault Group Maroc, sector: industrial_tech, priority: 2, ats: none, note: "Tangier plant"}

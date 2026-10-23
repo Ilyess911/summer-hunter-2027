@@ -1,0 +1,49 @@
+# Internship compensation intelligence. Every number here is editable and documented.
+# Integrity rules: a salary is only "confirmed" when the posting states it; a missing salary is
+# UNKNOWN (never zero, never unpaid); benchmarks and living costs are only used with a source.
+
+preferences:
+  prefer_paid_internships: true
+  include_unknown_compensation: true
+  include_unpaid_internships: false
+  minimum_monthly_salary_eur: null            # not set: nothing is filtered on salary
+  minimum_estimated_monthly_balance_eur: null
+
+# Exchange rates. Primary: ECB euro reference rates (official, ~30 currencies, daily).
+# Fallback for currencies the ECB does not publish (MAD, TND, EGP, NGN, KES, AED...): open.er-api.com
+# (ExchangeRate-API open endpoint, daily). Fixed pegs are exact and need no source.
+fx:
+  primary_url: https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml
+  fallback_url: https://open.er-api.com/v6/latest/EUR
+  max_age_days: 7                    # refresh when the stored rates are older
+  pegs: {XOF: 655.957, XAF: 655.957} # CFA francs per euro (fixed by treaty)
+
+# Monthly normalization.
+hours:
+  weeks_per_month: 4.333             # 52 / 12
+  # Hourly pay is only turned into a monthly figure with advertised hours. Without them an
+  # estimate uses this explicit assumption and is labelled as such (never as confirmed).
+  assumed_hours_per_week_for_estimates: 40
+  allow_hourly_estimate: true
+
+# Living-cost estimates, per city (preferred) or country, in EUR per month, single person.
+# EMPTY BY DEFAULT: no credible, licensed dataset is bundled. Add rows with their source and date;
+# without a row, the living cost and the disposable balance are reported as unknown.
+# Example (illustrative format only, not data):
+#   - {place: "Casablanca, MA", housing: 0, transport: 0, food: 0, other: 0, source: "<url>", date: 2026-10-01}
+living_costs: []
+
+# Local internship pay benchmarks (EUR per month), same rule: only with a source.
+benchmarks: []
+
+# Fixed allowance types counted as cash when the posting states an amount.
+cash_benefits: [housing allowance, relocation allowance, transport allowance, meal allowance, travel allowance, stipend]
+
+scoring:
+  # Compensation attractiveness, 0-100. A missing component is dropped and the others reweighted.
+  weights: {disposable_balance: 0.30, benchmark: 0.25, housing_relocation: 0.20, total_outcome: 0.15, confidence: 0.10}
+  balance_scale_eur: [-500, 1500]    # monthly balance mapped linearly to 0..100
+  monthly_scale_eur: [0, 3000]       # used for the absolute pay component when no balance is available
+  total_outcome_scale_eur: [-2000, 8000]
+  confidence_points: {HIGH: 100, MEDIUM: 70, LOW: 40, UNKNOWN: 0}
+  unpaid_score: 0

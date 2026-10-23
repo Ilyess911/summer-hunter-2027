@@ -179,7 +179,10 @@ def test_crm_and_excel_show_track_fields(hunter, repo, settings, tmp_path):
     assert row["Career Category"] == "Maintenance" and row["Recruitability Score"] == opp.recruitability_score
     assert row["Industrial Priority Score"] == round(opp.industrial_priority)
     assert "Air France" in row["Relevant Industrial Experience"]
-    assert ws.column_dimensions["AF"].hidden          # Row Version moved to the end
+    from openpyxl.utils import get_column_letter
+
+    assert ws.cell(row=1, column=ws.max_column).value == "Row Version"
+    assert ws.column_dimensions[get_column_letter(ws.max_column)].hidden          # Row Version stays last and hidden
     opps = wb["Opportunities"]
     headers = [c.value for c in opps[1]]
     assert "Recruitability Score" in headers and "Career Category" in headers

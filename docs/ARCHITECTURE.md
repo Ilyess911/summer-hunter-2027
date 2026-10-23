@@ -21,6 +21,7 @@
 | `integrations/*` | Anthropic, Telegram, Brave/Google CSE, France Diplomatie |
 | `bot/handlers.py` | commandes, boutons, autorisation par `chat_id` |
 | `bot/crm_handlers.py` | commandes et boutons du CRM, import d'un `.xlsx` envoyé au bot |
+| `engine/compensation.py`, `fx.py`, `priority.py`, `strategist.py`, `semantic.py`, `signals.py`, `knowledge.py`, `analytics.py` | V3 : rémunération, taux de change, priorité globale, action recommandée, classification par missions, signaux précoces, base de connaissances, indicateurs ([V3.md](V3.md)) |
 | `crm/*` | candidatures, transitions de statut, contacts, journal, relances, métriques, documents, export et import Excel ([CRM.md](CRM.md)) |
 | `scheduler/*` | fenêtre de nuit, verrou `fcntl`, génération des LaunchAgents |
 
@@ -41,6 +42,8 @@
 | `crm_applications` | une candidature suivie par opportunité : statut, dates, prochaine action, entretien, documents, version de ligne |
 | `crm_contacts` | contacts gérés (preuve publique ou saisie manuelle), statut d'interaction |
 | `crm_events` | journal en ajout seul (ancienne et nouvelle valeur, source) |
+| `recruitment_signals` | signaux précoces (niveau, source, date, confirmation par une offre) |
+| `fx_rates` | taux de change par devise et par jour, avec leur source |
 | `crm_reminders` | rappels déjà envoyés (anti-doublon) |
 | `notification_history` | envois Telegram et leur statut |
 | `collection_runs`, `source_health` | historique des cycles, santé par source |

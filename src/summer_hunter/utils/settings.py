@@ -126,6 +126,11 @@ class Settings:
         return self._config("scoring_rules.yaml")
 
     @cached_property
+    def compensation(self) -> dict[str, Any]:
+        path = self.config_dir / "compensation.yaml"
+        return load_yaml(path) if path.exists() else {}
+
+    @cached_property
     def llm(self) -> dict[str, Any]:
         cfg = self._config("llm.yaml")
         if self.llm_provider_override:

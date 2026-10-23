@@ -113,6 +113,7 @@ summer-hunter-2027/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Flux de données, modules, schéma de base, sécurité |
 | [docs/SCORING.md](docs/SCORING.md) | Règles d'éligibilité, calcul des scores, apprentissage |
 | [docs/LINKEDIN_LIMITATIONS.md](docs/LINKEDIN_LIMITATIONS.md) | Ce qui est collecté sur LinkedIn, comment, et ce qui ne l'est pas |
+| [docs/V3.md](docs/V3.md) | Rémunération, priorité globale, stratège, Afrique, signaux précoces, performance |
 | [docs/INDUSTRY_TRACK.md](docs/INDUSTRY_TRACK.md) | Piste Industrie & Robotique, recruitability, priorité industrielle |
 | [docs/CRM.md](docs/CRM.md) | Suivi des candidatures, statuts, Excel, relances, documents |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Pannes courantes et diagnostics |
@@ -161,6 +162,7 @@ scripts/install_macos.sh                   # planification nocturne (launchd)
 - [x] Telegram : digest, cartes, commandes, boutons, feedback
 - [x] Planification launchd, fenêtre de nuit, rattrapage, verrou
 - [x] Piste Industrie & Robotique (maintenance, projets industriels, RaaS) avec score de recruitability, en parallèle de la piste Business
+- [x] V3 : rémunération (salaire, devises BCE, avantages), priorité globale, stratège, Afrique, signaux précoces, notes, performance
 - [x] CRM des candidatures : Track/Applied, statuts validés, journal, relances, briefing quotidien, classeur Excel synchronisé
 - [ ] Connexion de tes clés Telegram et Anthropic (étape manuelle)
 - [ ] Remplir les UNKNOWN du profil (nationalité, mois de diplôme, équivalences)

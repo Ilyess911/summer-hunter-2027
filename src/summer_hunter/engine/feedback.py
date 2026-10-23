@@ -41,6 +41,27 @@ def recompute(repo: Repository, rules: dict[str, Any]) -> list[dict[str, Any]]:
             if dim and key:
                 totals[(dim, key)] += cfg["reason_delta"]
                 counts[(dim, key)] += 1
+    # Recommendation ratings: same bounded, explainable deltas, but only once a key has enough ratings
+    # (min_ratings_before_adjusting), so one or two clicks never reshape the ranking.
+    ratings = rules.get("ratings") or {}
+    r_totals: dict[tuple[str, str], float] = defaultdict(float)
+    r_counts: dict[tuple[str, str], int] = defaultdict(int)
+    for fb in repo.feedback_rows():
+        if fb.action != "rating" or fb.reason not in ratings or not isinstance(ratings[fb.reason], dict):
+            continue
+        if reset_at and fb.created_at and fb.created_at.isoformat() < reset_at[:19]:
+            continue
+        spec = ratings[fb.reason]
+        dim = spec.get("dimension", "job_family")
+        key = {"job_family": fb.job_family, "company": fb.company, "country": fb.country}.get(dim)
+        if key and spec.get("delta"):
+            r_totals[(dim, key)] += float(spec["delta"])
+            r_counts[(dim, key)] += 1
+    floor = int(ratings.get("min_ratings_before_adjusting", 3)) if isinstance(ratings.get("min_ratings_before_adjusting", 3), int) else 3
+    for k, v in r_totals.items():
+        if r_counts[k] >= floor:
+            totals[k] += v
+            counts[k] += r_counts[k]
     rows = []
     for (dim, key), value in totals.items():
         bounded = max(cfg["min_adjustment"], min(cfg["max_adjustment"], value))

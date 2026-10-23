@@ -456,6 +456,20 @@ def cmd_crm(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def cmd_fx(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.engine import fx
+
+    with app.sessions() as session:
+        if args.action == "refresh":
+            _print(fx.refresh(session, app.settings.compensation))
+            session.commit()
+        table = fx.load(session, app.settings.compensation)
+        for code in sorted(table.rates):
+            r = table.rates[code]
+            print(f"{code} {r.per_eur:>14.4f} per EUR  {r.rate_date or '-'}  {r.source}")
+    return 0
+
+
 def cmd_backup(app: App, args) -> int:  # noqa: ANN001
     print(backup_sqlite(app.db_path, app.settings.data_dir / "backups"))
     return 0
@@ -625,6 +639,9 @@ def build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--dry-run", action="store_true", help="import: show what would change")
     cr.add_argument("--force", action="store_true", help="status: allow a deliberate backward correction")
     cr.set_defaults(fn=cmd_crm)
+    fxp = sub.add_parser("fx", help="exchange rates used by the compensation engine (ECB, then fallback)")
+    fxp.add_argument("action", choices=["show", "refresh"])
+    fxp.set_defaults(fn=cmd_fx)
     sub.add_parser("backup", help="snapshot the SQLite database").set_defaults(fn=cmd_backup)
     sub.add_parser("status", help="runs, counts, spend").set_defaults(fn=cmd_status)
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")

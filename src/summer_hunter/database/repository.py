@@ -83,6 +83,8 @@ class Repository:
         return self.s.execute(select(Opportunity).where(Opportunity.canonical_key == key)).scalar_one_or_none()
 
     def add(self, obj: Any) -> Any:
+        if isinstance(obj, FitEvaluation):
+            self.clear_fit_cache()       # a new evaluation makes any cached "latest" stale
         self.s.add(obj)
         self.s.flush()
         return obj
@@ -107,7 +109,7 @@ class Repository:
         if not force:
             # career_track is NULL for records scored before the industry track existed: score them once more.
             stmt = stmt.where((Opportunity.evaluated_hash.is_(None)) | (Opportunity.evaluated_hash != Opportunity.content_hash)
-                              | Opportunity.career_track.is_(None))
+                              | Opportunity.career_track.is_(None) | Opportunity.compensation_status.is_(None))
         return list(self.s.execute(stmt).scalars())
 
     def all_active(self) -> list[Opportunity]:
@@ -117,8 +119,28 @@ class Repository:
         stmt = select(Opportunity).where(Opportunity.status == "active", Opportunity.eligibility_status != "REJECTED",
                                          Opportunity.priority_score.is_not(None))
         if not include_dismissed:
-            stmt = stmt.where(Opportunity.user_status.not_in(("dismissed", "applied")))
+            stmt = stmt.where(Opportunity.user_status.not_in(("dismissed", "applied")),
+                              # filtered by a hard rule (eligibility, unpaid, your salary floor): never listed
+                              (Opportunity.next_action.is_(None)) | (Opportunity.next_action != "DISCARD"))
         return list(self.s.execute(stmt.order_by(Opportunity.priority_score.desc()).limit(limit)).scalars())
+
+    def top_global(self, limit: int = 500) -> list[Opportunity]:
+        """Ranked by global application priority; filtered items are excluded before the limit applies."""
+        stmt = (select(Opportunity).where(Opportunity.status == "active", Opportunity.global_priority.is_not(None),
+                                          Opportunity.user_status.not_in(("dismissed", "applied")),
+                                          (Opportunity.family_tier > 0))
+                .order_by(Opportunity.global_priority.desc()).limit(limit))
+        return list(self.s.execute(stmt).scalars())
+
+    def latest_fits(self, ids: Iterable[int]) -> dict[int, FitEvaluation]:
+        """Latest fit evaluation per opportunity in one query (avoids one query per row on large exports)."""
+        ids = list(ids)
+        if not ids:
+            return {}
+        latest = (select(FitEvaluation.opportunity_id, func.max(FitEvaluation.id).label("mid"))
+                  .where(FitEvaluation.opportunity_id.in_(ids)).group_by(FitEvaluation.opportunity_id).subquery())
+        rows = self.s.execute(select(FitEvaluation).join(latest, FitEvaluation.id == latest.c.mid)).scalars()
+        return {r.opportunity_id: r for r in rows}
 
     def discovered_since(self, since: datetime) -> list[Opportunity]:
         return list(self.s.execute(select(Opportunity).where(Opportunity.first_discovered_at >= since)
@@ -150,7 +172,17 @@ class Repository:
         return self.s.execute(select(EligibilityEvaluation).where(EligibilityEvaluation.opportunity_id == opp_id)
                               .order_by(EligibilityEvaluation.id.desc()).limit(1)).scalar_one_or_none()
 
+    def prefetch_fits(self, ids: Iterable[int]) -> None:
+        """Cache the latest fits of `ids` on the session for read-only passes (exports, briefing, stats)."""
+        self.s.info["fit_cache"] = self.latest_fits(ids)
+
+    def clear_fit_cache(self) -> None:
+        self.s.info.pop("fit_cache", None)
+
     def latest_fit(self, opp_id: int) -> FitEvaluation | None:
+        cache = self.s.info.get("fit_cache")
+        if cache is not None and opp_id in cache:
+            return cache[opp_id]
         return self.s.execute(select(FitEvaluation).where(FitEvaluation.opportunity_id == opp_id)
                               .order_by(FitEvaluation.id.desc()).limit(1)).scalar_one_or_none()
 

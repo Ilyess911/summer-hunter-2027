@@ -71,6 +71,13 @@ class TitleRules:
         """Internship title in a family we may recommend (generic engineering/hardware are skipped)."""
         return self.looks_like_internship(title) and self.classify(title).id not in self.skip_families
 
+    def by_id(self, family_id: str, matched: str | None = None) -> FamilyMatch:
+        """The family definition for an id (used when responsibilities, not the title, decide)."""
+        for fam_id, tier, alignment, _, track, category in self.families:
+            if fam_id == family_id:
+                return FamilyMatch(fam_id, tier, alignment, matched, track, category)
+        return self.default
+
     def classify(self, title: str) -> FamilyMatch:
         norm = normalize_for_match(title)
         for fam_id, tier, alignment, patterns, track, category in self.families:

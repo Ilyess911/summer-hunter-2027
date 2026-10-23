@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -30,7 +31,13 @@ from summer_hunter.database.models import (
 )
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine import eligibility as elig
-from summer_hunter.engine import recruitability
+from summer_hunter.crm.deadlines import explicit_deadline
+from summer_hunter.engine import compensation, modes, networking_reco, recruitability, semantic, signals, strategist
+from summer_hunter.engine import priority as gpriority
+from summer_hunter.engine.fx import FxTable
+from summer_hunter.engine.fx import load as fx_load
+from summer_hunter.engine.fx import refresh as fx_refresh
+from summer_hunter.engine.fx import stale as fx_stale
 from summer_hunter.engine.ai_analysis import Analyzer, blend_fit, enrich_facts
 from summer_hunter.engine.deduplication import find_match, make_key
 from summer_hunter.engine.discovery import plan as discovery_plan
@@ -91,6 +98,7 @@ class Hunter:
         self.transport = transport
         self.http_min_interval = 1.0     # seconds between requests to one host (politeness)
         self.http_retries = 3
+        self._fx: FxTable | None = None
         geo = settings.preferences.get("geography", {})
         self.excluded = {c.upper() for c in geo.get("excluded_countries", [])}
         self.safety_excluded = {c.upper() for c in geo.get("safety_excluded_countries", [])}
@@ -131,7 +139,7 @@ class Hunter:
         rotation = int(datetime.now(timezone.utc).timestamp() // 3600)   # new slice of each track's phrases every hour
         out.append(LinkedInSearchCollector(provider, disc.get("post_queries", []), disc.get("job_queries", []),
                                            int(disc.get("max_queries_per_run", 15)), int(disc.get("results_per_query", 10)),
-                                           planned=discovery_plan(disc, rotation)))
+                                           planned=discovery_plan(disc, rotation, self.current_mode())))
         if only:
             out = [c for c in out if c.name in only or c.name.split(":")[0] in only]
         return out
@@ -163,6 +171,7 @@ class Hunter:
 
         results: list[CollectorResult] = []
         sem = asyncio.Semaphore(4)
+        resting = {h.source: h for h in repo.health() if in_backoff(h)}
         async with self._http() as http:
             ctx = CollectContext(http=http, title_rules=self.title_rules, is_unchanged=is_unchanged, dry_run=dry_run)
 
@@ -170,6 +179,10 @@ class Hunter:
                 async with sem:
                     if should_stop():
                         return CollectorResult(source=col.name, status="skipped", detail="stop requested")
+                    if col.name in resting:
+                        h = resting[col.name]
+                        return CollectorResult(source=col.name, status="skipped",
+                                               detail=f"backoff after {h.consecutive_failures} consecutive failures")
                     try:
                         return await asyncio.wait_for(col.collect(ctx), timeout=SOURCE_TIMEOUT_S)
                     except asyncio.TimeoutError:
@@ -355,6 +368,9 @@ class Hunter:
         report = elig.evaluate(facts, loc, ctx, opp.official_url)
         primary = next((c for c in loc.countries if c not in self.excluded), loc.primary_country)
         family = self.title_rules.classify(opp.title)
+        sem = semantic.classify(opp.title, opp.description_text or "", rules, family.id)
+        if sem.applied:
+            family = self.title_rules.by_id(sem.family, "responsibilities: " + ", ".join(sem.evidence[:3]))
         watch = self.watchlist.get(opp.normalized_company) or {}
         learned = adjustments_for(prefs if prefs is not None else repo.preference_adjustments(), family.id,
                                   opp.normalized_company, primary,
@@ -391,13 +407,20 @@ class Hunter:
         industrial = industrial_priority(fit.score, recruit.score, networking.score, report.decision, rules)
         if industrial is not None and family.track == INDUSTRY_ROBOTICS and rules.get("industrial_priority", {}).get("enabled"):
             priority = rank_with(priority, industrial, rules, "industrial priority (40% recruitability, 35% fit, 25% networking)")
+        v3 = self._v3(repo, opp, facts, report, family, fit, recruit, networking, contacts, watch, primary)
+        if v3["priority"].filtered:
+            priority = priority.model_copy(update={"notify": False, "reason": f"{priority.reason}; {v3['priority'].filtered}"})
 
         repo.add(EligibilityEvaluation(opportunity_id=opp.id, decision=report.decision.value, sponsorship=report.sponsorship.value,
                                        criteria=[c.model_dump(mode="json") for c in report.criteria], content_hash=opp.content_hash,
                                        engine_version=report.engine_version))
         repo.add(FitEvaluation(opportunity_id=opp.id, score=fit.score, method=fit.method, report=fit.model_dump(mode="json"),
                                networking=networking.model_dump(mode="json"), priority=priority.model_dump(mode="json"),
-                               recruitability=recruit.model_dump(mode="json"), content_hash=opp.content_hash))
+                               recruitability=recruit.model_dump(mode="json"), compensation=v3["comp"].model_dump(mode="json"),
+                               strategy=v3["strategy"].model_dump(mode="json") | {"global": v3["priority"].__dict__,
+                                                                                   "semantic": sem.__dict__,
+                                                                                   "networking": v3["networking"]},
+                               content_hash=opp.content_hash))
         opp.job_family, opp.family_tier = family.id, family.tier
         opp.eligibility_status = report.decision.value
         opp.fit_score = fit.score
@@ -407,9 +430,78 @@ class Hunter:
         opp.notify = priority.notify
         opp.recruitability_score, opp.industrial_priority = recruit.score, industrial
         opp.career_track, opp.career_category = family.track, family.category
+        self._store_v3(opp, v3, sem)
         opp.evaluated_hash = opp.content_hash
         opp.evaluated_at = utcnow()
         stats.evaluated += 1
+
+    # V3: compensation, deadlines, global priority, strategist ----------------------------------------
+
+    def current_mode(self) -> str:
+        with self.session_factory() as session:
+            return modes.get(Repository(session), self.settings.scoring)
+
+    def fx_table(self, repo: Repository) -> FxTable:
+        if self._fx is None:
+            self._fx = fx_load(repo.s, self.settings.compensation)
+        return self._fx
+
+    def refresh_fx(self) -> dict[str, Any]:
+        """Fetch exchange rates when the stored ones are old (nightly run, never in tests)."""
+        with self.session_factory() as session:
+            if not fx_stale(session, self.settings.compensation):
+                return {"stored": 0, "skipped": "fresh"}
+            out = fx_refresh(session, self.settings.compensation)
+            session.commit()
+        self._fx = None
+        return out
+
+    def _v3(self, repo, opp, facts, report, family, fit, recruit, networking, contacts, watch, primary) -> dict[str, Any]:  # noqa: ANN001
+        rules, comp_cfg = self.settings.scoring, self.settings.compensation
+        desc = opp.description_text or ""
+        names = [s.source for s in opp.sources] or ["unknown"]
+        source = next((n for n in names if n.split(":")[0] in {"greenhouse", "lever", "ashby", "workday", "career_page"}), names[0])
+        weeks = facts.duration.max_weeks if facts.duration else None
+        comp = compensation.assess(desc, primary, opp.city, source, weeks, comp_cfg, self.fx_table(repo))
+        deadline = explicit_deadline(desc)
+        rolling = bool(re.search(r"\brolling (basis|admissions?|applications?|recruitment)\b|\bau fil de l.eau\b", desc, re.I))
+        today = datetime.now(timezone.utc).date()
+        crit = [c.model_dump(mode="json") for c in report.criteria]
+        dates_pass = any(c["criterion"] == "dates" and c["status"] == "PASS" for c in crit)
+        lang_unknown = any(c["criterion"] == "language" and c["status"] == "UNKNOWN" for c in crit)
+        missing_mandatory = sum("(mandatory)" in m for m in recruit.missing_requirements)
+        docs_ready = (self.settings.data_dir / "cv" / str(opp.id)).exists()
+        ease_score, minutes = gpriority.ease(desc, missing_mandatory, lang_unknown, docs_ready)
+        mode = modes.get(repo, rules)
+        gp = gpriority.compute(fit.score, recruit.score, networking.score, comp, report.decision == Decision.REJECTED,
+                               gpriority.quality(names, desc, watch.get("priority"), dates_pass, comp.status == "PAID_CONFIRMED"),
+                               gpriority.urgency(deadline, rolling, as_utc(opp.source_published_at), today),
+                               ease_score, minutes, mode, rules, comp_cfg)
+        best = min((c for c in contacts if float(c.get("confidence", 0)) >= 0.6),
+                   key=lambda c: networking_reco.RANK.get(c["relationship"], 9), default=None)
+        strat = strategist.decide(gp, report.decision.value, crit, comp, fit.score, recruit.score, networking.score,
+                                  recruit.model_dump(), fit.model_dump(), best, watch.get("priority"),
+                                  bool(signals.TALENT_POOL.search(opp.title.lower())),
+                                  (deadline - today).days if deadline else None, rules)
+        reco = networking_reco.recommend(opp.company_name, opp.title, contacts, recruit.model_dump(), family.track)
+        return {"comp": comp, "priority": gp, "strategy": strat, "deadline": deadline, "rolling": rolling, "networking": reco}
+
+    @staticmethod
+    def _store_v3(opp: Opportunity, v3: dict[str, Any], sem) -> None:  # noqa: ANN001
+        comp, gp, strat = v3["comp"], v3["priority"], v3["strategy"]
+        opp.semantic_family = sem.family
+        opp.compensation_status, opp.compensation_confidence, opp.compensation_score = comp.status, comp.confidence, comp.score
+        opp.salary_min = comp.pay.amount_min if comp.pay else None
+        opp.salary_max = comp.pay.amount_max if comp.pay else None
+        opp.salary_currency = comp.pay.currency if comp.pay else None
+        opp.salary_period = comp.pay.period if comp.pay else None
+        opp.salary_basis = comp.pay.basis if comp.pay else None
+        opp.monthly_min_eur, opp.monthly_max_eur = comp.monthly_min_eur, comp.monthly_max_eur
+        opp.living_cost_eur, opp.monthly_balance_eur = comp.living_cost_eur, comp.monthly_balance_eur
+        opp.global_priority, opp.global_provisional = gp.score, gp.provisional
+        opp.next_action, opp.strategy_category = strat.action, strat.category
+        opp.application_deadline = v3["deadline"]
+        opp.deadline_type = "fixed" if v3["deadline"] else "rolling" if v3["rolling"] else "unknown"
 
     def analyzer(self, repo: Repository) -> Analyzer | None:
         if isinstance(self.provider, NullProvider):
@@ -417,6 +509,7 @@ class Hunter:
         return Analyzer(self.provider, repo, self.profile, self.settings.llm, self.settings.timezone)
 
     def evaluate_pending(self, repo: Repository, stats: CycleStats, force: bool = False) -> None:
+        self._fx = None                      # pick up rates refreshed since the last cycle
         analyzer = self.analyzer(repo)
         ctx = self._elig_ctx(repo)
         prefs = repo.preference_adjustments()
@@ -457,6 +550,8 @@ class Hunter:
                     await self.verify_shortlist(repo, stats)
                 if not should_stop():
                     self.evaluate_pending(repo, stats)
+                    if not dry_run:
+                        signals.sync(repo)
                 failed = [s for s, v in stats.sources.items() if v["status"] == "failed"]
                 run.status = "partial" if failed else "ok"
             except Exception as exc:  # noqa: BLE001
@@ -474,6 +569,19 @@ class Hunter:
                 run.status, run.finished_at, run.stats, run.errors = status, utcnow(), run_stats, run_errors
             session.commit()
         return stats
+
+
+BACKOFF_AFTER = 3          # consecutive failures before a source is rested
+BACKOFF_MAX_HOURS = 48
+
+
+def in_backoff(health, now: datetime | None = None) -> bool:  # noqa: ANN001
+    """A failing source rests 1 h, 2 h, 4 h... (capped at 48 h) after its last failure, then is retried."""
+    n = health.consecutive_failures or 0
+    if n < BACKOFF_AFTER or health.last_failure_at is None:
+        return False
+    hours = min(BACKOFF_MAX_HOURS, 2 ** (n - BACKOFF_AFTER))
+    return (now or datetime.now(timezone.utc)) - as_utc(health.last_failure_at) < timedelta(hours=hours)
 
 
 def since_hours(hours: float) -> datetime:

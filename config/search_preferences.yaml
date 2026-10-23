@@ -2,11 +2,10 @@
 
 geography:
   # Hard personal exclusions (ISO2). Never expanded automatically.
-  # Personal choices. 21 Oct 2026: South Asia (IN, PK, BD, LK), Sub-Saharan Africa,
-  # Russia, Ukraine, Turkey, Egypt added at the user's request.
-  excluded_countries: [FR, IL, IN, PK, BD, LK,
-                       NG, KE, GH, SN, CI, RW, ZA, ET, TZ, UG, CM, AO,
-                       RU, UA, TR, EG]
+  # Personal choices. 21 Oct 2026: South Asia (IN, PK, BD, LK), Russia, Ukraine, Turkey added at the
+  # user's request. 23 Oct 2026: Africa (incl. Egypt) removed from the exclusions at the user's request
+  # (V3: "Do not exclude African countries by default"); country safety checks still apply.
+  excluded_countries: [FR, IL, IN, PK, BD, LK, RU, UA, TR]
   # Countries the user has personally decided to exclude for safety reasons.
   # Empty by default: nothing is added without the user's decision.
   safety_excluded_countries: []
@@ -22,6 +21,8 @@ geography:
     middle_east: [AE, QA]
     europe: [IE, GB, CH, DE, NL, SE, DK, 'NO', FI, BE, LU, ES, IT]
     north_america: [US, CA]
+    # 23 Oct 2026: Africa is a full search region (discovery priorities, not an exhaustive list).
+    africa: [MA, TN, EG, SN, CI, GH, NG, KE, RW, TZ, UG, ZA, BW, NA]
   priority_country_bonus: 2
   # Personal preference penalties on the career-fit score (not exclusions).
   # US: J-1 internship visa through a sponsor organisation is slow and costly (decided 21 Oct 2026).
@@ -63,6 +64,8 @@ discovery:
   results_per_query: 10
   allocation: {business_tech: 0.5, industry_robotics: 0.5}
   add_yearless_variants: true      # also search each job phrase without "2027" (dates still checked)
+  # Share of each track's queries spent on job listings (the rest on posts / early signals), per mode.
+  job_share_by_mode: {conversion: 0.7, exploration: 0.4}
   tracks:
     business_tech:
       post_queries:
@@ -76,12 +79,19 @@ discovery:
         - '"internship opportunities in Singapore" 2027'
         - '"nous recrutons" stagiaire 2027 "business developer"'
         - '"stage" "avril 2027" "avant-vente"'
+        - '"stage" 2027 "business developer" Casablanca OR Rabat OR Tunis'
+        - '"internship" 2027 "business development" Lagos OR Nairobi OR Kigali'
+        - '"stage" 2027 "ingénieur commercial" Dakar OR Abidjan'
       job_queries:
         - 'intern 2027 "solutions engineer"'
         - 'intern 2027 "sales engineer"'
         - 'intern 2027 "product marketing"'
         - 'internship 2027 "technical sales"'
         - 'internship 2027 "business development"'
+        - 'internship "sales engineer" Morocco'
+        - 'stage "ingénieur avant-vente" Maroc'
+        - 'internship "product management" Nairobi OR Lagos OR "Cape Town"'
+        - 'internship "solutions engineer" "South Africa" OR Kenya OR Egypt'
     industry_robotics:
       post_queries:
         - '"maintenance manager" hiring intern 2027'
@@ -94,6 +104,8 @@ discovery:
         - '"robotics as a service" hiring intern'
         - '"Praktikum" 2027 "Instandhaltung"'
         - '"stage" 2027 "maintenance" aéronautique international'
+        - '"stage" 2027 "maintenance" Casablanca OR Tanger OR Tunis'
+        - '"internship" 2027 maintenance OR "project engineer" Johannesburg OR "Cape Town" OR Nairobi'
       job_queries:
         - '"Industrial Project Management" internship 2027'
         - '"Maintenance Engineering" summer internship 2027'
@@ -112,3 +124,8 @@ discovery:
         - '"Project Engineer" intern 2027'
         - '"MRO" intern 2027'
         - '"Instandhaltung" Praktikum 2027'
+        - 'stage "maintenance industrielle" Maroc'
+        - 'stage "gestion de projet industriel" Maroc OR Tunisie OR Sénégal'
+        - 'internship "maintenance engineering" "South Africa" OR Kenya OR Egypt'
+        - 'internship "supply chain" OR logistics Casablanca OR Lagos OR Nairobi'
+        - 'stage "industrie 4.0" OR automatisation Maroc'

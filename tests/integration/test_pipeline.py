@@ -42,7 +42,7 @@ class Api:
         self.ashby_status = 500
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
+        url = str(request.url.copy_with(query=None)) if "pay_transparency" in str(request.url) else str(request.url)
         self.calls.append(url)
         if url.endswith("/robots.txt"):
             if "careers.blocked.test" in url:

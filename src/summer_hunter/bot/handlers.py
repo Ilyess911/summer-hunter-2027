@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from summer_hunter.bot.crm_handlers import COMMANDS as CRM_COMMANDS
 from summer_hunter.bot.crm_handlers import HELP as CRM_HELP
 from summer_hunter.bot.crm_handlers import CRMBot
+from summer_hunter.bot.v3_handlers import COMMANDS as V3_COMMANDS
+from summer_hunter.bot.v3_handlers import V3Bot
 from summer_hunter.database.models import utcnow
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine.ai_analysis import Analyzer, draft_networking_message
@@ -52,7 +54,7 @@ TRACK_FILTERS = {   # command -> (title, predicate on an opportunity)
 }
 HIGH_RECRUITABILITY = 75
 
-COMMANDS += CRM_COMMANDS
+COMMANDS += CRM_COMMANDS + V3_COMMANDS
 
 HELP = "\n".join(f"/{c}: {d}" for c, d in COMMANDS) + (
     "\n\nEnvoie un lien d'offre (ou colle son texte) : je l'évalue, puis je génère ton CV et ta lettre."
@@ -77,6 +79,7 @@ class Bot:
         self.chat_id = str(settings.telegram_chat_id)
         self.profile = CandidateProfile.from_yaml(settings.profile_raw)
         self.crm = CRMBot(self)
+        self.v3 = V3Bot(self)
 
     # Entry points ----------------------------------------------------------------------------
 
@@ -173,7 +176,7 @@ class Bot:
             log.warning("send failed", extra={"error": str(exc)})
 
     def handle_command(self, cmd: str, args: str = "") -> None:
-        if self.crm.handle_command(cmd, args):
+        if self.crm.handle_command(cmd, args) or self.v3.handle_command(cmd, args):
             return
         with self.session_factory() as session:
             repo = Repository(session)
@@ -264,6 +267,8 @@ class Bot:
                 recompute(repo, self.settings.scoring)
                 self.telegram.answer_callback(cq["id"], "Saved")
             elif self.crm.handle_opportunity_callback(cq, action, opp, repo):
+                pass
+            elif self.v3.handle_opportunity_callback(cq, action, parts, opp, repo):
                 pass
             elif action == "dm":
                 repo.record_feedback(opp, "dismiss")
