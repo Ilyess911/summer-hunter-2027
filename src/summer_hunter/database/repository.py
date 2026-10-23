@@ -116,7 +116,7 @@ class Repository:
         stmt = select(Opportunity).where(Opportunity.status == "active", Opportunity.eligibility_status != "REJECTED",
                                          Opportunity.priority_score.is_not(None))
         if not include_dismissed:
-            stmt = stmt.where(Opportunity.user_status != "dismissed")
+            stmt = stmt.where(Opportunity.user_status.not_in(("dismissed", "applied")))
         return list(self.s.execute(stmt.order_by(Opportunity.priority_score.desc()).limit(limit)).scalars())
 
     def discovered_since(self, since: datetime) -> list[Opportunity]:

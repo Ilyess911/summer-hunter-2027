@@ -26,7 +26,6 @@ const ICONS = {
   bookmark: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
-  chev: '<svg class="chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>',
 };
 
 const flag = (cc) => (cc && /^[A-Z]{2}$/.test(cc)) ? String.fromCodePoint(...[...cc].map((c) => 0x1f1a5 + c.charCodeAt(0))) : "🌐";
@@ -43,18 +42,21 @@ async function api(path, opts = {}) {
 }
 
 function toast(msg) {
-  const t = $("#toast"); t.textContent = msg; t.hidden = false;
-  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2400);
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
 
-function card(o) {
+const day = (iso) => { try { return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }); } catch (_) { return ""; } };
+
+function card(o, i) {
   const [d, cls] = DECISION[o.decision] || ["?", ""];
   const place = [o.city, o.country].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ");
-  return `<button class="card" data-id="${o.id}">
+  return `<button class="card press" data-id="${o.id}" style="--i:${i}">
     ${ring(o.fit)}
     <div class="body">
+      <div class="top"><span class="company">${esc(o.company)}</span>${o.discovered ? `<span class="when">${esc(day(o.discovered))}</span>` : ""}</div>
       <div class="title">${esc(o.title)}</div>
-      <div class="meta">${esc(o.company)} · ${flag(o.country_code)} ${esc(place)}</div>
+      <div class="meta">${flag(o.country_code)} ${esc(place || o.location || "Lieu inconnu")}</div>
       <div class="tags">
         ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
         <span class="tag ${cls}">${esc(d)}</span>
@@ -62,21 +64,25 @@ function card(o) {
         ${o.status === "closed" ? `<span class="tag bad">Fermée</span>` : ""}
       </div>
     </div>
-    ${ICONS.chev}
   </button>`;
 }
 
 async function loadList() {
   const list = $("#list");
+  list.classList.remove("stagger");
   list.innerHTML = Array.from({ length: 5 }, () => `<div class="skeleton"></div>`).join("");
+  $("#count").textContent = "";
   try {
     const params = new URLSearchParams({ view: state.view, q: state.q, region: state.region });
     const data = await api(`/api/opportunities?${params}`);
     const s = data.stats || {};
     $("#s-target").textContent = s.target ?? "–"; $("#s-new").textContent = s.new ?? "–";
     $("#s-saved").textContent = s.saved ?? "–"; $("#s-applied").textContent = s.applied ?? "–";
-    list.innerHTML = data.items.length ? data.items.map(card).join("")
-      : `<div class="empty">Rien ici pour l'instant.<br>Les nouvelles offres arrivent chaque nuit.</div>`;
+    const n = data.items.length;
+    $("#count").textContent = n ? `${n} offre${n > 1 ? "s" : ""}` : "";
+    list.innerHTML = n ? data.items.map(card).join("")
+      : `<div class="empty"><b>Rien ici pour l'instant</b>Les nouvelles offres arrivent chaque nuit.</div>`;
+    void list.offsetWidth; list.classList.add("stagger");
   } catch (e) {
     list.innerHTML = `<div class="empty">Chargement impossible : ${esc(e.message)}<br>Rouvre l'app depuis le bouton du bot.</div>`;
   }
@@ -90,6 +96,7 @@ function list(items) { return items && items.length ? `<ul>${items.map((x) => `<
 async function openDetail(id) {
   $("#home").hidden = true;
   const box = $("#detail"); box.hidden = false;
+  box.classList.remove("leave"); box.classList.add("enter");
   box.innerHTML = `<div class="skeleton" style="height:140px"></div>`;
   window.scrollTo(0, 0);
   if (tg) tg.BackButton.show();
@@ -103,7 +110,7 @@ async function openDetail(id) {
   const checks = o.criteria.map((c) => `<div class="check"><span class="dot ${c.status}">${DOT[c.status] || "?"}</span>
       <div><div class="n">${esc(CRIT[c.criterion] || c.criterion)}</div><div class="x">${esc(c.explanation)}</div></div></div>`).join("");
   const bars = Object.entries(fit.components || {}).map(([k, v]) =>
-    `<div class="bar"><span>${esc(COMP[k] || k)}</span><i style="--w:${Math.round(v)}%"></i><span>${Math.round(v)}</span></div>`).join("");
+    `<div class="bar"><span>${esc(COMP[k] || k)}</span><i style="--w:${Math.max(0, Math.min(100, v)) / 100}"></i><span>${Math.round(v)}</span></div>`).join("");
   const contacts = o.contacts.map((c) => `<li>${c.url ? `<a href="#" data-link="${esc(c.url)}">${esc(c.name)}</a>` : esc(c.name)}
       <span class="x">· ${esc(c.relationship.replaceAll("_", " "))}</span></li>`).join("");
 
@@ -135,10 +142,10 @@ async function openDetail(id) {
       ${Object.entries(REASON).map(([k, v]) => `<button data-reason="${k}">${esc(v)}</button>`).join("")}
     </div>
     <div id="cvbox"></div>
-    <button class="file" id="letterbtn" style="margin-top:12px"><span>✉️ Générer ma lettre de motivation</span><small>2-3 min, reçue dans le chat</small></button>
+    <button class="file wide press" id="letterbtn"><span>✉️ Générer ma lettre de motivation</span><small>2-3 min, reçue dans le chat</small></button>
     <div class="fallback" id="fallback" ${tg && tg.MainButton ? "hidden" : ""}>
-      <button class="primary" data-act="cv">Générer mon CV adapté</button>
-      <button class="primary" style="background:var(--surface);color:var(--text)" data-act="apply">Postuler sur le site</button>
+      <button class="primary press" data-act="cv">Générer mon CV adapté</button>
+      <button class="primary ghost press" data-act="apply">Postuler sur le site</button>
     </div>
     ${block("Pourquoi ça colle", list(fit.reasons))}
     ${block("Points à vérifier", list(open.map((c) => `${CRIT[c.criterion] || c.criterion} : ${c.explanation}`).slice(0, 5)))}
@@ -151,7 +158,7 @@ async function openDetail(id) {
 
   box.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (ev) => { ev.preventDefault(); openLink(a.dataset.link); }));
   box.querySelector('[data-act="save"]').onclick = (ev) => act(o.id, "save", "Sauvé", ev.currentTarget);
-  box.querySelector('[data-act="applied"]').onclick = (ev) => act(o.id, "applied", "Marqué comme postulé", ev.currentTarget);
+  box.querySelector('[data-act="applied"]').onclick = (ev) => act(o.id, "applied", "Postulé : l'offre quitte ta liste", ev.currentTarget);
   box.querySelector('[data-act="dismiss"]').onclick = async (ev) => { await act(o.id, "dismiss", "Écarté", ev.currentTarget); $("#reasons").hidden = false; };
   box.querySelectorAll("[data-reason]").forEach((b) => b.onclick = async () => {
     await act(o.id, "reason", "Merci, préférence mise à jour", null, b.dataset.reason); $("#reasons").hidden = true; });
@@ -227,7 +234,14 @@ function download(path) {
 }
 
 function closeDetail() {
-  $("#detail").hidden = true; $("#home").hidden = false; state.current = null;
+  const box = $("#detail");
+  const finish = () => {
+    box.hidden = true; box.classList.remove("leave", "enter");
+    const home = $("#home"); home.hidden = false; home.classList.remove("enter"); void home.offsetWidth; home.classList.add("enter");
+  };
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) finish();
+  else { box.classList.remove("enter"); box.classList.add("leave"); setTimeout(finish, 190); }
+  state.current = null;
   if (tg) tg.BackButton.hide();
   hideNativeButtons();
   history.replaceState(null, "", "#");
@@ -243,7 +257,14 @@ function bindChips(containerSel, key, attr) {
     state[key] = b.dataset[attr]; haptic(); loadList();
   });
 }
+function movePill() {
+  const on = $("#tabs button.on"), pill = $("#tabs .seg-pill"); if (!on || !pill) return;
+  pill.style.width = `${on.offsetWidth}px`; pill.style.transform = `translateX(${on.offsetLeft}px)`;
+}
 bindChips("#tabs", "view", "view");
+$("#tabs").addEventListener("click", movePill);
+window.addEventListener("resize", movePill);
+requestAnimationFrame(movePill);
 bindChips("#regions", "region", "region");
 $("#list").addEventListener("click", (ev) => { const c = ev.target.closest(".card"); if (c) { haptic(); openDetail(c.dataset.id); } });
 let debounce; $("#search").addEventListener("input", (ev) => { clearTimeout(debounce); debounce = setTimeout(() => { state.q = ev.target.value; loadList(); }, 250); });

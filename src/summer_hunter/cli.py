@@ -496,7 +496,7 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--limit", type=int, default=20)
     ls.add_argument("--decision", choices=["ELIGIBLE", "NEEDS_VERIFICATION", "REJECTED", "eligible", "needs_verification", "rejected"])
     ls.add_argument("--user-status", choices=["new", "saved", "dismissed", "applied"])
-    ls.add_argument("--all", action="store_true", help="include dismissed")
+    ls.add_argument("--all", action="store_true", help="include dismissed and applied")
     ls.set_defaults(fn=cmd_list)
     sh = sub.add_parser("show", help="full explanation of one opportunity")
     sh.add_argument("id", type=int)

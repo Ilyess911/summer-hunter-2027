@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
 <title>Summer Hunter</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="/static/style.css">
@@ -10,13 +11,11 @@
 <body>
 <div id="home">
   <header class="hero">
-    <div class="hero-row">
-      <h1>Summer Hunter</h1>
-      <span class="season">Avr. – août 2027</span>
-    </div>
+    <div class="eyebrow">Stages avril – août 2027</div>
+    <h1>Summer Hunter</h1>
     <div class="stats" id="stats">
       <div class="stat"><b id="s-target">–</b><span>en cible</span></div>
-      <div class="stat"><b id="s-new">–</b><span>à traiter</span></div>
+      <div class="stat hl"><b id="s-new">–</b><span>à traiter</span></div>
       <div class="stat"><b id="s-saved">–</b><span>sauvés</span></div>
       <div class="stat"><b id="s-applied">–</b><span>postulés</span></div>
     </div>
@@ -24,9 +23,10 @@
   <div class="controls">
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="search" type="search" placeholder="Rôle, entreprise, ville" autocomplete="off">
+      <input id="search" type="search" enterkeyhint="search" placeholder="Rôle, entreprise, ville" autocomplete="off">
     </label>
     <div class="segmented" id="tabs" role="tablist">
+      <span class="seg-pill" aria-hidden="true"></span>
       <button data-view="new" class="on" role="tab">Nouveaux</button>
       <button data-view="top" role="tab">Top</button>
       <button data-view="saved" role="tab">Sauvés</button>
@@ -41,10 +41,11 @@
       <button data-region="americas">Amériques</button>
     </div>
   </div>
+  <div class="count" id="count"></div>
   <main id="list" aria-live="polite"></main>
 </div>
 <section id="detail" hidden></section>
-<div id="toast" role="status" hidden></div>
+<div id="toast" role="status"></div>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -109,7 +109,8 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             elif view == "verify":
                 rows = [o for o in repo.top(300) if o.eligibility_status in ("ELIGIBLE", "NEEDS_VERIFICATION") and (o.family_tier or 0) > 0]
             elif view == "rejected":
-                rows = [o for o in repo.by_eligibility("REJECTED", limit=300) if (o.family_tier or 0) > 0 and o.status == "active"]
+                rows = [o for o in repo.by_eligibility("REJECTED", limit=300)
+                        if (o.family_tier or 0) > 0 and o.status == "active" and o.user_status not in ("dismissed", "applied")]
             else:
                 rows = repo.by_user_status({"saved": "saved", "applied": "applied"}[view], limit=300)
             if q:
@@ -117,8 +118,9 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             region = request.query_params.get("region")
             if region in REGIONS:
                 rows = [o for o in rows if region_of(o.country_code) == region]
-            active = [o for o in repo.top(500) if (o.family_tier or 0) > 0]
-            stats = {"target": len(active), "new": sum(o.user_status == "new" and bool(o.notify) for o in active),
+            active = [o for o in repo.top(500, include_dismissed=True) if (o.family_tier or 0) > 0]
+            stats = {"target": sum(o.user_status not in ("dismissed", "applied") for o in active),
+                     "new": sum(o.user_status == "new" and bool(o.notify) for o in active),
                      "saved": sum(o.user_status == "saved" for o in active),
                      "applied": sum(o.user_status == "applied" for o in active)}
         return JSONResponse({"items": [summary(o) for o in rows], "stats": stats})
