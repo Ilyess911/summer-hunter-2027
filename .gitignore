@@ -22,3 +22,6 @@ build/
 # Tooling
 graphify-out/
 .DS_Store
+
+# Office lock files
+~$*
