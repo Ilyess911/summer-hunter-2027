@@ -37,6 +37,12 @@ FAMILY_KEYWORDS = {
     "program_management": "project coordination stakeholder delivery planning",
     "commercial_strategy": "data analysis strategy cost optimization process operations",
     "strategy_consulting": "analysis strategy process improvement data stakeholder",
+    "maintenance_reliability": "maintenance equipment data analysis process improvement kpi reliability operations aircraft",
+    "industrial_project_management": "project coordination planning stakeholder industrial process improvement reporting",
+    "industrial_operations": "process improvement operations logistics kpi lean industrial cost optimization",
+    "industrial_digital": "automation data python dashboards ai industrial digital decision",
+    "robotics_raas": "deployment customer coordination automation robotics operations stakeholder solution",
+    "robotics_specialized": "robotics automation engineering data",
 }
 
 

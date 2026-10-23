@@ -16,12 +16,11 @@ from __future__ import annotations
 
 import json
 import zipfile
-from itertools import pairwise
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Callable
-
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from openpyxl import load_workbook

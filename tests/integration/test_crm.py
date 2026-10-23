@@ -112,7 +112,7 @@ def test_generated_workbook_structure_and_charts(crm, tmp_path):
     assert wb["_meta"].sheet_state == "hidden"
     apps = wb["Applications"]
     headers = [c.value for c in apps[1]]
-    assert headers[:26][0] == "Application ID" and headers[25] == "Notes" and len(headers) == 27
+    assert headers[0] == "Application ID" and headers[25] == "Notes" and headers[-1] == "Row Version" and "Recruitability Score" in headers
     assert apps["A2"].value == "APP-0001" and apps["I2"].value == "APPLIED"
     assert apps["S2"].hyperlink is not None and apps.freeze_panes == "D2"
     assert "Applications" in apps.tables
@@ -428,7 +428,7 @@ def test_duplicate_ids_in_workbook_are_rejected(crm, tmp_path):
     path = export_workbook(crm, tmp_path / FILENAME, "Europe/Paris")
     wb = load_workbook(path)
     ws = wb["Applications"]
-    for col in range(1, 28):
+    for col in range(1, ws.max_column + 1):
         ws.cell(row=3, column=col, value=ws.cell(row=2, column=col).value)
     ws["Z2"], ws["Z3"] = "version A", "version B"
     wb.save(path)

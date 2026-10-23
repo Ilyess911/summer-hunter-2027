@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from summer_hunter.engine.extraction import JobFacts
-from summer_hunter.engine.normalization import FamilyMatch
+from summer_hunter.engine.normalization import INDUSTRY_ROBOTICS, FamilyMatch
 from summer_hunter.models.candidate import CandidateProfile
 from summer_hunter.models.eligibility import CriterionStatus, Decision, EligibilityReport
 from summer_hunter.models.scoring import Adjustment, FitReport, NetworkingReport, PriorityReport
@@ -71,12 +71,13 @@ def score_fit(title: str, description: str, facts: JobFacts, family: FamilyMatch
         pts = min(len(ind_hits) * ind["points_each"], ind["max_points"])
         alignment += pts
         reasons.append((60 + pts, f"Industry fit: {', '.join(ind_hits[:4])}."))
-    pos = rules["career_positive_signals"]
+    pos = (rules.get("track_signals") or {}).get(family.track) or rules["career_positive_signals"]
     pos_hits = _hits(norm, pos["keywords"])
     if pos_hits:
         pts = min(len(pos_hits) * pos["points_each"], pos["max_points"])
         alignment += pts
-        reasons.append((70 + pts, f"Consultative / technical-commercial work: {', '.join(pos_hits[:4])}."))
+        label = "Industrial / operations work" if family.track == INDUSTRY_ROBOTICS else "Consultative / technical-commercial work"
+        reasons.append((70 + pts, f"{label}: {', '.join(pos_hits[:4])}."))
 
     # Cold calling
     cc = rules["cold_calling"]
@@ -195,8 +196,12 @@ def score_fit(title: str, description: str, facts: JobFacts, family: FamilyMatch
         weaknesses.append((40, f"Skills asked that are not in the verified profile: {', '.join(missing[:3])}."))
     reasons.sort(key=lambda r: -r[0])
     weaknesses.sort(key=lambda w: -w[0])
-    tier_label = {1: "direct path to technical/enterprise sales", 2: "go-to-market path adjacent to technical sales",
-                  3: "product/strategy path with commercial exposure", 4: "general business path"}.get(family.tier, "limited link to the target career")
+    if family.track == INDUSTRY_ROBOTICS:
+        tier_label = {1: "core industry & robotics path (maintenance, industrial projects, robotics deployment)",
+                      2: "industrial operations / digitalization path"}.get(family.tier, "limited link to the target career")
+    else:
+        tier_label = {1: "direct path to technical/enterprise sales", 2: "go-to-market path adjacent to technical sales",
+                      3: "product/strategy path with commercial exposure", 4: "general business path"}.get(family.tier, "limited link to the target career")
     return FitReport(
         score=score,
         components=components,
@@ -237,6 +242,27 @@ def score_networking(contacts: list[dict[str, Any]], rules: dict[str, Any]) -> N
 
 
 # --- priority --------------------------------------------------------------------------
+
+
+def industrial_priority(fit: int, recruit: int, networking: int, decision: Decision, rules: dict[str, Any]) -> float | None:
+    """40% recruitability + 35% career fit + 25% networking (weights configurable). None once rejected."""
+    if decision == Decision.REJECTED:
+        return None
+    w = (rules.get("industrial_priority") or {}).get("weights", {"recruitability": 0.40, "career_fit": 0.35, "networking": 0.25})
+    return round(w["recruitability"] * recruit + w["career_fit"] * fit + w["networking"] * networking, 1)
+
+
+def rank_with(priority: PriorityReport, value: float, rules: dict[str, Any], label: str) -> PriorityReport:
+    """Re-rank an eligible opportunity on another score, with the same tiers and notify threshold."""
+    if priority.priority_score is None:
+        return priority
+    pr = rules["priority"]
+    tiers = pr["tiers"]
+    tier = next((t for t in ("exceptional", "high", "review") if value >= tiers[t]), "suppressed")
+    notify = value >= pr["notify_threshold"] or priority.strategic_bypass
+    reason = f"{label}: {value}" + ("; a low-confidence conflict needs checking" if "conflict" in priority.reason else "")
+    return priority.model_copy(update={"priority_score": value, "tier": tier, "notify": notify, "reason": reason})
+
 
 
 def score_priority(fit: FitReport, eligibility: EligibilityReport, networking: NetworkingReport, rules: dict[str, Any],

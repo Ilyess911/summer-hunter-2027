@@ -31,25 +31,35 @@ def normalize_company(name: str) -> str:
     return re.sub(r"\s+", " ", c).strip()
 
 
+BUSINESS_TECH = "business_tech"
+INDUSTRY_ROBOTICS = "industry_robotics"
+
+
 @dataclass(frozen=True)
 class FamilyMatch:
     id: str
     tier: int
     alignment: int
     matched: str | None
+    track: str = BUSINESS_TECH
+    category: str = "Other"
 
 
 class TitleRules:
     def __init__(self, preferences: dict[str, Any], scoring: dict[str, Any]) -> None:
         self.intern_patterns = [re.compile(p, re.I) for p in preferences.get("internship_title_patterns", [])]
         self.excluded_patterns = [re.compile(p, re.I) for p in preferences.get("excluded_title_patterns", [])]
+        categories = ((scoring.get("tracks") or {}).get(BUSINESS_TECH) or {}).get("categories", {})
         self.families = [
-            (fam["id"], int(fam["tier"]), int(fam["alignment"]), [re.compile(p, re.I) for p in fam["patterns"]])
+            (fam["id"], int(fam["tier"]), int(fam["alignment"]), [re.compile(p, re.I) for p in fam["patterns"]],
+             fam.get("track", BUSINESS_TECH), fam.get("category") or categories.get(fam["id"], "Other"))
             for fam in scoring.get("job_families", [])
         ]
         self.skip_families = set(scoring.get("skip_families_at_collection", []))
         default = scoring.get("default_family", {"id": "unclassified", "tier": 0, "alignment": 35})
-        self.default = FamilyMatch(default["id"], int(default["tier"]), int(default["alignment"]), None)
+        self.default = FamilyMatch(default["id"], int(default["tier"]), int(default["alignment"]), None, BUSINESS_TECH, "Other")
+        self.category_of = {fid: cat for fid, _, _, _, _, cat in self.families} | {self.default.id: "Other"}
+        self.track_of = {fid: trk for fid, _, _, _, trk, _ in self.families} | {self.default.id: BUSINESS_TECH}
 
     def looks_like_internship(self, title: str) -> bool:
         norm = normalize_for_match(title)
@@ -63,10 +73,10 @@ class TitleRules:
 
     def classify(self, title: str) -> FamilyMatch:
         norm = normalize_for_match(title)
-        for fam_id, tier, alignment, patterns in self.families:
+        for fam_id, tier, alignment, patterns, track, category in self.families:
             for pattern in patterns:
                 m = pattern.search(norm)
                 if m:
-                    return FamilyMatch(fam_id, tier, alignment, m.group(0))
+                    return FamilyMatch(fam_id, tier, alignment, m.group(0), track, category)
         return self.default
 

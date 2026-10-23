@@ -60,14 +60,17 @@ experiences:
       operational decision-making; cross-functional collaboration.
     keywords: [aerospace, aviation, maintenance, industrial, process improvement, automation,
                python, power query, data analysis, cost optimization, operations,
-               decision support, cross-functional, stakeholder, engineering, data]
+               decision support, cross-functional, stakeholder, engineering, data,
+               aircraft, equipment engineering, maintenance data, maintenance process, maintenance optimization,
+               performance monitoring, kpi, technical data, data consolidation, mro]
   - id: airbus_helicopters
     organization: Airbus Helicopters
     role: Industrial and logistics experience
     type: professional
     summary: Industrial logistics, operational processes, industrial equipment, process improvement, industrial coordination.
     keywords: [aerospace, logistics, supply chain, operations, industrial, process improvement,
-               coordination, manufacturing, equipment]
+               coordination, manufacturing, equipment, inventory management, inventory, 5s, industrial resources,
+               industrial operations, industrial logistics]
   - id: nexya_agency
     organization: Nexya Agency
     role: Co-Founder, SaaS and AI solutions
@@ -133,6 +136,16 @@ skills:
     - ai product prototyping
     - industrial engineering
     - robotics
+    # Industrial background confirmed by the candidate on 23 Oct 2026 (Air France Industries, Airbus Helicopters).
+    - maintenance data analysis
+    - maintenance process optimization
+    - kpi monitoring
+    - industrial logistics
+    - inventory management
+    - 5s
+    - technical project management
+    - project coordination
+    - excel
   # Explicitly NOT claimed (the integrity guard refuses them in drafts):
   never_claim: [sales quota, closed deals, revenue generated, certifications, additional languages]
 

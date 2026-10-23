@@ -64,8 +64,59 @@ companies:
   - {name: Bosch, sector: industrial_tech, priority: 2, ats: none}
   - {name: Hilti, sector: industrial_tech, priority: 2, ats: none}
   - {name: Dassault Systèmes, sector: industrial_tech, priority: 1, ats: none}
-  - {name: Rockwell Automation, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Rockwell Automation, sector: industrial_tech, priority: 2, ats: workday, tenant: rockwellautomation, host: wd1, site: External_Rockwell_Automation, verified: 2026-10-23}
   - {name: Honeywell, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Emerson, sector: industrial_tech, priority: 2, ats: none}
+  - {name: Hitachi, sector: industrial_tech, priority: 2, ats: workday, tenant: hitachi, host: wd1, site: hitachi, verified: 2026-10-23}
+  - {name: Mitsubishi Electric, sector: industrial_tech, priority: 3, ats: none}
+
+  # Industry & robotics track (added 23 Oct 2026). Discovery targets, not guaranteed providers.
+  # Boards marked verified answered HTTP 200 with listings on 23 Oct 2026; the rest rely on LinkedIn.
+  # Aerospace and MRO
+  - {name: Airbus, sector: aerospace_mro, priority: 1, ats: workday, tenant: ag, host: wd3, site: Airbus, verified: 2026-10-23, note: "covers Airbus Helicopters"}
+  - {name: Lufthansa Technik, sector: aerospace_mro, priority: 1, ats: none}
+  - {name: Safran, sector: aerospace_mro, priority: 1, ats: none}
+  - {name: Rolls-Royce, sector: aerospace_mro, priority: 1, ats: workday, tenant: rollsroyce, host: wd3, site: professional, verified: 2026-10-23}
+  - {name: GE Aerospace, sector: aerospace_mro, priority: 1, ats: workday, tenant: geaerospace, host: wd5, site: GE_ExternalSite, verified: 2026-10-23}
+  - {name: ST Engineering, sector: aerospace_mro, priority: 1, ats: none}
+  - {name: SIA Engineering Company, sector: aerospace_mro, priority: 1, ats: none, note: "Singapore Airlines Engineering"}
+  - {name: SR Technics, sector: aerospace_mro, priority: 2, ats: none}
+  - {name: MTU Maintenance, sector: aerospace_mro, priority: 2, ats: none}
+  # Robotics and automation
+  - {name: KUKA, sector: robotics, priority: 2, ats: none}
+  - {name: FANUC, sector: robotics, priority: 2, ats: none}
+  - {name: Universal Robots, sector: robotics, priority: 1, ats: none, note: "Teradyne Robotics"}
+  - {name: Teradyne Robotics, sector: robotics, priority: 2, ats: none, note: "Universal Robots and MiR"}
+  - {name: MiR, sector: robotics, priority: 2, ats: none}
+  - {name: Geek+, sector: robotics, priority: 1, ats: none}
+  - {name: Locus Robotics, sector: robotics, priority: 1, ats: greenhouse, token: locusrobotics, verified: 2026-10-23}
+  - {name: Exotec, sector: robotics, priority: 1, ats: none}
+  - {name: AutoStore, sector: robotics, priority: 1, ats: none}
+  - {name: Swisslog, sector: robotics, priority: 2, ats: none}
+  - {name: Dematic, sector: robotics, priority: 2, ats: none}
+  - {name: Boston Dynamics, sector: robotics, priority: 2, ats: workday, tenant: bostondynamics, host: wd1, site: Boston_Dynamics, verified: 2026-10-23}
+  - {name: Formic, sector: robotics, priority: 1, ats: greenhouse, token: formic, verified: 2026-10-23, note: "robots as a service"}
+  - {name: Agility Robotics, sector: robotics, priority: 2, ats: greenhouse, token: agilityrobotics, verified: 2026-10-23}
+  - {name: ANYbotics, sector: robotics, priority: 1, ats: lever, token: anybotics, verified: 2026-10-23, note: "inspection robots, Zurich"}
+  - {name: Dexterity, sector: robotics, priority: 2, ats: lever, token: dexterity, verified: 2026-10-23}
+  - {name: Standard Bots, sector: robotics, priority: 2, ats: ashby, token: standardbots, verified: 2026-10-23}
+  - {name: Sereact, sector: robotics, priority: 1, ats: ashby, token: sereact, verified: 2026-10-23, note: "warehouse AI robotics, Stuttgart"}
+  - {name: RobCo, sector: robotics, priority: 1, ats: ashby, token: robco, verified: 2026-10-23, note: "robotics as a service, Munich"}
+  - {name: Path Robotics, sector: robotics, priority: 2, ats: greenhouse, token: pathrobotics, verified: 2026-10-23}
+  - {name: Diligent Robotics, sector: robotics, priority: 3, ats: greenhouse, token: diligentrobotics, verified: 2026-10-23}
+  - {name: Outrider, sector: robotics, priority: 3, ats: greenhouse, token: outrider, verified: 2026-10-23}
+  - {name: Veo Robotics, sector: robotics, priority: 3, ats: lever, token: veo, verified: 2026-10-23}
+  - {name: OSARO, sector: robotics, priority: 3, ats: lever, token: osaro, verified: 2026-10-23}
+  - {name: Pickle Robot, sector: robotics, priority: 3, ats: lever, token: picklerobot, verified: 2026-10-23}
+  - {name: Ambi Robotics, sector: robotics, priority: 3, ats: lever, token: ambirobotics, verified: 2026-10-23}
+  - {name: GROPYUS, sector: industrial_tech, priority: 3, ats: greenhouse, token: gropyus, verified: 2026-10-23}
+  # Industrial logistics and operations
+  - {name: DHL Supply Chain, sector: logistics, priority: 1, ats: none}
+  - {name: Maersk, sector: logistics, priority: 1, ats: workday, tenant: maersk, host: wd3, site: Maersk_Careers, verified: 2026-10-23}
+  - {name: Amazon Robotics, sector: robotics, priority: 1, ats: none}
+  - {name: GXO Logistics, sector: logistics, priority: 2, ats: none}
+  - {name: DB Schenker, sector: logistics, priority: 2, ats: none}
+  - {name: Kuehne+Nagel, sector: logistics, priority: 2, ats: none}
 
   # MedTech and healthcare technology
   - {name: Siemens Healthineers, sector: medtech, priority: 1, ats: none, note: "Workday probe returned 401"}

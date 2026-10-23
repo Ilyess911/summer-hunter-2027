@@ -71,6 +71,10 @@ class Opportunity(Base):
     priority_score: Mapped[float | None] = mapped_column(Float)
     priority_tier: Mapped[str | None] = mapped_column(String(20))
     notify: Mapped[bool] = mapped_column(Boolean, default=False)
+    recruitability_score: Mapped[int | None] = mapped_column(Integer)
+    industrial_priority: Mapped[float | None] = mapped_column(Float)
+    career_track: Mapped[str | None] = mapped_column(String(30), index=True)       # business_tech | industry_robotics
+    career_category: Mapped[str | None] = mapped_column(String(60))
     evaluated_hash: Mapped[str | None] = mapped_column(String(64))
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sources: Mapped[list["SourceRecord"]] = relationship(back_populates="opportunity", cascade="all, delete-orphan")
@@ -152,6 +156,7 @@ class FitEvaluation(Base):
     report: Mapped[dict] = mapped_column(JSON)
     networking: Mapped[dict] = mapped_column(JSON)
     priority: Mapped[dict] = mapped_column(JSON)
+    recruitability: Mapped[dict | None] = mapped_column(JSON)
     content_hash: Mapped[str] = mapped_column(String(64))
     evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

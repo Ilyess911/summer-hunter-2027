@@ -117,12 +117,13 @@ class LinkedInSearchCollector(Collector):
     name = "linkedin_search"
 
     def __init__(self, provider: SearchProvider | None, post_queries: list[str], job_queries: list[str],
-                 max_queries: int = 15, per_query: int = 10) -> None:
+                 max_queries: int = 15, per_query: int = 10, planned: list[tuple[str, str]] | None = None) -> None:
         self.provider = provider
         self.post_queries = post_queries
         self.job_queries = job_queries
         self.max_queries = max_queries
         self.per_query = per_query
+        self.planned = planned            # (kind, phrase) from engine.discovery.plan: both career tracks
 
     async def collect(self, ctx: CollectContext):
         if self.provider is None:
@@ -130,8 +131,12 @@ class LinkedInSearchCollector(Collector):
         posts: dict[str, LinkedInPostInfo] = {}
         records: dict[str, RawOpportunity] = {}
         errors: list[str] = []
-        queries = [("post", f"site:linkedin.com/posts {q}") for q in self.post_queries] + \
-                  [("job", f"site:linkedin.com/jobs/view {q}") for q in self.job_queries]
+        prefix = {"post": "site:linkedin.com/posts", "job": "site:linkedin.com/jobs/view"}
+        if self.planned is not None:
+            queries = [(kind, f"{prefix[kind]} {q}") for kind, q in self.planned]
+        else:
+            queries = [("post", f"{prefix['post']} {q}") for q in self.post_queries] + \
+                      [("job", f"{prefix['job']} {q}") for q in self.job_queries]
         for kind, query in queries[: self.max_queries]:
             try:
                 results = await self.provider.search(ctx.http, query, self.per_query)

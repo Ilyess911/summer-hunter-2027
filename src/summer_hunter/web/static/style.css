@@ -119,7 +119,7 @@ main { padding: 8px 12px calc(40px + var(--safe-b)); display: grid; gap: 8px; }
 .d-company { color: var(--muted); font-size: 12.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; }
 #detail h2.d-title { margin: 4px 0 6px; font-size: 23px; line-height: 1.18; font-weight: 720; letter-spacing: -0.022em; }
 .d-place { color: var(--muted); font-size: 14px; }
-.d-metrics { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 18px; padding: 12px 0;
+.d-metrics { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 18px; padding: 12px 0;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .metric { text-align: center; }
 .metric + .metric { border-left: 1px solid var(--line); }

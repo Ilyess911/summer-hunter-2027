@@ -56,7 +56,10 @@ APPLICATION_COLUMNS = [
     ("Next Action Date", 13, "edit-date"), ("Interview Date", 17, "edit-datetime"), ("Recruiter Name", 20, "text"),
     ("Recruiter LinkedIn", 26, "url"), ("Job URL", 26, "url"), ("Application URL", 26, "url"), ("CV Version", 16, "text"),
     ("Cover Letter Version", 16, "text"), ("Salary / Compensation", 18, "text"), ("Internship Start Date", 13, "date"),
-    ("Internship End Date", 13, "date"), ("Notes", 44, "edit-note"), ("Row Version", 8, "int"),
+    ("Internship End Date", 13, "date"), ("Notes", 44, "edit-note"),
+    ("Career Category", 22, "text"), ("Recruitability Score", 12, "int"), ("Industrial Priority Score", 12, "int"),
+    ("Relevant Industrial Experience", 40, "text"), ("Missing Technical Requirements", 34, "text"),
+    ("Row Version", 8, "int"),
 ]
 CONTACT_COLUMNS = [
     ("Contact ID", 11, "text"), ("Company", 22, "text"), ("Contact Name", 22, "text"), ("Position", 26, "text"),
@@ -70,7 +73,8 @@ OPPORTUNITY_COLUMNS = [
     ("Career Fit Score", 11, "int"), ("Networking Score", 11, "int"), ("Eligibility Status", 18, "text"),
     ("Date Discovered", 13, "date"), ("Application Deadline", 13, "date"), ("Official Job URL", 28, "url"),
     ("LinkedIn Job URL", 28, "url"), ("LinkedIn Post URL", 28, "url"), ("Opportunity Status", 18, "text"),
-    ("Reason for Recommendation", 60, "text"),
+    ("Reason for Recommendation", 60, "text"), ("Career Category", 22, "text"), ("Recruitability Score", 12, "int"),
+    ("Industrial Priority Score", 12, "int"),
 ]
 EVENT_COLUMNS = [
     ("Timestamp", 17, "datetime"), ("Application ID", 14, "text"), ("Company", 22, "text"), ("Event Type", 22, "text"),
@@ -146,10 +150,17 @@ def _version_label(version: int | None, generated: datetime | None, tz: ZoneInfo
     return f"v{version}" + (f" · {when:%Y-%m-%d}" if when else "")
 
 
+def _recruit(repo: Repository, opp_id: int) -> dict[str, Any]:
+    fit = repo.latest_fit(opp_id)
+    return (fit.recruitability or {}) if fit else {}
+
+
 def application_rows(crm: CRM, tz: ZoneInfo) -> list[list[Any]]:
     rows = []
+    repo = Repository(crm.s)
     for a in crm.applications():
         o = a.opportunity
+        rec = _recruit(repo, o.id)
         rows.append([
             app_code(a.id), o.company_name, o.title, (o.job_family or "").replace("_", " ") or None,
             country_name(o.country_code) if o.country_code else None, o.city, o.fit_score, o.eligibility_status,
@@ -157,7 +168,10 @@ def application_rows(crm: CRM, tz: ZoneInfo) -> list[list[Any]]:
             a.date_applied, _local(a.updated_at, tz), a.next_action, a.next_action_date, _local(a.interview_at, tz),
             a.recruiter_name, a.recruiter_linkedin, o.official_url, o.apply_url or o.official_url,
             _version_label(a.cv_version, a.cv_generated_at, tz), _version_label(a.letter_version, a.letter_generated_at, tz),
-            a.compensation, a.internship_start, a.internship_end, a.notes, a.version,
+            a.compensation, a.internship_start, a.internship_end, a.notes,
+            o.career_category, o.recruitability_score, round(o.industrial_priority) if o.industrial_priority is not None else None,
+            "; ".join(rec.get("relevant_experience") or []) or None, ", ".join(rec.get("missing_requirements") or []) or None,
+            a.version,
         ])
     return rows
 
@@ -189,7 +203,8 @@ def opportunity_rows(crm: CRM, tz: ZoneInfo) -> list[list[Any]]:
         rows.append([o.id, o.company_name, o.title, country_name(o.country_code) if o.country_code else None, o.fit_score,
                      o.networking_score, o.eligibility_status,
                      _local(o.first_discovered_at, tz).date() if o.first_discovered_at else None, deadline,
-                     o.official_url, linkedin, o.linkedin_post_url, status, reasons])
+                     o.official_url, linkedin, o.linkedin_post_url, status, reasons, o.career_category,
+                     o.recruitability_score, round(o.industrial_priority) if o.industrial_priority is not None else None])
     return rows
 
 
@@ -359,7 +374,7 @@ def build_workbook(crm: CRM, tz_name: str, export_id: str | None = None) -> Work
     _status_formatting(apps, last)
     _validation(apps, "I", st.STATUSES, last, "Application status")
     _date_validation(apps, ["L", "O", "P"], last)
-    apps.column_dimensions["AA"].hidden = True
+    apps.column_dimensions[get_column_letter(len(APPLICATION_COLUMNS))].hidden = True   # Row Version
 
     net = wb.create_sheet("Networking")
     last_c = _sheet_table(net, "Networking", CONTACT_COLUMNS, contact_rows(crm), "D2")

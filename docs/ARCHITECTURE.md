@@ -28,13 +28,13 @@
 
 | Table | Contenu |
 | --- | --- |
-| `opportunities` | opportunité canonique, dates de découverte et de vérification, statuts, derniers scores |
+| `opportunities` | opportunité canonique, dates de découverte et de vérification, statuts, derniers scores (dont recruitability, priorité industrielle, piste et catégorie) |
 | `source_records` | une ligne par (source, id source), URL, marqueur, empreinte |
 | `companies` | entreprises, watchlist, priorité, secteur |
 | `recruiter_contacts` | nom, rôle, URL publique, post source, relation, confiance, preuve (≤ 400 caractères) |
 | `linkedin_posts` | URL du post, auteur, texte tronqué à 2 000 caractères, classe, confiance |
-| `eligibility_evaluations` | les 12 critères en JSON, décision, statut de sponsorship |
-| `fit_evaluations` | rapport de fit, networking, priorité |
+| `eligibility_evaluations` | les 13 critères en JSON, décision, statut de sponsorship |
+| `fit_evaluations` | rapport de fit, networking, priorité, recruitability |
 | `ai_analyses` | cache des analyses validées (empreinte, modèle, version de prompt) |
 | `user_feedback`, `preference_adjustments` | apprentissage explicite |
 | `applications` | ancienne table du bouton Applied, conservée ; migrée vers `crm_applications` (v2) |

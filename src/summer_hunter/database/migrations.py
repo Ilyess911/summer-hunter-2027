@@ -30,7 +30,15 @@ def make_engine(database_url: str) -> Engine:
 
 
 # Columns added after the first release: (table, column, SQL type). Applied idempotently.
-ADDED_COLUMNS = [("source_records", "closed_at", "DATETIME")]
+ADDED_COLUMNS = [
+    ("source_records", "closed_at", "DATETIME"),
+    # 23 Oct 2026: industry & robotics track
+    ("opportunities", "recruitability_score", "INTEGER"),
+    ("opportunities", "industrial_priority", "FLOAT"),
+    ("opportunities", "career_track", "VARCHAR(30)"),
+    ("opportunities", "career_category", "VARCHAR(60)"),
+    ("fit_evaluations", "recruitability", "JSON"),
+]
 
 
 def _add_missing_columns(engine: Engine) -> None:

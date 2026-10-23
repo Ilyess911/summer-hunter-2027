@@ -63,7 +63,7 @@ class Notifier:
         if ev is None or fit is None:
             return False
         text, buttons = formatter.card(opp, ev.criteria, fit.report, fit.networking, fit.priority, repo.contacts(opp.id),
-                                       repo.get_kv("webapp_url"))
+                                       repo.get_kv("webapp_url"), fit.recruitability)
         return self._send(repo, report, f"card:{opp.id}", "card", opp.id, text, buttons)
 
     def morning_digest(self, dry_run: bool = False, force: bool = False) -> DeliveryReport:

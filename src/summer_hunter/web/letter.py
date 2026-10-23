@@ -57,6 +57,9 @@ ROLE_EVIDENCE = {
     "product_marketing": ("medicalia", "vincia"), "go_to_market": ("nexya", "vincia"),
     "program_management": ("airbus", "medicalia"), "commercial_strategy": ("air_france", "amundi"),
     "strategy_consulting": ("air_france", "medicalia"),
+    "maintenance_reliability": ("air_france", "airbus"), "industrial_project_management": ("air_france", "airbus"),
+    "industrial_operations": ("airbus", "air_france"), "industrial_digital": ("air_france", "medicalia"),
+    "robotics_raas": ("air_france", "nexya"), "robotics_specialized": ("air_france", "medicalia"),
 }
 
 FILLER = ["passionate", "thrilled", "excited", "unique opportunity", "perfectly", "cutting-edge", "dynamic environment",

@@ -50,6 +50,7 @@ def summary(o: Opportunity) -> dict[str, Any]:
             "country_code": o.country_code, "location": o.location_text, "decision": o.eligibility_status,
             "fit": o.fit_score, "networking": o.networking_score, "priority": o.priority_score, "tier": o.priority_tier,
             "family": o.job_family, "user_status": o.user_status, "status": o.status,
+            "recruitability": o.recruitability_score, "track": o.career_track, "category": o.career_category,
             "discovered": as_utc(o.first_discovered_at).date().isoformat() if o.first_discovered_at else None}
 
 
@@ -140,6 +141,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
                 "criteria": ev.criteria if ev else [], "sponsorship": ev.sponsorship if ev else None,
                 "fit_report": fit.report if fit else None, "networking_report": fit.networking if fit else None,
                 "priority_report": fit.priority if fit else None,
+                "recruitability_report": fit.recruitability if fit else None,
                 "contacts": [{"name": c.name, "role": c.role, "relationship": c.relationship_type, "confidence": c.confidence,
                               "url": c.profile_url or c.source_post_url, "evidence": c.evidence} for c in repo.contacts(opp.id)],
                 "sources": [{"source": s.source, "url": s.url} for s in opp.sources],

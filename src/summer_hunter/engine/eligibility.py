@@ -28,7 +28,7 @@ from summer_hunter.models.eligibility import (
     SponsorshipStatus,
 )
 
-ENGINE_VERSION = "1"
+ENGINE_VERSION = "2"   # v2 (23 Oct 2026): technical_requirements criterion
 FAIL_CONFIDENCE_FLOOR = 0.7          # a FAIL below this confidence only triggers verification
 MIN_SCANNABLE_DESCRIPTION = 300      # characters needed before "no restriction found" counts
 
@@ -42,6 +42,7 @@ class EligibilityContext:
     advisories: dict[str, dict]           # ISO2 -> {"level", "source_url", "retrieved_at", "summary"}
     exclude_whole_country_advised_against: bool = True
     today: date | None = None
+    skills_lexicon: dict | None = None    # recruitability.skills: enables the technical_requirements criterion
 
 
 def _r(name: str, status: S, explanation: str, evidence: list[str] | None = None, confidence: float = 0.8,
@@ -381,6 +382,31 @@ def check_qualifications(facts: JobFacts, ctx: EligibilityContext, url: str | No
     return _r("qualifications", S.UNKNOWN, "Description too short to check mandatory qualifications.", [], 0.3, url)
 
 
+def check_technical_requirements(facts: JobFacts, ctx: EligibilityContext, url: str | None) -> CriterionResult:
+    """Fail only on mandatory specialized expertise the profile lacks; a tool merely mentioned never fails."""
+    if not ctx.skills_lexicon:
+        return _r("technical_requirements", S.NOT_APPLICABLE, "Technical requirement check not configured.", [], 0.5, url, material=False)
+    from summer_hunter.engine import requirements as reqs
+
+    found = reqs.extract(facts.text, ctx.skills_lexicon, ctx.profile.verified_skills)
+    gaps = reqs.blocking(found)
+    if gaps:
+        names = ", ".join(r.name for r in gaps)
+        core = [r for r in gaps if r.core]
+        if core:
+            return _r("technical_requirements", S.FAIL, f"Mandatory specialized expertise not in the verified profile: {names}.",
+                      [r.evidence for r in core], 0.8, url)
+        return _r("technical_requirements", S.FAIL, f"Listed as required, not in the verified profile: {names} (check how central it is).",
+                  [r.evidence for r in gaps], 0.6, url)
+    soft = [r for r in found if r.advanced and not r.verified]
+    if soft:
+        return _r("technical_requirements", S.PASS, "Specialized tools mentioned only as a plus or as exposure: "
+                  + ", ".join(f"{r.name} ({r.level})" for r in soft[:3]) + ".", [r.evidence for r in soft], 0.6, url)
+    if _scannable(facts):
+        return _r("technical_requirements", S.PASS, "No mandatory specialized engineering requirement conflicts with the profile.", [], 0.6, url)
+    return _r("technical_requirements", S.UNKNOWN, "Description too short to check technical requirements.", [], 0.3, url, material=False)
+
+
 def check_compensation(facts: JobFacts, ctx: EligibilityContext, url: str | None) -> CriterionResult:
     if facts.compensation == "unpaid":
         if ctx.profile.allow_unpaid:
@@ -409,6 +435,7 @@ def evaluate(facts: JobFacts, loc: LocationResolution, ctx: EligibilityContext, 
         check_citizenship(facts, ctx, source_url),
         work_auth,
         check_qualifications(facts, ctx, source_url),
+        check_technical_requirements(facts, ctx, source_url),
         check_compensation(facts, ctx, source_url),
     ]
     return aggregate(criteria, sponsorship)

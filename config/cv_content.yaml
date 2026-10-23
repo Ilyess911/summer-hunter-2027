@@ -26,6 +26,12 @@ headlines:
   ai_solutions: "AI SOLUTIONS | CUSTOMER GROWTH | TECHNOLOGY"
   commercial_strategy: "COMMERCIAL STRATEGY | DATA | TECHNOLOGY"
   strategy_consulting: "STRATEGY | DATA | TECHNOLOGY"
+  maintenance_reliability: "MAINTENANCE ENGINEERING | INDUSTRIAL DATA | PROCESS IMPROVEMENT"
+  industrial_project_management: "INDUSTRIAL PROJECTS | OPERATIONS | PROCESS IMPROVEMENT"
+  industrial_operations: "INDUSTRIAL OPERATIONS | CONTINUOUS IMPROVEMENT | DATA"
+  industrial_digital: "INDUSTRY 4.0 | AUTOMATION | DATA"
+  robotics_raas: "ROBOTICS DEPLOYMENT | OPERATIONS | CUSTOMER DELIVERY"
+  robotics_specialized: "ROBOTICS | INDUSTRIAL ENGINEERING | AUTOMATION"
 
 summary: >-
   Final-year engineering student at ESILV and engineering apprentice at Air France Industries,

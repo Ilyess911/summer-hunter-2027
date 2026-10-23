@@ -72,3 +72,11 @@ Explications stockées : trois raisons, deux faiblesses, expériences pertinente
 | Raison « rôle », « entreprise », « pays » | −3 sur la dimension |
 
 Bornes −15 / +10, recalcul complet à chaque feedback, visibles dans `/settings` et `preferences show`, effacées par `preferences reset`.
+
+
+## Piste Industrie & Robotique (23 oct. 2026)
+
+Familles maintenance, projets industriels, robotique / RaaS, opérations, industrie 4.0, score de
+recruitability et priorité industrielle (40 % recruitability, 35 % fit, 25 % networking) :
+voir [INDUSTRY_TRACK.md](INDUSTRY_TRACK.md). Treizième critère d'éligibilité :
+`technical_requirements`.

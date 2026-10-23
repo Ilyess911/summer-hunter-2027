@@ -14,10 +14,14 @@ const STATUS = { saved: "Sauvé", applied: "Postulé", dismissed: "Écarté" };
 const FAMILY = { technical_sales: "Vente technique", enterprise_sales: "Vente grands comptes", product_marketing: "Product marketing",
   go_to_market: "Go-to-market", sales_development: "Prospection", sales_general: "Vente", product_management: "Produit",
   ai_solutions: "Solutions IA", program_management: "Programme", commercial_strategy: "Stratégie commerciale",
-  strategy_consulting: "Stratégie", marketing_general: "Marketing", data_analytics: "Data" };
+  strategy_consulting: "Stratégie", marketing_general: "Marketing", data_analytics: "Data",
+  maintenance_reliability: "Maintenance", industrial_project_management: "Projets industriels", robotics_raas: "Robotique / RaaS",
+  robotics_specialized: "Robotique (ingénierie)", industrial_operations: "Opérations industrielles",
+  industrial_digital: "Industrie 4.0" };
 const CRIT = { internship_status: "Type de contrat", dates: "Dates", duration: "Durée", country: "Pays", safety: "Sécurité",
   language: "Langues", academic: "Diplôme", graduation: "Date de diplôme", citizenship: "Nationalité",
-  work_authorization: "Autorisation de travail", qualifications: "Qualifications", compensation: "Rémunération" };
+  work_authorization: "Autorisation de travail", qualifications: "Qualifications", compensation: "Rémunération",
+  technical_requirements: "Exigences techniques" };
 const COMP = { career_alignment: "Alignement carrière", experience_relevance: "Expérience", mission_quality: "Mission",
   skill_development: "Compétences", long_term_value: "Valeur long terme" };
 const REASON = { cold: "Trop de cold calling", role: "Ce type de poste", company: "Cette entreprise", country: "Ce pays", other: "Autre raison" };
@@ -130,6 +134,7 @@ async function openDetail(id) {
     </div>
     <div class="d-metrics">
       <div class="metric"><b>${o.fit ?? "–"}</b><span>Fit carrière</span></div>
+      <div class="metric"><b>${o.recruitability ?? "–"}</b><span>Recrutabilité</span></div>
       <div class="metric"><b>${o.networking ?? "–"}</b><span>Networking</span></div>
       <div class="metric"><b>${o.priority == null ? "–" : Math.round(o.priority)}</b><span>Priorité</span></div>
     </div>
@@ -148,6 +153,8 @@ async function openDetail(id) {
       <button class="primary ghost press" data-act="apply">Postuler sur le site</button>
     </div>
     ${block("Pourquoi ça colle", list(fit.reasons))}
+    ${o.recruitability_report ? block("Recrutabilité (correspondance avec ton expérience, pas une probabilité)",
+        list([...(o.recruitability_report.reasons || []), ...(o.recruitability_report.missing_requirements || []).map((m) => `À combler : ${m}`)])) : ""}
     ${block("Points à vérifier", list(open.map((c) => `${CRIT[c.criterion] || c.criterion} : ${c.explanation}`).slice(0, 5)))}
     ${block("Contact", contacts ? `<ul>${contacts}</ul>` : `<div class="x">${esc(net.rationale || "Aucun contact vérifié.")}</div>`)}
     ${o.linkedin_post_url ? block("Post LinkedIn", `<a href="#" data-link="${esc(o.linkedin_post_url)}">Ouvrir le post</a>`) : ""}

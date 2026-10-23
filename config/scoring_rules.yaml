@@ -10,26 +10,155 @@ weights:
 # Job families, matched against the title in order (first match wins).
 # alignment is the base career-alignment score of the family.
 job_families:
+  # Explicit business intent is matched first, in its original relative order, so "Maintenance Sales" or
+  # "Product Project Manager" keep their business family.
   - {id: technical_sales, tier: 1, alignment: 96, patterns: ['sales engineer', 'solutions? engineer', 'solutions? consultant', 'technical sales', 'pre-?sales', 'customer engineer', 'solutions? architect intern', 'value engineer']}
   - {id: enterprise_sales, tier: 1, alignment: 92, patterns: ['enterprise sales', 'account executive', 'enterprise account', 'strategic account', 'key account', 'technical business development']}
-  - {id: software_engineering, tier: 0, alignment: 8, patterns: ['software engineer', 'infrastructure engineer', 'reliability engineer', 'data engineer', 'ml engineer', 'machine learning engineer', 'developer', '\bswe\b', 'backend', 'frontend', 'full[- ]stack']}
+  - {id: robotics_specialized, tier: 0, alignment: 30, track: industry_robotics, category: Robotics (specialized engineering),
+     patterns: ['robotics (software|research|perception|controls?|hardware)', 'robotics engineer\b', '\brobot(ic)? perception', 'perception (algorithms?|stack|systems?|engineer)', '\bslam\b', '\bros ?2?\b', 'motion planning', 'computer vision', 'controls? engineer']}
+  - {id: software_engineering, tier: 0, alignment: 8, patterns: ['software engineer', 'infrastructure engineer', 'site reliability', '(integration|software|platform|service) reliability', 'data engineer', 'ml engineer', 'machine learning engineer', 'developer', '\bswe\b', 'backend', 'frontend', 'full[- ]stack']}
   - {id: product_marketing, tier: 2, alignment: 88, patterns: ['product marketing', '\bapmm\b', 'associate product marketing']}
   - {id: go_to_market, tier: 2, alignment: 87, patterns: ['go-?to-?market', '\bgtm\b', 'product strategy', 'strategic partnerships?', 'partnerships?', 'alliances', 'business development', 'commercial excellence']}
   - {id: sales_development, tier: 2, alignment: 50, patterns: ['sales development', '\bsdr\b', '\bbdr\b', 'inside sales', 'lead generation']}
   - {id: sales_general, tier: 2, alignment: 72, patterns: ['\bsales\b']}
-  - {id: product_management, tier: 3, alignment: 80, patterns: ['product manag', '\bapm\b', 'associate product manager', 'ai product', 'product owner']}
+  - {id: product_management, tier: 3, alignment: 80, patterns: ['product manag', '\bapm\b', 'associate product manager', 'ai product', 'product owner', 'product project manag']}
+  - {id: marketing_general, tier: 0, alignment: 40, patterns: ['account manag']}
+  # --- Track B: industry & robotics (added 23 Oct 2026). Listed first so "engineer" or "operations"
+  # in these titles is not caught by the business or out-of-scope families below.
+  - {id: design_engineering, tier: 0, alignment: 15, category: Other,
+     patterns: ['industrial design', 'product design', 'mechanical design', 'hardware design', 'design engineer', 'cad designer']}
+  - {id: robotics_raas, tier: 1, alignment: 92, track: industry_robotics, category: Robotics,
+     patterns: ['robotics? (operations|deployment|implementation|integration|customer|solutions?|service|fleet|program|project|business|field|technical sales|sales|commercial|application)',
+                'robotics as a service', '\braas\b', 'robot deployment', 'automation solutions?', 'autonomous mobile robot', '\bamrs?\b',
+                'warehouse automation', 'logistics automation']}
+  - {id: maintenance_reliability, tier: 1, alignment: 94, track: industry_robotics, category: Maintenance,
+     patterns: ['maintenance', '(?<!site )(?<!integration )(?<!software )(?<!platform )(?<!database )(?<!data )(?<!service )reliability (engineer|engineering|intern)', 'asset (integrity|reliability|performance|management engineer)',
+                '\bmro\b', 'fleet (maintenance|technical)', 'technical services?', 'aftermarket', 'field service', 'airworthiness', 'continuing airworthiness']}
+  - {id: industrial_project_management, tier: 1, alignment: 93, track: industry_robotics, category: Industrial Project Management,
+     patterns: ['industrial project', 'engineering project', 'technical project', 'project coordinat', 'manufacturing project', 'operations project',
+                'industrial program', 'engineering program manag', 'project engineer', 'industriali[sz]ation', 'technical operations',
+                'project manag', '\bpmo\b', 'npi project', 'new product introduction']}
+  - {id: industrial_digital, tier: 2, alignment: 88, track: industry_robotics, category: Industrial Digitalization,
+     patterns: ['industry 4\.?0', 'smart (manufacturing|factory|factories)', 'industrial (digital|ai|iot|automation|innovation|analytics|data)',
+                'digitali[sz]ation', 'manufacturing (analytics|digital|data)', '\biiot\b', 'digital (operations|manufacturing|factory|twin)',
+                'automation project', 'operational technology', 'predictive maintenance analytics']}
+  - {id: industrial_operations, tier: 2, alignment: 87, track: industry_robotics, category: Industrial Operations,
+     patterns: ['operations? excellence', 'operational excellence', 'continuous improvement', '\blean\b', 'six sigma',
+                'manufacturing (operations|engineering|strategy|intern)', 'industrial (operations|performance|engineering)', 'process (improvement|engineer|excellence)',
+                'production (planning|engineer|operations)', 'supply chain (project|operations|engineer|planning|analyst)',
+                'plant (operations|engineer)', 'industrial data analyst']}
+  # --- Track A: business & technology.
   - {id: ai_solutions, tier: 3, alignment: 80, patterns: ['ai solutions?', 'ai deployment', 'forward deployed', 'deployment strateg', 'ai strategy']}
   - {id: program_management, tier: 3, alignment: 74, patterns: ['technical program manag', '\btpm\b', 'program manag']}
   - {id: commercial_strategy, tier: 3, alignment: 76, patterns: ['commercial strategy', 'sales strategy', 'revenue operations', '\brevops\b', 'sales operations', 'business operations', 'bizops', 'strategy & operations', 'strategy and operations']}
   - {id: strategy_consulting, tier: 4, alignment: 62, patterns: ['strategy analyst', 'business analyst', 'digital transformation', 'technology consult', 'consulting', 'innovation', 'corporate strategy', 'strategy intern', 'strategy']}
   - {id: marketing_general, tier: 0, alignment: 40, patterns: ['marketing', 'growth', 'customer success', 'account manag']}
+  # Track B catch-alls, after the business families so "Manufacturing Sales Intern" stays a sales role.
+  - {id: robotics_raas, tier: 1, alignment: 88, track: industry_robotics, category: Robotics, patterns: ['robotics', '\brobots?\b']}
+  - {id: industrial_operations, tier: 2, alignment: 82, track: industry_robotics, category: Industrial Operations,
+     patterns: ['industrial', 'manufacturing', 'supply chain', 'logistics', 'operations engineer']}
   - {id: data_analytics, tier: 0, alignment: 30, patterns: ['data analy', 'analytics', 'data science', 'data scien']}
   - {id: out_of_scope, tier: 0, alignment: 8, patterns: ['software', 'developer', '\bswe\b', 'engineer', 'research', 'scientist', '\brtl\b', 'asic', '\bdft\b', 'hardware', 'firmware', 'verification', 'design', 'finance', 'accounting', 'legal', 'recruit', 'talent', '\bhr\b', 'people', 'tax', 'audit', 'security', 'mechanical', 'electrical']}
 
 default_family: {id: unclassified, tier: 0, alignment: 35}
 
+# Two parallel career tracks. Families without `track` belong to business_tech.
+# category: label shown in Telegram, the Mini App and the CRM (families without one use these).
+tracks:
+  business_tech:
+    label: BUSINESS & TECHNOLOGY
+    categories: {technical_sales: Technical Sales, enterprise_sales: Technical Sales, sales_general: Technical Sales,
+                 sales_development: Business Development, go_to_market: Business Development,
+                 product_marketing: Product Marketing, product_management: Product Management, ai_solutions: Product Management,
+                 program_management: Product Management, commercial_strategy: Business Development,
+                 strategy_consulting: Strategy, marketing_general: Other, data_analytics: Other,
+                 software_engineering: Other, out_of_scope: Other, unclassified: Other}
+  industry_robotics:
+    label: INDUSTRY & ROBOTICS
+
+# Track-specific "career positive" signals (replace career_positive_signals for that track).
+track_signals:
+  industry_robotics:
+    points_each: 3
+    max_points: 12
+    keywords: [project coordination, industrial planning, cross-functional, performance monitoring, process improvement,
+               stakeholder management, project reporting, budget monitoring, deployment, technical documentation,
+               preventive maintenance, predictive maintenance, maintenance planning, reliability, kpi, cmms, gmao,
+               equipment lifecycle, lean, continuous improvement, cost reduction, production planning, customer onboarding,
+               implementation, fleet performance, service delivery, requirements analysis, digitalization, dashboards,
+               decision support, automation]
+
+# Recruitability: how closely the verified profile matches the actual requirements (0-100).
+# It is NOT a probability of being hired. Weights are editable.
+recruitability:
+  weights: {direct_experience: 0.30, technical_skills: 0.25, academic: 0.20, transferable: 0.15, industry: 0.10}
+  # Which verified experiences are direct evidence for which families (rule, not a profile fact).
+  experience_families:
+    air_france_industries: [maintenance_reliability, industrial_project_management, industrial_digital, industrial_operations,
+                            robotics_raas, program_management, ai_solutions, commercial_strategy, technical_sales]
+    airbus_helicopters: [industrial_operations, industrial_project_management, maintenance_reliability, robotics_raas]
+    nexya_agency: [technical_sales, enterprise_sales, sales_general, sales_development, go_to_market, robotics_raas, ai_solutions]
+    amundi: [commercial_strategy, strategy_consulting]
+  direct_family_bonus: 30
+  points_per_professional_hit: 8
+  points_per_transferable_hit: 9
+  # Skills a posting may ask for. aliases: regexes; verified when the profile lists the skill (or an alias).
+  # advanced: specialized engineering expertise the profile does not claim (see AVOID list in docs/INDUSTRY_TRACK.md).
+  skills:
+    python: {aliases: ['\bpython\b']}
+    power query / power bi: {aliases: ['power query', 'power bi']}
+    excel: {aliases: ['\bexcel\b']}
+    data analysis: {aliases: ['data analy\w*', 'analy[sz]e data', 'industrial data']}
+    kpi monitoring: {aliases: ['\bkpis?\b', 'performance indicators?', 'performance monitoring']}
+    process improvement: {aliases: ['process improvement', 'process optimi[sz]ation', 'continuous improvement']}
+    lean / 5s: {aliases: ['\blean\b', '\b5s\b', 'kaizen']}
+    project management: {aliases: ['project management', 'project coordination', 'project planning']}
+    stakeholder communication: {aliases: ['stakeholder', 'cross-functional']}
+    automation: {aliases: ['process automation', 'workflow automation']}
+    maintenance data / optimization: {aliases: ['maintenance data', 'maintenance kpis?', 'maintenance (process )?optimi[sz]ation', 'maintenance performance']}
+    maintenance planning: {aliases: ['maintenance planning', 'preventive maintenance', 'maintenance scheduling']}
+    inventory management: {aliases: ['inventory management', 'stock management']}
+    six sigma: {aliases: ['six sigma', 'green belt', 'black belt']}
+    sql: {aliases: ['\bsql\b']}
+    cmms / gmao: {aliases: ['\bcmms\b', '\bgmao\b', 'sap pm\b', '\bmaximo\b']}
+    sap: {aliases: ['\bsap\b']}
+    matlab: {aliases: ['\bmatlab\b']}
+    plc programming: {aliases: ['\bplcs?\b', 'siemens tia', 'ladder logic'], advanced: true}
+    cad design: {aliases: ['\bcad\b', 'solidworks', '\bcatia\b', '\bcreo\b', 'siemens nx'], advanced: true}
+    finite element analysis: {aliases: ['finite element', '\bfea\b', '\bansys\b', 'abaqus'], advanced: true}
+    computational fluid dynamics: {aliases: ['\bcfd\b', 'computational fluid'], advanced: true}
+    embedded systems: {aliases: ['embedded (systems?|software|c)', 'firmware', 'microcontroller'], advanced: true}
+    control theory: {aliases: ['control theory', 'control systems? design', 'mpc\b', 'model predictive control'], advanced: true}
+    ros / ros2: {aliases: ['\bros ?2?\b'], advanced: true}
+    slam: {aliases: ['\bslam\b', 'localization and mapping'], advanced: true}
+    computer vision: {aliases: ['computer vision', 'opencv', 'perception (algorithms?|stack|pipeline|systems?)', 'robot perception'], advanced: true}
+    c++: {aliases: ['c\+\+'], advanced: true}
+    electronics design: {aliases: ['pcb design', 'circuit design', 'electronics design', 'analog design'], advanced: true}
+    semiconductor process engineering: {aliases: ['semiconductor (device|physics|process|fabrication|manufacturing process)', 'wafer (fab|processing)', 'lithography', 'cleanroom process'], advanced: true}
+  level_weights: {mandatory: 3.0, preferred: 1.5, exposure: 0.5}
+  unknown_technical_score: 60          # posting names no recognizable skill: neutral, flagged as unknown
+  advanced_mandatory_penalty: 15       # per advanced skill that is mandatory and not verified (on the total)
+  advanced_mandatory_cap: 35           # two or more such gaps cap the score here
+  academic:
+    base: 60                           # final-year engineering master's student
+    field_match_points: 25
+    field_keywords: [engineering, industrial, mechanical, robotics, automation, maintenance, manufacturing, mechatronics, aerospace, operations]
+    maintenance_degree_points: 10      # BUT Genie Industriel et Maintenance
+    phd_required_penalty: 40
+    unrelated_field_penalty: 20
+    unrelated_fields: [computer science, software engineering, electrical engineering, finance, accounting, law, chemistry, biology]
+  industry:
+    default: 40
+    sectors: {90: [aerospace, aviation, aircraft, mro, airline, helicopter], 75: [manufacturing, industrial, logistics, supply chain, warehouse, plant, factory, maintenance],
+              65: [robotics, automation, autonomous, iot, industry 4.0]}
+
+# Ranking used for the industry & robotics track (only for opportunities not rejected).
+industrial_priority:
+  enabled: true                        # rank and notify track-B opportunities with this score
+  weights: {recruitability: 0.40, career_fit: 0.35, networking: 0.25}
+
 # Families not even fetched in detail at collection time (saves requests; editable).
-skip_families_at_collection: [software_engineering, out_of_scope]
+skip_families_at_collection: [software_engineering, out_of_scope, design_engineering]
 
 # Families outside the target path (tier 0) cannot score above base + alignment / 2,
 # so a generic engineering internship is never pushed by keyword overlap alone.

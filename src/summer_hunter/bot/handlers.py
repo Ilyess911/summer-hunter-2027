@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from summer_hunter.bot.crm_handlers import COMMANDS as CRM_COMMANDS
 from summer_hunter.bot.crm_handlers import HELP as CRM_HELP
 from summer_hunter.bot.crm_handlers import CRMBot
-
 from summer_hunter.database.models import utcnow
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine.ai_analysis import Analyzer, draft_networking_message
@@ -39,7 +38,19 @@ COMMANDS = [
     ("rejected", "Recently rejected and why"),
     ("status", "Last runs and source health"),
     ("settings", "Current non-secret configuration"),
+    ("industry", "Industry & robotics track: best open opportunities"),
+    ("maintenance", "Maintenance & reliability internships"),
+    ("robotics", "Robotics & RaaS internships"),
+    ("industrial_projects", "Industrial project management internships"),
+    ("high_recruitability", "Best match with your verified experience"),
 ]
+TRACK_FILTERS = {   # command -> (title, predicate on an opportunity)
+    "industry": ("Industry & robotics track", lambda o: o.career_track == "industry_robotics"),
+    "maintenance": ("Maintenance & reliability", lambda o: o.job_family == "maintenance_reliability"),
+    "robotics": ("Robotics & RaaS", lambda o: o.job_family in {"robotics_raas", "robotics_specialized"}),
+    "industrial_projects": ("Industrial project management", lambda o: o.job_family == "industrial_project_management"),
+}
+HIGH_RECRUITABILITY = 75
 
 COMMANDS += CRM_COMMANDS
 
@@ -207,6 +218,19 @@ class Bot:
                 health = [f"{'✅' if (h.consecutive_failures or 0) == 0 else '⚠️'} {h.source}: {h.last_status}, {h.last_item_count} items"
                           + (f", {h.consecutive_failures} failures" if h.consecutive_failures else "") for h in repo.health()]
                 self.send("<b>Status</b>\n" + escape(run_line) + "\n" + escape("\n".join(health[:30]) or "No source health yet."))
+            elif cmd in TRACK_FILTERS or cmd == "high_recruitability":
+                pool = repo.top(500)
+                if cmd == "high_recruitability":
+                    title = f"Recruitability ≥ {HIGH_RECRUITABILITY} (match with verified experience, not a probability)"
+                    rows = sorted((o for o in pool if (o.recruitability_score or 0) >= HIGH_RECRUITABILITY),
+                                  key=lambda o: -(o.recruitability_score or 0))
+                else:
+                    title, keep = TRACK_FILTERS[cmd]
+                    rows = [o for o in pool if keep(o)]
+                lines = [_line(o) + f" · recruit {o.recruitability_score if o.recruitability_score is not None else '-'}"
+                         for o in rows[:20]]
+                self.send(f"<b>{escape(title)}</b>\n" + ("\n".join(lines) or "Nothing open right now.")
+                          + (f"\n… +{len(rows) - 20}" if len(rows) > 20 else ""))
             elif cmd == "settings":
                 summary = self.settings.public_summary()
                 prefs = repo.preference_adjustments()
@@ -260,7 +284,8 @@ class Bot:
                 ev, fit = repo.latest_eligibility(opp.id), repo.latest_fit(opp.id)
                 self.telegram.answer_callback(cq["id"])
                 if ev and fit:
-                    self.send(formatter.explain(opp, ev.criteria, fit.report, fit.networking, fit.priority, ev.sponsorship))
+                    self.send(formatter.explain(opp, ev.criteria, fit.report, fit.networking, fit.priority, ev.sponsorship,
+                                                fit.recruitability))
             elif action == "cv":
                 self.telegram.answer_callback(cq["id"], "CV en préparation…")
                 from summer_hunter.web.cv import build_cv

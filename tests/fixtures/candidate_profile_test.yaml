@@ -119,6 +119,15 @@ skills:
     - ai product prototyping
     - industrial engineering
     - robotics
+    - maintenance data analysis
+    - maintenance process optimization
+    - kpi monitoring
+    - industrial logistics
+    - inventory management
+    - 5s
+    - technical project management
+    - project coordination
+    - excel
   # Explicitly NOT claimed (the integrity guard refuses them in drafts):
   never_claim: [sales quota, closed deals, revenue generated, certifications, additional languages]
 

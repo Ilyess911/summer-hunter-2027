@@ -19,17 +19,34 @@ from summer_hunter.collectors.lever import LeverCollector
 from summer_hunter.collectors.linkedin_alerts import LinkedInAlertsCollector
 from summer_hunter.collectors.linkedin_public import LinkedInSearchCollector, opportunity_from_post, refine_post
 from summer_hunter.collectors.workday import WorkdayCollector
-from summer_hunter.database.models import CollectionRun, EligibilityEvaluation, FitEvaluation, LinkedInPost, Opportunity, SourceRecord, utcnow
+from summer_hunter.database.models import (
+    CollectionRun,
+    EligibilityEvaluation,
+    FitEvaluation,
+    LinkedInPost,
+    Opportunity,
+    SourceRecord,
+    utcnow,
+)
 from summer_hunter.database.repository import Repository, as_utc
 from summer_hunter.engine import eligibility as elig
+from summer_hunter.engine import recruitability
 from summer_hunter.engine.ai_analysis import Analyzer, blend_fit, enrich_facts
 from summer_hunter.engine.deduplication import find_match, make_key
+from summer_hunter.engine.discovery import plan as discovery_plan
 from summer_hunter.engine.extraction import extract_facts
 from summer_hunter.engine.feedback import adjustments_for
 from summer_hunter.engine.geo import LocationResolution, resolve_location
 from summer_hunter.engine.networking import contacts_from_vacancy
-from summer_hunter.engine.normalization import TitleRules, normalize_company, normalize_title
-from summer_hunter.engine.scoring import ScoringContext, score_fit, score_networking, score_priority
+from summer_hunter.engine.normalization import INDUSTRY_ROBOTICS, TitleRules, normalize_company, normalize_title
+from summer_hunter.engine.scoring import (
+    ScoringContext,
+    industrial_priority,
+    rank_with,
+    score_fit,
+    score_networking,
+    score_priority,
+)
 from summer_hunter.integrations.anthropic_client import LLMProvider, NullProvider, build_provider
 from summer_hunter.integrations.search_providers import BraveSearch, GoogleCSE
 from summer_hunter.models.candidate import CandidateProfile
@@ -111,8 +128,10 @@ class Hunter:
         provider = BraveSearch(s.brave_api_key) if s.brave_api_key else \
             GoogleCSE(s.google_cse_api_key, s.google_cse_cx) if s.google_cse_api_key and s.google_cse_cx else None
         disc = s.preferences.get("discovery", {})
+        rotation = int(datetime.now(timezone.utc).timestamp() // 3600)   # new slice of each track's phrases every hour
         out.append(LinkedInSearchCollector(provider, disc.get("post_queries", []), disc.get("job_queries", []),
-                                           int(disc.get("max_queries_per_run", 15)), int(disc.get("results_per_query", 10))))
+                                           int(disc.get("max_queries_per_run", 15)), int(disc.get("results_per_query", 10)),
+                                           planned=discovery_plan(disc, rotation)))
         if only:
             out = [c for c in out if c.name in only or c.name.split(":")[0] in only]
         return out
@@ -321,7 +340,8 @@ class Hunter:
     def _elig_ctx(self, repo: Repository) -> elig.EligibilityContext:
         return elig.EligibilityContext(profile=self.profile, excluded_countries=self.excluded, safety_excluded=self.safety_excluded,
                                        override_allow=self.override_allow, advisories=repo.advisories(),
-                                       exclude_whole_country_advised_against=self.exclude_whole_country)
+                                       exclude_whole_country_advised_against=self.exclude_whole_country,
+                                       skills_lexicon=self.settings.scoring.get("recruitability", {}).get("skills"))
 
     def evaluate(self, repo: Repository, opp: Opportunity, analyzer: Analyzer | None, stats: CycleStats,
                  ctx: elig.EligibilityContext | None = None, prefs: list | None = None) -> None:
@@ -367,13 +387,17 @@ class Hunter:
                      "profile_url": c.profile_url or c.source_post_url} for c in repo.contacts(opp.id)]
         networking = score_networking(contacts, rules)
         priority = score_priority(fit, report, networking, rules, watch.get("priority"))
+        recruit = recruitability.score(opp.title, opp.description_text or "", family, self.profile, rules)
+        industrial = industrial_priority(fit.score, recruit.score, networking.score, report.decision, rules)
+        if industrial is not None and family.track == INDUSTRY_ROBOTICS and rules.get("industrial_priority", {}).get("enabled"):
+            priority = rank_with(priority, industrial, rules, "industrial priority (40% recruitability, 35% fit, 25% networking)")
 
         repo.add(EligibilityEvaluation(opportunity_id=opp.id, decision=report.decision.value, sponsorship=report.sponsorship.value,
                                        criteria=[c.model_dump(mode="json") for c in report.criteria], content_hash=opp.content_hash,
                                        engine_version=report.engine_version))
         repo.add(FitEvaluation(opportunity_id=opp.id, score=fit.score, method=fit.method, report=fit.model_dump(mode="json"),
                                networking=networking.model_dump(mode="json"), priority=priority.model_dump(mode="json"),
-                               content_hash=opp.content_hash))
+                               recruitability=recruit.model_dump(mode="json"), content_hash=opp.content_hash))
         opp.job_family, opp.family_tier = family.id, family.tier
         opp.eligibility_status = report.decision.value
         opp.fit_score = fit.score
@@ -381,6 +405,8 @@ class Hunter:
         opp.priority_score = priority.priority_score
         opp.priority_tier = priority.tier
         opp.notify = priority.notify
+        opp.recruitability_score, opp.industrial_priority = recruit.score, industrial
+        opp.career_track, opp.career_category = family.track, family.category
         opp.evaluated_hash = opp.content_hash
         opp.evaluated_at = utcnow()
         stats.evaluated += 1

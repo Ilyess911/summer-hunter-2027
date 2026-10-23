@@ -47,6 +47,7 @@ class CandidateProfile(BaseModel):
     school: str
     school_country: str
     degree_program: str
+    previous_degrees: list[str] = Field(default_factory=list)
     graduation_year: int
     graduation_month: int | None
     current_study_year: str | None
@@ -91,6 +92,7 @@ class CandidateProfile(BaseModel):
             school=ident.get("school", UNKNOWN),
             school_country=ident.get("school_country", UNKNOWN),
             degree_program=ident.get("degree_program", UNKNOWN),
+            previous_degrees=list(ident.get("previous_degrees") or []),
             graduation_year=int(ident["expected_graduation_year"]),
             graduation_month=maybe_int(ident.get("expected_graduation_month")),
             current_study_year=None if study_year in (None, UNKNOWN) else str(study_year),

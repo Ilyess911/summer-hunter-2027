@@ -105,7 +105,9 @@ class Repository:
     def opportunities_needing_evaluation(self, force: bool = False) -> list[Opportunity]:
         stmt = select(Opportunity).where(Opportunity.status == "active")
         if not force:
-            stmt = stmt.where((Opportunity.evaluated_hash.is_(None)) | (Opportunity.evaluated_hash != Opportunity.content_hash))
+            # career_track is NULL for records scored before the industry track existed: score them once more.
+            stmt = stmt.where((Opportunity.evaluated_hash.is_(None)) | (Opportunity.evaluated_hash != Opportunity.content_hash)
+                              | Opportunity.career_track.is_(None))
         return list(self.s.execute(stmt).scalars())
 
     def all_active(self) -> list[Opportunity]:

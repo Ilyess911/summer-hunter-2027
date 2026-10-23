@@ -55,23 +55,60 @@ excluded_title_patterns:
   - '\bmanager, \b'   # people-manager titles such as "Manager, Sales Engineering"
 
 # Search phrases used by search-API discovery (LinkedIn public posts and jobs).
+# Two parallel tracks. `allocation` splits the per-run query budget between them; queries rotate
+# from one run to the next so every phrase is used over time. Allocation shares effort only:
+# scores are never adjusted to balance the number of recommendations.
 discovery:
-  post_queries:
-    - '"summer 2027" intern hiring "solutions engineer"'
-    - '"summer 2027" internship "product marketing"'
-    - '"2027" internship "sales engineer" hiring'
-    - '"my team is hiring" intern 2027'
-    - '"we''re hiring" interns "summer 2027"'
-    - '"2027 internship" "business development"'
-    - '"internship" 2027 "go-to-market" hiring'
-    - '"internship opportunities in Singapore" 2027'
-    - '"nous recrutons" stagiaire 2027 "business developer"'
-    - '"stage" "avril 2027" "avant-vente"'
-  job_queries:
-    - 'intern 2027 "solutions engineer"'
-    - 'intern 2027 "sales engineer"'
-    - 'intern 2027 "product marketing"'
-    - 'internship 2027 "technical sales"'
-    - 'internship 2027 "business development"'
-  max_queries_per_run: 15
+  max_queries_per_run: 30
   results_per_query: 10
+  allocation: {business_tech: 0.5, industry_robotics: 0.5}
+  add_yearless_variants: true      # also search each job phrase without "2027" (dates still checked)
+  tracks:
+    business_tech:
+      post_queries:
+        - '"summer 2027" intern hiring "solutions engineer"'
+        - '"summer 2027" internship "product marketing"'
+        - '"2027" internship "sales engineer" hiring'
+        - '"my team is hiring" intern 2027'
+        - '"we''re hiring" interns "summer 2027"'
+        - '"2027 internship" "business development"'
+        - '"internship" 2027 "go-to-market" hiring'
+        - '"internship opportunities in Singapore" 2027'
+        - '"nous recrutons" stagiaire 2027 "business developer"'
+        - '"stage" "avril 2027" "avant-vente"'
+      job_queries:
+        - 'intern 2027 "solutions engineer"'
+        - 'intern 2027 "sales engineer"'
+        - 'intern 2027 "product marketing"'
+        - 'internship 2027 "technical sales"'
+        - 'internship 2027 "business development"'
+    industry_robotics:
+      post_queries:
+        - '"maintenance manager" hiring intern 2027'
+        - '"robotics" "deployment" "hiring" intern 2027'
+        - '"we''re hiring" "robotics operations" intern'
+        - '"industrial project" intern hiring 2027'
+        - '"MRO" internship hiring 2027'
+        - '"engineering manager" "summer 2027" intern manufacturing'
+        - '"automation" "internship" 2027 "we''re hiring"'
+        - '"robotics as a service" hiring intern'
+        - '"Praktikum" 2027 "Instandhaltung"'
+        - '"stage" 2027 "maintenance" aéronautique international'
+      job_queries:
+        - '"Industrial Project Management" internship 2027'
+        - '"Maintenance Engineering" summer internship 2027'
+        - '"Reliability Engineering" intern summer 2027'
+        - '"Robotics Deployment" internship 2027'
+        - '"Robotics Operations" intern 2027'
+        - '"Robotics as a Service" internship 2027'
+        - '"Industrial Automation" project intern 2027'
+        - '"Operational Excellence" summer intern 2027'
+        - '"Maintenance Planning" intern 2027'
+        - '"Industry 4.0" internship 2027'
+        - '"Manufacturing Project Management" intern 2027'
+        - '"Robotics Customer Success" internship 2027'
+        - '"Industrial Digitalization" internship 2027'
+        - '"Continuous Improvement" intern 2027'
+        - '"Project Engineer" intern 2027'
+        - '"MRO" intern 2027'
+        - '"Instandhaltung" Praktikum 2027'

@@ -80,8 +80,10 @@ def line(app: CRMApplication, tz: str) -> str:
         extra.append(f"entretien {_when(app.interview_at, tz)}")
     if app.deadline and app.status in st.PRE_APPLICATION:
         extra.append(f"limite {app.deadline:%d/%m}")
+    if o.career_category:
+        extra.append(o.career_category)
     return (f"<b>{app_code(app.id)}</b> {escape(o.company_name[:30])} · {escape(o.title[:60])} · "
-            f"<i>{st.LABEL_FR.get(app.status, app.status)}</i>" + (f" · {', '.join(extra)}" if extra else ""))
+            f"<i>{st.LABEL_FR.get(app.status, app.status)}</i>" + (f" · {escape(', '.join(extra))}" if extra else ""))
 
 
 def record_text(crm: CRM, app: CRMApplication) -> str:
@@ -97,7 +99,8 @@ def record_text(crm: CRM, app: CRMApplication) -> str:
         f"Recruteur : {escape(app.recruiter_name or 'aucun contact vérifié')}",
         f"Documents : CV v{app.cv_version or 0}, lettre v{app.letter_version or 0}"
         + (f" · version envoyée figée ({escape(Path(app.submitted_folder).name)})" if app.submitted_folder else ""),
-        f"Fit {o.fit_score} · éligibilité {escape(o.eligibility_status or '?')}",
+        f"Fit {o.fit_score} · recrutabilité {o.recruitability_score if o.recruitability_score is not None else '?'} · "
+        f"éligibilité {escape(o.eligibility_status or '?')}" + (f" · {escape(o.career_category)}" if o.career_category else ""),
     ]
     if app.notes:
         rows.append(f"Notes : {escape(app.notes[:400])}")
@@ -166,10 +169,17 @@ class CRMBot:
             ]))
 
     def cmd_applications(self, args: str) -> None:
+        """Active applications, optionally filtered by career category (/applications maintenance)."""
         with self.bot.session_factory() as session:
             crm = self.crm(session)
             apps = crm.applications(st.ACTIVE)
-            self._list("Candidatures actives", [line(a, crm.tz) for a in apps], "Aucune. Bouton Track sur une offre pour commencer.")
+            title = "Candidatures actives"
+            if args:
+                needle = args.lower()
+                apps = [a for a in apps if needle in (a.opportunity.career_category or "").lower()
+                        or needle in (a.opportunity.job_family or "").replace("_", " ")]
+                title += f" · {escape(args[:40])}"
+            self._list(title, [line(a, crm.tz) for a in apps], "Aucune. Bouton Track sur une offre pour commencer.")
 
     def cmd_applied(self, args: str) -> None:
         with self.bot.session_factory() as session:

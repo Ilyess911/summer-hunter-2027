@@ -77,7 +77,7 @@ Envoyer au bot un fichier `.xlsx` du CRM l'importe directement (pratique depuis 
 | Feuille | Contenu |
 | --- | --- |
 | Dashboard | Compteurs, taux de conversion, 5 graphiques natifs (statut, pays, famille, envois par semaine, entonnoir), date de synchro |
-| Applications | Table principale, colonnes A à Z, filtres, volets figés, listes déroulantes, couleurs par statut, actions en retard en rouge, dates limites à 7 jours en orange, fit > 90 en vert |
+| Applications | Table principale, colonnes A à Z puis Career Category, Recruitability Score, Industrial Priority Score, Relevant Industrial Experience, Missing Technical Requirements (lecture seule), filtres, volets figés, listes déroulantes, couleurs par statut, actions en retard en rouge, dates limites à 7 jours en orange, fit > 90 en vert |
 | Networking | Contacts liés aux candidatures |
 | Opportunities | Offres pertinentes détectées (pas forcément des candidatures) |
 | Activity Log | Historique complet |

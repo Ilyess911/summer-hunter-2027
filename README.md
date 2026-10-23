@@ -59,7 +59,7 @@ flowchart LR
 
 ## Architecture « la douane et le jury »
 
-- **La douane** (`engine/eligibility.py`) : douze critères, chacun PASS, FAIL, UNKNOWN ou NOT_APPLICABLE, avec explication, preuve, URL, confiance et date. Elle ne note pas, elle laisse passer ou non. Un inconnu n'est jamais un PASS.
+- **La douane** (`engine/eligibility.py`) : treize critères (dont les exigences techniques obligatoires), chacun PASS, FAIL, UNKNOWN ou NOT_APPLICABLE, avec explication, preuve, URL, confiance et date. Elle ne note pas, elle laisse passer ou non. Un inconnu n'est jamais un PASS.
 - **Le jury** (`engine/scoring.py`) : cinq composantes pondérées (alignement 30 %, expérience 25 %, mission 20 %, compétences 15 %, valeur long terme 10 %), pénalité cold calling, plafond pour les familles hors cible, préférences apprises.
 - **Le témoin expert** (`engine/ai_analysis.py`) : le LLM extrait et commente, mais chaque exigence doit citer le texte mot pour mot, sinon elle est jetée. Il ne décide jamais l'éligibilité ; ses faits vérifiés repassent par la douane.
 - **Le greffe** (`database/`) : SQLite, une opportunité canonique et toutes ses sources, l'historique des évaluations, des notifications et des coûts.
@@ -113,6 +113,7 @@ summer-hunter-2027/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Flux de données, modules, schéma de base, sécurité |
 | [docs/SCORING.md](docs/SCORING.md) | Règles d'éligibilité, calcul des scores, apprentissage |
 | [docs/LINKEDIN_LIMITATIONS.md](docs/LINKEDIN_LIMITATIONS.md) | Ce qui est collecté sur LinkedIn, comment, et ce qui ne l'est pas |
+| [docs/INDUSTRY_TRACK.md](docs/INDUSTRY_TRACK.md) | Piste Industrie & Robotique, recruitability, priorité industrielle |
 | [docs/CRM.md](docs/CRM.md) | Suivi des candidatures, statuts, Excel, relances, documents |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Pannes courantes et diagnostics |
 
@@ -159,6 +160,7 @@ scripts/install_macos.sh                   # planification nocturne (launchd)
 - [x] Analyse IA bornée (Anthropic), cache, plafond de dépenses
 - [x] Telegram : digest, cartes, commandes, boutons, feedback
 - [x] Planification launchd, fenêtre de nuit, rattrapage, verrou
+- [x] Piste Industrie & Robotique (maintenance, projets industriels, RaaS) avec score de recruitability, en parallèle de la piste Business
 - [x] CRM des candidatures : Track/Applied, statuts validés, journal, relances, briefing quotidien, classeur Excel synchronisé
 - [ ] Connexion de tes clés Telegram et Anthropic (étape manuelle)
 - [ ] Remplir les UNKNOWN du profil (nationalité, mois de diplôme, équivalences)

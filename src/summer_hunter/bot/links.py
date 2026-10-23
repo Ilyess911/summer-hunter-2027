@@ -65,7 +65,7 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
         session.commit()
         ev, fit = repo.latest_eligibility(opp.id), repo.latest_fit(opp.id)
         card_text, buttons = formatter.card(opp, ev.criteria, fit.report, fit.networking, fit.priority,
-                                            repo.contacts(opp.id), repo.get_kv("webapp_url"))
+                                            repo.contacts(opp.id), repo.get_kv("webapp_url"), fit.recruitability)
         opp_id, decision = opp.id, opp.eligibility_status
         fails = [c["explanation"] for c in ev.criteria if c["status"] == "FAIL"]
         merged = "déjà connue (fusionnée)" if stats.merged_duplicates else "ajoutée"

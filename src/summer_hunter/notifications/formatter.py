@@ -37,10 +37,18 @@ def _dates_label(criteria: list[dict]) -> str:
     return f"{crit['status']}: {crit['explanation']}"
 
 
+INDUSTRY_TRACK = "industry_robotics"
+TRACK_LABEL = {"industry_robotics": "INDUSTRY & ROBOTICS", "business_tech": "BUSINESS & TECHNOLOGY"}
+
+
 def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, priority: dict,
-         contacts: list[Contact], webapp_url: str | None = None) -> tuple[str, list[list[dict[str, str]]]]:
+         contacts: list[Contact], webapp_url: str | None = None,
+         recruit: dict | None = None) -> tuple[str, list[list[dict[str, str]]]]:
     tier = priority.get("tier", "review")
+    industrial = opp.career_track == INDUSTRY_TRACK
     head = "🚀 SUMMER 2027 — NEW OPPORTUNITY" if tier in {"exceptional", "high"} else "🔎 SUMMER 2027 — WORTH REVIEWING"
+    if industrial:
+        head = "🏭 INDUSTRIAL INTERNSHIP — SUMMER 2027"
     if priority.get("strategic_bypass"):
         head = "🎯 SUMMER 2027 — STRATEGIC OPPORTUNITY"
     location = opp.location_text or "UNKNOWN"
@@ -57,17 +65,22 @@ def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, pr
         f"<b>Dates:</b> {e(_dates_label(criteria), 160)}",
         "",
         f"<b>Career Fit:</b> {fit.get('score')}/100" + (" (incl. AI analysis)" if fit.get("method") == "deterministic+llm" else ""),
-        f"<b>Eligibility:</b> {DECISION_LABEL.get(opp.eligibility_status or '', 'UNKNOWN')}",
+        *([f"<b>Recruitability:</b> {recruit.get('score')}/100 <i>(match with your verified experience, not a probability)</i>"]
+          if recruit else []),
         f"<b>Networking:</b> {networking.get('score')}/100",
+        f"<b>Eligibility:</b> {DECISION_LABEL.get(opp.eligibility_status or '', 'UNKNOWN')}",
         f"<b>Priority:</b> {priority.get('priority_score')} ({e(tier)})",
         "",
-        "<b>Why this fits:</b>",
-        *[f"• {e(r, 200)}" for r in fit.get("reasons", [])[:3]],
+        "<b>Why this is relevant:</b>" if industrial else "<b>Why this fits:</b>",
+        *[f"• {e(r, 200)}" for r in _why(fit, recruit, industrial)],
     ]
     uncertainties = [f"{c['criterion'].replace('_', ' ')}: {c['explanation']}" for c in (weak_fails + unknowns)[:3]]
+    if recruit:
+        uncertainties = [*recruit.get("concerns", [])[:2], *uncertainties]
     uncertainties += [w for w in fit.get("weaknesses", [])[:2] if not w.startswith("Unverified")]
     if uncertainties:
-        lines += ["", "<b>Main uncertainties:</b>", *[f"• {e(u, 200)}" for u in uncertainties[:4]]]
+        lines += ["", "<b>Main concerns:</b>" if industrial else "<b>Main uncertainties:</b>",
+                  *[f"• {e(u, 200)}" for u in uncertainties[:4]]]
     if fit.get("injection_flags"):
         lines += ["", "⚠️ Listing contains instruction-like text; it was ignored."]
     best = max(contacts, key=lambda c: c.confidence, default=None)
@@ -76,8 +89,18 @@ def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, pr
         lines.append(f"{e(best.name, 80)}, {e(best.relationship_type.replace('_', ' '))} (confidence {best.confidence:.2f})")
     else:
         lines.append("No verified recruiter or hiring manager.")
+    if opp.career_category:
+        lines.append(f"<b>Category:</b> {e(TRACK_LABEL.get(opp.career_track or '', ''))} · {e(opp.career_category)}")
     lines.append(f"<i>#{opp.id}</i>")
     return "\n".join(lines), buttons(opp, best, webapp_url)
+
+
+def _why(fit: dict, recruit: dict | None, industrial: bool) -> list[str]:
+    """Industrial cards lead with the experience evidence; business cards keep the career-fit reasons."""
+    if industrial and recruit:
+        merged = [*recruit.get("reasons", []), *fit.get("reasons", [])]
+        return list(dict.fromkeys(merged))[:3]
+    return fit.get("reasons", [])[:3]
 
 
 def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = None) -> list[list[dict[str, str]]]:
@@ -103,7 +126,8 @@ def dismiss_reason_buttons(opp_id: int) -> list[list[dict[str, str]]]:
     return [[{"text": label, "callback_data": f"rs:{opp_id}:{code}"}] for code, (_, _, label) in DISMISS_REASONS.items()]
 
 
-def explain(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, priority: dict, sponsorship: str) -> str:
+def explain(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, priority: dict, sponsorship: str,
+            recruit: dict | None = None) -> str:
     comps = fit.get("components", {})
     lines = [f"<b>Score breakdown #{opp.id}</b>: {e(opp.title, 120)} @ {e(opp.company_name, 80)}", "",
              f"<b>Career fit {fit.get('score')}/100</b> (method: {e(fit.get('method'))})"]
@@ -121,6 +145,15 @@ def explain(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict,
     icon = {"PASS": "✅", "FAIL": "❌", "UNKNOWN": "❔", "NOT_APPLICABLE": "➖"}
     for c in criteria:
         lines.append(f"{icon.get(c['status'], '?')} {e(c['criterion'].replace('_', ' '))}: {e(c['explanation'], 220)}")
+    if recruit:
+        lines += ["", f"<b>Recruitability {recruit.get('score')}/100</b> <i>(match with verified experience, not a probability)</i>"]
+        lines += [f"• {k.replace('_', ' ')}: {v:.0f}" for k, v in (recruit.get("components") or {}).items()]
+        if recruit.get("relevant_experience"):
+            lines.append("<b>Relevant experience:</b> " + e("; ".join(recruit["relevant_experience"]), 300))
+        if recruit.get("missing_requirements"):
+            lines.append("<b>Missing technical requirements:</b> " + e(", ".join(recruit["missing_requirements"]), 300))
+        if not recruit.get("technical_requirements_known", True):
+            lines.append("<i>Technical requirements are not stated clearly: skill match unknown.</i>")
     lines += ["", f"<b>Networking {networking.get('score')}/100:</b> {e(networking.get('rationale'), 300)}",
               f"<b>Priority:</b> {priority.get('priority_score')} ({e(priority.get('reason'), 200)})"]
     return _join_within(lines, 3900)
