@@ -115,3 +115,11 @@ def test_short_paragraphs_are_expanded_not_rewritten(settings, tmp_path):
     assert r.attempts == 1 and r.warnings == []
     assert "has 2" in provider.calls[2][1] or "words; rewrite it" in provider.calls[2][1]
     assert r.analysis["paragraphs"]["p2"] == GOOD["p2"]
+
+
+def test_cv_dates_are_ats_friendly():
+    from summer_hunter.web.cv import ats_dates
+
+    assert ats_dates("Sep 2024 -- Aug 2027") == "09/2024 - 08/2027"
+    assert ats_dates("Sep 2024 -- Present") == "09/2024 - Present"
+    assert ats_dates("Jul 2023 – Aug 2023") == "07/2023 - 08/2023"

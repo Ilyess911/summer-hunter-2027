@@ -40,6 +40,23 @@ FAMILY_KEYWORDS = {
 }
 
 
+_MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+_MONTH_YEAR = re.compile(r"\b([A-Za-z]{3})[a-z]*\.?\s+((?:19|20)\d\d)\b")
+_RANGE_SEP = re.compile(r"\s*(?:--|–|—|-|\bto\b)\s*")
+
+
+def ats_dates(text: Any) -> str:
+    """Dates in the form resume parsers read reliably: "Sep 2024 -- Aug 2027" -> "09/2024 - 08/2027".
+
+    ATS "apply with resume" parsers often mis-read an en dash between two month names and copy the
+    start date as the end date ("2024 to 2024"). Numeric months and a plain hyphen avoid it.
+    """
+    value = str(text or "")
+    value = _MONTH_YEAR.sub(lambda m: f"{_MONTHS[m.group(1).lower()]:02d}/{m.group(2)}" if m.group(1).lower() in _MONTHS
+                            else m.group(0), value)
+    return _RANGE_SEP.sub(" - ", value).strip()
+
+
 def tex(text: Any) -> str:
     out = "".join(_LATEX_SPECIAL.get(ch, ch) for ch in str(text or ""))
     return re.sub(r"\s+", " ", out).strip()
@@ -157,7 +174,7 @@ def render(cv: dict[str, Any], target: str) -> str:
     for i, exp in enumerate(cv.get("experiences", [])):
         if i:
             out.append("\\vspace{2pt}\n")
-        out.append(f"\\cvrole{{{tex(exp.get('org'))}}}{{{tex(exp.get('dates'))}}}{{{tex(exp.get('role'))}}}{{{tex(exp.get('location'))}}}\n")
+        out.append(f"\\cvrole{{{tex(exp.get('org'))}}}{{{tex(ats_dates(exp.get('dates')))}}}{{{tex(exp.get('role'))}}}{{{tex(exp.get('location'))}}}\n")
         out.append(_itemize(exp.get("bullets", [])))
     if cv.get("projects"):
         out.append(f"\\section*{{{tex(labels.get('projects', 'LEADERSHIP & ENTREPRENEURSHIP'))}}}\n")
@@ -170,7 +187,7 @@ def render(cv: dict[str, Any], target: str) -> str:
         for i, ed in enumerate(cv["education"]):
             if i:
                 out.append("\\vspace{3pt}\n\n")
-            out.append(f"\\cvedu{{{tex(ed.get('school'))}}}{{{tex(ed.get('dates'))}}}{{{tex(ed.get('degree'))}}}\n\n")
+            out.append(f"\\cvedu{{{tex(ed.get('school'))}}}{{{tex(ats_dates(ed.get('dates')))}}}{{{tex(ed.get('degree'))}}}\n\n")
     if cv.get("skills"):
         out.append(f"\\section*{{{tex(labels.get('skills', 'SKILLS & LANGUAGES'))}}}\n")
         groups = list(cv["skills"].items())
