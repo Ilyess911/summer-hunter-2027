@@ -2,8 +2,14 @@
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) {
   tg.ready(); tg.expand();
-  try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); } catch (_) { /* older clients */ }
+  try { tg.setHeaderColor("#000000"); tg.setBackgroundColor("#000000"); } catch (_) { /* older clients */ }
 }
+
+// Live telemetry clock in the HUD bar.
+const pad2 = (n) => String(n).padStart(2, "0");
+function tick() { const c = document.getElementById("clock"); if (!c) return; const d = new Date();
+  c.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
+tick(); setInterval(tick, 1000);
 
 const state = { view: "new", q: "", region: "", current: null };
 const $ = (s, root = document) => root.querySelector(s);

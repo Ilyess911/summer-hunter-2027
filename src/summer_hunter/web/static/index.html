@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
 <title>Summer Hunter</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="/static/style.css">
@@ -11,7 +12,11 @@
 <body>
 <div id="home">
   <header class="hero">
-    <div class="eyebrow">Stages avril – août 2027</div>
+    <div class="hud-bar">
+      <span class="brand"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3l3.5 10L8 6l3.5 7L15 3"/></svg>Wayne//Ops</span>
+      <span class="sys"><i class="ping"></i>En ligne · <span id="clock" class="num">--:--:--</span></span>
+    </div>
+    <div class="eyebrow">Recrutement · Stages avril – août 2027</div>
     <h1>Summer Hunter</h1>
     <div class="stats" id="stats">
       <div class="stat"><b id="s-target">–</b><span>en cible</span></div>
@@ -23,7 +28,7 @@
   <div class="controls">
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="search" type="search" enterkeyhint="search" placeholder="Rôle, entreprise, ville" autocomplete="off">
+      <input id="search" type="search" enterkeyhint="search" placeholder="rôle, entreprise, ville_" autocomplete="off">
     </label>
     <div class="segmented" id="tabs" role="tablist">
       <span class="seg-pill" aria-hidden="true"></span>
