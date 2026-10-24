@@ -1,0 +1,64 @@
+# Networking intelligence (Summer Hunter OS, 24 Oct 2026). Every number is an editable heuristic.
+
+# Contact priority score, 0-100: a ranking heuristic, not a probability of a reply.
+contact_score:
+  weights: {involvement: 0.30, relevance: 0.25, connection: 0.20, recruiting_activity: 0.15, accessibility: 0.10}
+  involvement: {hiring_manager: 100, team_manager: 90, talent_acquisition: 75, university_recruiter: 85,
+                program_coordinator: 70, team_member: 55, referral: 50, alumni_esilv: 35, alumni_af_airbus: 35, other: 25}
+  linked_to_this_opening_bonus: 15     # recruiter named on this exact vacancy or post
+  senior_without_link_cap: 40          # a VP or director with no evidence of involvement is not a priority
+  recent_activity_days: 60
+
+# Outreach timing.
+timing:
+  follow_up_after_business_days: 5
+  max_follow_ups: 1
+  recruiter_after_application_business_days: 2
+  post_interview_follow_up_days: 1
+
+# LinkedIn message limits and style guard.
+messages:
+  connection_request_max_chars: 250
+  linkedin_hard_limit_chars: 300
+  initial_words: [60, 110]
+  follow_up_words: [30, 70]
+  banned_phrases: ["i hope you're doing well", "i hope you are doing well", "i am passionate about", "i'm passionate about",
+                   "i would love to connect and learn more", "i'd love to connect and learn more", "dream company",
+                   "thrilled", "excited to", "synergy", "leverage my", "huge fan", "je suis passionné", "j'espère que vous allez bien"]
+  french_countries: [MA, TN, DZ, SN, CI, BJ, TG, CM, BE, LU, MC]
+
+# Verified pitches, written from the CV (config/cv_content.yaml) and the verified profile only.
+# `full` is a first-person sentence; `short` is the compact form used by shorter variants.
+pitches:
+  esilv:
+    en: {full: "I'm in my final year of engineering at ESILV (industry and robotics) and available from April 2027",
+         short: "I'm a final-year engineering student at ESILV"}
+    fr: {full: "Je suis en dernière année d'école d'ingénieurs à l'ESILV (industrie et robotique), disponible à partir d'avril 2027",
+         short: "Je suis étudiant ingénieur en dernière année à l'ESILV"}
+  air_france_industries:
+    en: {full: "I work as an engineering apprentice at Air France Industries, analysing operational data and building automated tools",
+         short: "I'm an engineering apprentice at Air France Industries"}
+    fr: {full: "Je suis apprenti ingénieur chez Air France Industries, où j'analyse des données opérationnelles et développe des outils automatisés",
+         short: "Je suis apprenti ingénieur chez Air France Industries"}
+  airbus_helicopters:
+    en: {full: "Before that, I worked on process improvement and an equipment-reliability test bench at Airbus Helicopters",
+         short: "I also worked at Airbus Helicopters"}
+    fr: {full: "Avant cela, j'ai travaillé sur l'amélioration des processus et un banc de test de fiabilité chez Airbus Helicopters",
+         short: "J'ai aussi travaillé chez Airbus Helicopters"}
+  nexya_agency:
+    en: {full: "I also co-founded Nexya Agency, where I run B2B outreach and built a SaaS booking product",
+         short: "I co-founded Nexya Agency (B2B SaaS)"}
+    fr: {full: "J'ai aussi cofondé Nexya Agency, où je mène la prospection B2B et ai développé une solution SaaS",
+         short: "J'ai cofondé Nexya Agency (SaaS B2B)"}
+  lead_by_track: {industry_robotics: air_france_industries, business_tech: air_france_industries}
+  second_by_track: {industry_robotics: airbus_helicopters, business_tech: nexya_agency}
+
+# Responsibilities the posting may stress; the first one found is quoted back as "the focus on ...".
+# A focus term is only quoted when it maps to a verified experience (below).
+focus_links: {data analysis: air_france_industries, kpi: air_france_industries, automation: air_france_industries,
+              process improvement: air_france_industries, continuous improvement: airbus_helicopters, reliability: airbus_helicopters,
+              discovery: nexya_agency, customer needs: nexya_agency}
+focus_terms:
+  en: [customer onboarding, deployment, fleet performance, maintenance planning, preventive maintenance, reliability, root cause analysis,
+       process improvement, continuous improvement, project coordination, kpi, data analysis, automation, industrialization,
+       solution design, technical demos, discovery, proof of concept, go-to-market, partnerships, customer success, supply chain]

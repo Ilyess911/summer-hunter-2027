@@ -33,7 +33,7 @@ from summer_hunter.database.models import (
 
 log = logging.getLogger(__name__)
 
-SOURCES = {"telegram", "excel", "miniapp", "cli", "system", "migration"}
+SOURCES = {"telegram", "excel", "miniapp", "cli", "system", "migration", "web", "sync"}
 EVENT_FOR_STATUS = {
     "APPLIED": "application_submitted", "INTERVIEW": "interview_scheduled", "FINAL_INTERVIEW": "interview_scheduled",
     "OFFER_RECEIVED": "offer_received", "OFFER_ACCEPTED": "offer_accepted", "REJECTED": "rejection_received",

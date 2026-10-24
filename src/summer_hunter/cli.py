@@ -470,6 +470,59 @@ def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def cmd_os(app: App, args) -> int:  # noqa: ANN001
+    """Summer Hunter OS: API server, password, networking refresh, sync with the hosted copy."""
+    import getpass
+    import os
+    import secrets
+
+    from summer_hunter.os import security
+
+    env_path = app.settings.root / ".env"
+    if args.action == "set-password":
+        pw = getpass.getpass("New Summer Hunter OS password (10+ characters): ")
+        if pw != getpass.getpass("Repeat: "):
+            print("Passwords differ.")
+            return 2
+        lines = [l for l in env_path.read_text().splitlines() if not l.startswith(("SH_OS_PASSWORD_HASH=", "SH_OS_SECRET="))] \
+            if env_path.exists() else []
+        lines += [f"SH_OS_PASSWORD_HASH={security.hash_password(pw)}",
+                  f"SH_OS_SECRET={os.environ.get('SH_OS_SECRET') or secrets.token_urlsafe(48)}"]
+        env_path.write_text("\n".join(lines) + "\n")
+        env_path.chmod(0o600)
+        print(f"Saved to {env_path} (mode 600).")
+        return 0
+    if args.action == "serve":
+        import uvicorn
+
+        from summer_hunter.os.api import create_app
+
+        uvicorn.run(create_app(app.settings, app.sessions, hosted=False), host="127.0.0.1", port=args.port, log_level="warning")
+        return 0
+    if args.action == "networking":
+        from summer_hunter.os import networking as net
+        from summer_hunter.utils.settings import load_yaml
+
+        cfg = load_yaml(app.settings.config_dir / "networking.yaml")
+        with app.sessions() as session:
+            out = net.import_public_contacts(session)
+            out["scored"] = net.recompute(session, cfg)
+            session.commit()
+        _print(out)
+        return 0
+    if args.action == "sync":
+        from summer_hunter.os import sync
+
+        url, token = os.environ.get("SH_OS_HOSTED_URL"), os.environ.get("SH_SYNC_TOKEN")
+        if not url or not token:
+            print("Set SH_OS_HOSTED_URL and SH_SYNC_TOKEN in .env first (see docs/OS.md).")
+            return 2
+        out = sync.run(app.settings, app.sessions, url, token)
+        _print({"applied": out["applied"], "failed": out["failed"], "tables": len(out["pushed"])})
+        return 1 if out["failed"] else 0
+    return 2
+
+
 def cmd_backup(app: App, args) -> int:  # noqa: ANN001
     print(backup_sqlite(app.db_path, app.settings.data_dir / "backups"))
     return 0
@@ -639,6 +692,10 @@ def build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--dry-run", action="store_true", help="import: show what would change")
     cr.add_argument("--force", action="store_true", help="status: allow a deliberate backward correction")
     cr.set_defaults(fn=cmd_crm)
+    osp = sub.add_parser("os", help="Summer Hunter OS: serve the API, set the password, refresh networking, sync")
+    osp.add_argument("action", choices=["serve", "set-password", "networking", "sync"])
+    osp.add_argument("--port", type=int, default=8800)
+    osp.set_defaults(fn=cmd_os)
     fxp = sub.add_parser("fx", help="exchange rates used by the compensation engine (ECB, then fallback)")
     fxp.add_argument("action", choices=["show", "refresh"])
     fxp.set_defaults(fn=cmd_fx)

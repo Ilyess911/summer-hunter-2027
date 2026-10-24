@@ -274,9 +274,86 @@ class CRMContact(Base):
     next_action: Mapped[str | None] = mapped_column(String(300))
     notes: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(300))      # manual | public evidence URL
+    # V4 networking: role category, verification, dismissal. A contact is one person, linked to many opportunities.
+    category: Mapped[str | None] = mapped_column(String(30))       # hiring_manager | talent_acquisition | alumni_esilv ...
+    verification: Mapped[str | None] = mapped_column(String(20))   # verified | unverified
+    dismissed: Mapped[bool | None] = mapped_column(Boolean, default=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ContactEvidence(Base):
+    """Why we believe a contact exists and matters: a public post, a vacancy naming them, a profile, the user."""
+    __tablename__ = "contact_evidence"
+    __table_args__ = (UniqueConstraint("contact_id", "url", "kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("crm_contacts.id"), index=True)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id"))
+    kind: Mapped[str] = mapped_column(String(30))       # public_post | vacancy | profile | company_site | user | search_result
+    url: Mapped[str] = mapped_column(String(1000), default="")
+    excerpt: Mapped[str | None] = mapped_column(String(600))      # what was actually retrieved, verbatim
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ContactOpportunity(Base):
+    """Contact x opportunity link with the ranking and timing computed for that pair."""
+    __tablename__ = "contact_opportunities"
+    __table_args__ = (UniqueConstraint("contact_id", "opportunity_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("crm_contacts.id"), index=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"), index=True)
+    relationship_note: Mapped[str | None] = mapped_column(String(300))
+    score: Mapped[int | None] = mapped_column(Integer)
+    score_components: Mapped[dict | None] = mapped_column(JSON)
+    explanation: Mapped[str | None] = mapped_column(Text)
+    timing_action: Mapped[str | None] = mapped_column(String(32))   # CONTACT_BEFORE_APPLICATION | ... | DO_NOT_CONTACT
+    timing_date: Mapped[date | None] = mapped_column(Date)
+    timing_reason: Mapped[str | None] = mapped_column(String(400))
+    timing_confidence: Mapped[str | None] = mapped_column(String(10))
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class OutreachMessage(Base):
+    """A drafted LinkedIn message. Never sent by the system: the user copies it and marks it sent."""
+    __tablename__ = "outreach_messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("crm_contacts.id"), index=True)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id"))
+    kind: Mapped[str] = mapped_column(String(30))       # connection_request | initial | before_applying | after_applying ...
+    variant: Mapped[str] = mapped_column(String(20), default="default")   # default | shorter | more_direct | more_formal | more_natural
+    text: Mapped[str] = mapped_column(Text)
+    generator: Mapped[str] = mapped_column(String(80))   # template | ollama:<model>
+    evidence_refs: Mapped[list | None] = mapped_column(JSON)
+    validation: Mapped[dict | None] = mapped_column(JSON)
+    personalization: Mapped[str] = mapped_column(String(10), default="full")   # full | limited
+    status: Mapped[str] = mapped_column(String(12), default="draft")   # draft | sent | dismissed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Interaction(Base):
+    """What actually happened with a contact (recorded by the user)."""
+    __tablename__ = "interactions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contact_id: Mapped[int] = mapped_column(ForeignKey("crm_contacts.id"), index=True)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id"))
+    message_id: Mapped[int | None] = mapped_column(ForeignKey("outreach_messages.id"))
+    kind: Mapped[str] = mapped_column(String(20))       # message_sent | reply | call | meeting | note | follow_up_scheduled
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    note: Mapped[str | None] = mapped_column(Text)
+    follow_up_on: Mapped[date | None] = mapped_column(Date)
+
+
+class SyncChange(Base):
+    """Hosted-mode outbox: edits made online, waiting to be pulled and applied by the Mac (the source of truth)."""
+    __tablename__ = "sync_changes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    kind: Mapped[str] = mapped_column(String(40))
+    payload: Mapped[dict] = mapped_column(JSON)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CRMEvent(Base):
@@ -412,4 +489,4 @@ class KeyValue(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4

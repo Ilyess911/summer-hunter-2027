@@ -16,7 +16,9 @@ from summer_hunter.database.models import SCHEMA_VERSION, Base, KeyValue
 def make_engine(database_url: str) -> Engine:
     if database_url.startswith("sqlite:///"):
         Path(database_url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(database_url, future=True)
+    engine = create_engine(database_url, future=True, pool_pre_ping=not database_url.startswith("sqlite"))
+    if not database_url.startswith("sqlite"):
+        return engine                       # hosted Postgres: no SQLite pragmas
 
     @event.listens_for(engine, "connect")
     def _pragmas(dbapi_conn, _record):  # noqa: ANN001
@@ -62,14 +64,24 @@ ADDED_COLUMNS = [
     ("fit_evaluations", "compensation", "JSON"),
     ("fit_evaluations", "strategy", "JSON"),
     ("recruiter_contacts", "verified_at", "DATETIME"),
+    # 24 Oct 2026 (V4, Summer Hunter OS): networking
+    ("crm_contacts", "category", "VARCHAR(30)"),
+    ("crm_contacts", "verification", "VARCHAR(20)"),
+    ("crm_contacts", "dismissed", "BOOLEAN"),
 ]
 
 
 def _add_missing_columns(engine: Engine) -> None:
+    from sqlalchemy import inspect
+
+    pg = engine.dialect.name == "postgresql"
     with engine.begin() as conn:
+        inspector = inspect(conn)
         for table, column, sqltype in ADDED_COLUMNS:
-            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            existing = {c["name"] for c in inspector.get_columns(table)}
             if column not in existing:
+                if pg:
+                    sqltype = {"DATETIME": "TIMESTAMPTZ", "FLOAT": "DOUBLE PRECISION"}.get(sqltype, sqltype)
                 conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {sqltype}")
 
 
