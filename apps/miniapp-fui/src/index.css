@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* FUI tokens: pure black canvas, zinc structure, saturated neon reserved for status and indicators. */
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --color-void: #000000;
+  --color-panel: #0a0a0a;
+  --color-tac-cyan: #00e5ff;
+  --color-tac-amber: #ffb020;
+  --color-tac-red: #ff2d4b;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    background: var(--color-void);
+    color: var(--color-zinc-200);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+}
+
+/* Faint tactical grid behind everything (no glow, no gradient soup). */
+.fui-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
