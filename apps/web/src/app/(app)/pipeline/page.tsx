@@ -31,7 +31,7 @@ function Card({ a }: { a: ApplicationRow }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: a.id, data: a })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform) }} {...listeners} {...attributes}
-         className={cn("cursor-grab touch-none rounded-lg border bg-card p-3 text-sm shadow-[0_1px_2px_oklch(0_0_0/0.04)] transition-[box-shadow,transform] hover:border-foreground/15 active:cursor-grabbing",
+         className={cn("hud-cut cursor-grab touch-none border bg-card p-3 text-sm shadow-[0_1px_2px_oklch(0_0_0/0.04)] transition-[box-shadow,transform] hover:border-foreground/15 dark:hover:border-tac-cyan/35 dark:hover:shadow-[0_0_18px_-6px_rgb(0_229_255/0.35)] active:cursor-grabbing",
                        isDragging && "z-30 rotate-[0.6deg] shadow-lg ring-1 ring-brand/40")}>
       <Link href={`/applications/${a.id}`} className="block" onClick={(e) => isDragging && e.preventDefault()}>
         <div className="flex items-center justify-between gap-2">
@@ -56,14 +56,14 @@ function Card({ a }: { a: ApplicationRow }) {
 function Column({ status, items }: { status: string; items: ApplicationRow[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
-    <div ref={setNodeRef} data-status={status} className={cn("flex shrink-0 flex-col rounded-xl bg-muted/50 transition-[width,background-color]",
+    <div ref={setNodeRef} data-status={status} className={cn("hud-panel flex shrink-0 flex-col border border-transparent bg-muted/50 transition-[width,background-color]",
                                                            items.length ? "w-64" : "w-44", isOver && "w-64 bg-brand-soft ring-1 ring-brand/40")}>
       <div className="flex items-center justify-between px-3 pb-1.5 pt-2.5 text-xs font-medium">
         <StatusBadge status={status} /><span className="tabular text-muted-foreground">{items.length}</span>
       </div>
       <div className="flex min-h-24 flex-col gap-2 px-2 pb-2">
         {items.map((a) => <Card key={a.id} a={a} />)}
-        {!items.length && <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed text-[11px] text-muted-foreground">Dépose ici</div>}
+        {!items.length && <div className="flex flex-1 items-center justify-center border border-dashed font-mono text-[11px] text-muted-foreground">Dépose ici</div>}
       </div>
     </div>
   )

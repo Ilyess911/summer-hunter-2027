@@ -8,8 +8,12 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-mono: var(--font-tac-mono), ui-monospace, monospace;
   --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-tac-display), var(--font-geist-sans), sans-serif;
+  --color-tac-cyan: var(--tac-cyan);
+  --color-tac-amber: var(--tac-amber);
+  --color-tac-red: var(--tac-red);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -75,6 +79,9 @@
   --accent-foreground: oklch(0.21 0.006 60);
   --brand: oklch(0.66 0.17 48);
   --brand-soft: oklch(0.96 0.03 60);
+  --tac-cyan: oklch(0.55 0.11 210);
+  --tac-amber: oklch(0.66 0.15 65);
+  --tac-red: oklch(0.57 0.2 20);
   --destructive: oklch(0.57 0.18 27);
   --success: oklch(0.56 0.12 155);
   --warning: oklch(0.7 0.14 75);
@@ -98,44 +105,49 @@
   --sidebar-ring: oklch(0.66 0.17 48);
 }
 
+/* Dark Tactical (Batcave): OLED black, zinc-950 panels, zinc-800 hairlines. Neon cyan / amber / red are reserved for
+   status, alerts and hover feedback. */
 .dark {
-  --background: oklch(0.16 0.004 60);
-  --foreground: oklch(0.945 0.003 85);
-  --card: oklch(0.185 0.004 60);
-  --card-foreground: oklch(0.945 0.003 85);
-  --popover: oklch(0.2 0.005 60);
-  --popover-foreground: oklch(0.945 0.003 85);
-  --primary: oklch(0.945 0.003 85);
-  --primary-foreground: oklch(0.18 0.004 60);
-  --secondary: oklch(0.225 0.005 60);
-  --secondary-foreground: oklch(0.92 0.003 85);
-  --muted: oklch(0.225 0.005 60);
-  --muted-foreground: oklch(0.66 0.006 70);
-  --subtle: oklch(0.175 0.004 60);
-  --accent: oklch(0.235 0.005 60);
-  --accent-foreground: oklch(0.95 0.003 85);
-  --brand: oklch(0.75 0.15 55);
-  --brand-soft: oklch(0.27 0.04 55);
-  --destructive: oklch(0.67 0.16 27);
-  --success: oklch(0.72 0.12 155);
-  --warning: oklch(0.8 0.12 78);
-  --info: oklch(0.72 0.09 240);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.75 0.15 55);
-  --chart-1: oklch(0.75 0.15 55);
-  --chart-2: oklch(0.72 0.01 70);
-  --chart-3: oklch(0.72 0.12 155);
-  --chart-4: oklch(0.8 0.12 78);
-  --chart-5: oklch(0.42 0.006 60);
-  --sidebar: oklch(0.145 0.004 60);
-  --sidebar-foreground: oklch(0.78 0.004 80);
-  --sidebar-primary: oklch(0.945 0.003 85);
-  --sidebar-primary-foreground: oklch(0.18 0.004 60);
-  --sidebar-accent: oklch(0.21 0.005 60);
-  --sidebar-accent-foreground: oklch(0.96 0.003 85);
-  --sidebar-border: oklch(1 0 0 / 6%);
-  --sidebar-ring: oklch(0.75 0.15 55);
+  --background: #000000;
+  --foreground: #e4e4e7;
+  --card: #09090b;
+  --card-foreground: #e4e4e7;
+  --popover: #09090b;
+  --popover-foreground: #e4e4e7;
+  --primary: #e4e4e7;
+  --primary-foreground: #000000;
+  --secondary: #18181b;
+  --secondary-foreground: #e4e4e7;
+  --muted: #18181b;
+  --muted-foreground: #8b8b94;
+  --subtle: #0c0c0e;
+  --accent: #141417;
+  --accent-foreground: #fafafa;
+  --brand: #00e5ff;
+  --brand-soft: rgb(0 229 255 / 0.08);
+  --tac-cyan: #00e5ff;
+  --tac-amber: #ffb020;
+  --tac-red: #ff2d4b;
+  --destructive: #ff2d4b;
+  --success: #00e5ff;
+  --warning: #ffb020;
+  --info: #00e5ff;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #00e5ff;
+  --chart-1: #00e5ff;
+  --chart-2: #71717a;
+  --chart-3: #00e5ff;
+  --chart-4: #ffb020;
+  --chart-5: #3f3f46;
+  --sidebar: #000000;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #00e5ff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgb(0 229 255 / 0.06);
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #1f1f23;
+  --sidebar-ring: #00e5ff;
 }
 
 @layer base {
@@ -157,7 +169,9 @@
     text-wrap: balance;
   }
   .tabular {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
   ::selection {
     background: color-mix(in oklch, var(--primary) 22%, transparent);
@@ -169,4 +183,97 @@
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* ---------- HUD utilities ---------- */
+
+/* Chamfered panel: bevelled corners where the browser supports corner-shape, square corners elsewhere. */
+.hud-panel {
+  position: relative;
+  border-radius: 0;
+}
+@supports (corner-shape: bevel) {
+  .hud-panel {
+    border-radius: 12px 0 12px 0;
+    corner-shape: bevel;
+  }
+  .hud-cut {
+    border-radius: 6px 0 6px 0;
+    corner-shape: bevel;
+  }
+}
+
+/* Glow only on interaction or alert. */
+.dark .hud-hover {
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+.dark .hud-hover:hover {
+  border-color: rgb(0 229 255 / 0.35);
+  box-shadow: 0 0 0 1px rgb(0 229 255 / 0.08), 0 0 24px -6px rgb(0 229 255 / 0.25);
+}
+.dark .hud-alert {
+  border-color: rgb(255 45 75 / 0.45);
+  box-shadow: 0 0 22px -8px rgb(255 45 75 / 0.45);
+}
+
+/* Telemetry gauge: thin bar with a faint neon bleed in dark mode. */
+.gauge-fill {
+  box-shadow: none;
+}
+.dark .gauge-fill {
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Section titles: geometric display face, wide tracking. */
+.hud-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Terminal label: small mono caps. */
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Faint tactical grid behind the workspace. */
+.dark .hud-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.022) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.022) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Controls in tactical mode: sharp or bevelled corners, cyan feedback on hover and focus. */
+.dark [data-slot="button"],
+.dark [data-slot="input"],
+.dark [data-slot="textarea"],
+.dark select,
+.dark [data-slot="dropdown-menu-content"],
+.dark [data-slot="popover-content"],
+.dark [data-slot="dialog-content"],
+.dark [data-slot="alert-dialog-content"] {
+  border-radius: 0;
+}
+
+.dark [data-slot="button"] {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dark [data-slot="button"]:hover {
+  box-shadow: 0 0 14px -4px rgb(0 229 255 / 0.45);
+}
+
+.dark [data-slot="input"]:focus-visible,
+.dark select:focus-visible {
+  border-color: var(--tac-cyan);
+  box-shadow: 0 0 0 1px rgb(0 229 255 / 0.25), 0 0 14px -6px rgb(0 229 255 / 0.5);
 }

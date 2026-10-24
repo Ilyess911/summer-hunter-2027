@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                                  refetchOnWindowFocus: false } },
   }))
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={client}>
         <TooltipProvider delay={300}>
           {children}
