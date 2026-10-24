@@ -11,7 +11,7 @@ import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
 import { CommandPalette } from "@/components/os/command-palette"
-import { BrandMark, Kbd, Pulse } from "@/components/os/bits"
+import { BrandMark, Kbd } from "@/components/os/bits"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -37,10 +37,9 @@ const INSIGHTS = [
 ]
 
 // Terminal menu item: mono caps, index prefix, neon rail on the left when active.
-const NAV_ITEM = "relative h-8 rounded-none font-mono text-[11.5px] uppercase tracking-[0.12em] text-sidebar-foreground "
-  + "before:absolute before:inset-y-1 before:left-0 before:w-[2px] before:bg-transparent "
-  + "hover:text-foreground data-active:bg-sidebar-accent data-active:font-normal data-active:text-tac-cyan "
-  + "data-active:before:bg-tac-cyan data-active:before:shadow-[0_0_10px_var(--tac-cyan)]"
+// Sidebar item: rounded pill, frosted highlight when active (same language as the Mini App tabs).
+const NAV_ITEM = "h-9 rounded-xl text-[14px] font-medium text-sidebar-foreground transition-colors hover:text-foreground "
+  + "data-active:bg-sidebar-accent data-active:text-foreground data-active:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.18),inset_0_1px_0_var(--edge-top)]"
 
 function active(path: string, href: string) {
   return href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`)
@@ -77,15 +76,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pending = cc.data?.priorities.length ?? 0
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon" variant="sidebar">
+      <Sidebar collapsible="icon" variant="floating">
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" render={<Link href="/" />}>
                 <BrandMark />
                 <span className="flex flex-col leading-tight">
-                  <span className="font-display text-[12px] font-semibold uppercase tracking-[0.14em]">Wayne//Ops</span>
-                  <span className="hud-label text-[9px] text-muted-foreground">Summer Hunter · 2027</span>
+                  <span className="text-[14px] font-semibold tracking-tight">Summer Hunter</span>
+                  <span className="text-[11.5px] text-muted-foreground">Stages avril – août 2027</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -93,13 +92,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel className="hud-label text-muted-foreground/70">{"// Opérations"}</SidebarGroupLabel>
+            <SidebarGroupLabel>Espace de travail</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV.map((n, i) => (
                   <SidebarMenuItem key={n.href}>
                     <SidebarMenuButton className={NAV_ITEM} isActive={active(path, n.href)} tooltip={`${n.label} (${i + 1})`} render={<Link href={n.href} />}>
-                      <n.icon /> <span className="w-5 text-[10px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">{String(i + 1).padStart(2, "0")}</span><span>{n.label}</span>
+                      <n.icon /> <span>{n.label}</span>
                     </SidebarMenuButton>
                     {n.href === "/" && pending > 0 && <SidebarMenuBadge>{pending}</SidebarMenuBadge>}
                   </SidebarMenuItem>
@@ -108,13 +107,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarGroupContent>
           </SidebarGroup>
           <SidebarGroup>
-            <SidebarGroupLabel className="hud-label text-muted-foreground/70">{"// Analyse"}</SidebarGroupLabel>
+            <SidebarGroupLabel>Analyse</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {INSIGHTS.map((n, i) => (
+                {INSIGHTS.map((n) => (
                   <SidebarMenuItem key={n.href}>
                     <SidebarMenuButton className={NAV_ITEM} isActive={active(path, n.href)} tooltip={n.label} render={<Link href={n.href} />}>
-                      <n.icon /> <span className="w-5 text-[10px] text-muted-foreground/70 group-data-[collapsible=icon]:hidden">{String(i + 6).padStart(2, "0")}</span><span>{n.label}</span>
+                      <n.icon /> <span>{n.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -123,27 +122,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <div className="mx-1 mb-1 border-t border-sidebar-border px-1 pt-3 font-mono text-[10.5px] leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
+          <div className="glass-panel mx-1 mb-1 rounded-2xl px-3 py-2.5 text-[12px] leading-5 text-muted-foreground shadow-none group-data-[collapsible=icon]:hidden">
             <div className="flex items-center gap-1.5 text-foreground/80">
-              <Pulse className="bg-tac-cyan" />
+              <span className={`size-1.5 rounded-full ${meta.data?.mode === "hosted" ? "bg-info" : "bg-success"}`} />
               {meta.data?.mode === "hosted" ? `En ligne · synchronisé ${relative(meta.data.last_sync)}` : "Local · base en direct"}
             </div>
             <div>Dernière recherche {relative(meta.data?.last_run?.finished ?? meta.data?.last_run?.started)}</div>
             <div>Mode {meta.data?.recruitment_mode === "exploration" ? "exploration" : meta.data?.recruitment_mode === "conversion" ? "conversion" : "…"}</div>
             {!!meta.data?.sync_conflicts && (
-              <div className="text-tac-amber" title="Des modifications en ligne plus anciennes qu’un changement fait sur le Mac ont été mises de côté. Détail : summer-hunter os sync">
+              <div className="text-warning" title="Des modifications en ligne plus anciennes qu’un changement fait sur le Mac ont été mises de côté. Détail : summer-hunter os sync">
                 {meta.data.sync_conflicts} conflit{meta.data.sync_conflicts > 1 ? "s" : ""} de synchro mis de côté
               </div>
             )}
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md">
+      <SidebarInset className="min-w-0 bg-transparent">
+        <header className="sticky top-0 z-20 isolate flex h-14 items-center gap-2 px-4">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-background/40 backdrop-blur-xl [mask-image:linear-gradient(#000_70%,transparent)]" aria-hidden />
           <SidebarTrigger />
           <button onClick={() => setPalette(true)}
-                  className="hud-cut hud-hover flex h-8 w-full max-w-md items-center gap-2 border bg-card px-2.5 text-[13px] text-muted-foreground">
-            <Search className="size-4" /><span className="font-mono text-[12px]"><span className="text-tac-cyan">&gt;</span> rechercher entreprise, poste, contact_</span>
+                  className="glass-panel glass-hover flex h-10 w-full max-w-md items-center gap-2.5 rounded-2xl px-3.5 text-[14px] text-muted-foreground shadow-none">
+            <Search className="size-4" /> Rechercher une entreprise, un poste, un contact…
             <span className="ml-auto"><Kbd>⌘K</Kbd></span>
           </button>
           <div className="ml-auto flex items-center gap-1">
@@ -178,7 +178,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="icon" aria-label="Se déconnecter" onClick={logout}><LogOut /></Button>
           </div>
         </header>
-        <main className="hud-grid min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
       </SidebarInset>
       <CommandPalette open={palette} onOpenChange={setPalette} />
     </SidebarProvider>

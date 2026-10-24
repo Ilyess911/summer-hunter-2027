@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CalendarClock, Columns3, Rows3 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useState } from "react"
+import { Suspense, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { EmptyState, ErrorState, PageHeader, Pay, RowsSkeleton, Score, StatusBadge } from "@/components/os/bits"
@@ -29,26 +29,33 @@ const collision: CollisionDetection = (args) => { const hits = pointerWithin(arg
 
 function Card({ a }: { a: ApplicationRow }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: a.id, data: a })
+  const router = useRouter()
+  const downAt = useRef({ x: 0, y: 0 })
+  // No anchor around a draggable card: releasing a drag over it would follow the link natively. A click that did not
+  // move opens the application; the corner link is the keyboard path (Enter and Space on the card start a keyboard drag).
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform) }} {...listeners} {...attributes}
-         className={cn("hud-cut cursor-grab touch-none border bg-card p-3 text-sm shadow-[0_1px_2px_oklch(0_0_0/0.04)] transition-[box-shadow,transform] hover:border-foreground/15 dark:hover:border-tac-cyan/35 dark:hover:shadow-[0_0_18px_-6px_rgb(0_229_255/0.35)] active:cursor-grabbing",
+         onPointerDownCapture={(e) => { downAt.current = { x: e.clientX, y: e.clientY } }}
+         onClick={(e) => {
+           if (!isDragging && Math.hypot(e.clientX - downAt.current.x, e.clientY - downAt.current.y) <= 5) router.push(`/applications/${a.id}`)
+         }}
+         className={cn("glass-panel cursor-grab touch-none rounded-2xl p-3.5 text-sm transition-colors hover:bg-glass-strong active:cursor-grabbing",
                        isDragging && "z-30 rotate-[0.6deg] shadow-lg ring-1 ring-brand/40")}>
-      <Link href={`/applications/${a.id}`} className="block" onClick={(e) => isDragging && e.preventDefault()}>
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-xs font-medium text-muted-foreground">{a.company}</span>
-          <span className="text-[10px] text-muted-foreground">{a.code}</span>
-        </div>
-        <div className="mt-0.5 line-clamp-2 font-medium leading-snug">{a.title}</div>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <Pay c={a.compensation} compact />
-          <Score value={a.priority} />
-        </div>
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-          {a.country && <span>{a.country}</span>}
-          {a.deadline && <span className="inline-flex items-center gap-1"><CalendarClock className="size-3" />{date(a.deadline)}</span>}
-          {a.next_action && <span className="truncate">→ {a.next_action}</span>}
-        </div>
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-medium text-muted-foreground">{a.company}</span>
+        <Link href={`/applications/${a.id}`} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}
+              className="text-[10px] text-muted-foreground hover:text-foreground hover:underline" aria-label={`Ouvrir ${a.code}`}>{a.code}</Link>
+      </div>
+      <div className="mt-0.5 line-clamp-2 font-medium leading-snug">{a.title}</div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <Pay c={a.compensation} compact />
+        <Score value={a.priority} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+        {a.country && <span>{a.country}</span>}
+        {a.deadline && <span className="inline-flex items-center gap-1"><CalendarClock className="size-3" />{date(a.deadline)}</span>}
+        {a.next_action && <span className="truncate">→ {a.next_action}</span>}
+      </div>
     </div>
   )
 }
@@ -56,14 +63,14 @@ function Card({ a }: { a: ApplicationRow }) {
 function Column({ status, items }: { status: string; items: ApplicationRow[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
-    <div ref={setNodeRef} data-status={status} className={cn("hud-panel flex shrink-0 flex-col border border-transparent bg-muted/50 transition-[width,background-color]",
+    <div ref={setNodeRef} data-status={status} className={cn("flex shrink-0 flex-col rounded-[22px] bg-foreground/[0.035] transition-[width,background-color]",
                                                            items.length ? "w-64" : "w-44", isOver && "w-64 bg-brand-soft ring-1 ring-brand/40")}>
       <div className="flex items-center justify-between px-3 pb-1.5 pt-2.5 text-xs font-medium">
         <StatusBadge status={status} /><span className="tabular text-muted-foreground">{items.length}</span>
       </div>
       <div className="flex min-h-24 flex-col gap-2 px-2 pb-2">
         {items.map((a) => <Card key={a.id} a={a} />)}
-        {!items.length && <div className="flex flex-1 items-center justify-center border border-dashed font-mono text-[11px] text-muted-foreground">Dépose ici</div>}
+        {!items.length && <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed text-[12px] text-muted-foreground">Dépose ici</div>}
       </div>
     </div>
   )

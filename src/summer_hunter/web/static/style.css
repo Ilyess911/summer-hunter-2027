@@ -3,7 +3,7 @@
    Follows Telegram's light / dark scheme. Same class names as before: app.js keeps its logic. */
 
 :root {
-  --bg: #0b0d12;
+  --bg: #050608;
   --text: #f2f4f8;
   --muted: rgb(242 244 248 / 0.58);
   --faint: rgb(242 244 248 / 0.38);
@@ -23,8 +23,8 @@
   --orb-1: #2f6bff;
   --orb-2: #10b8a6;
   --orb-3: #ff8a5c;
-  --orb-opacity: 0.3;
-  --ring-core: #12151c;
+  --orb-opacity: 0.4;
+  --ring-core: #0d1016;
   --blur: blur(22px) saturate(170%);
   --r-lg: 22px;
   --r: 14px;
@@ -34,7 +34,7 @@
   color-scheme: dark;
 }
 :root[data-scheme="light"] {
-  --bg: #eef1f6;
+  --bg: #dde2eb;
   --text: #0f1422;
   --muted: rgb(15 20 34 / 0.58);
   --faint: rgb(15 20 34 / 0.4);
@@ -51,17 +51,17 @@
   --mid: #d97706;
   --bad: #dc2626;
   --low: rgb(15 20 34 / 0.25);
-  --orb-opacity: 0.36;
+  --orb-opacity: 0.42;
   --ring-core: #f7f9fc;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-scheme]) {
-    --bg: #eef1f6; --text: #0f1422; --muted: rgb(15 20 34 / 0.58); --faint: rgb(15 20 34 / 0.4);
+    --bg: #dde2eb; --text: #0f1422; --muted: rgb(15 20 34 / 0.58); --faint: rgb(15 20 34 / 0.4);
     --glass: rgb(255 255 255 / 0.55); --glass-strong: rgb(255 255 255 / 0.72); --glass-press: rgb(255 255 255 / 0.85);
     --edge: rgb(255 255 255 / 0.7); --edge-top: rgb(255 255 255 / 0.95); --shadow: 0 10px 30px -14px rgb(30 40 80 / 0.28);
     --accent: #2563eb; --accent-text: #ffffff; --link: #2563eb; --good: #16a34a; --mid: #d97706; --bad: #dc2626;
-    --low: rgb(15 20 34 / 0.25); --orb-opacity: 0.36; --ring-core: #f7f9fc; color-scheme: light;
+    --low: rgb(15 20 34 / 0.25); --orb-opacity: 0.42; --ring-core: #f7f9fc; color-scheme: light;
   }
 }
 
@@ -81,10 +81,12 @@ input { font-size: 16px; }
 
 /* The light field the glass refracts: three soft orbs, fixed behind everything. */
 .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.backdrop i { position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%; filter: blur(70px); opacity: var(--orb-opacity); }
-.backdrop i:nth-child(1) { background: var(--orb-1); top: -30vmax; left: -22vmax; }
-.backdrop i:nth-child(2) { background: var(--orb-2); top: 30vh; right: -34vmax; }
-.backdrop i:nth-child(3) { background: var(--orb-3); bottom: -40vmax; left: -10vmax; opacity: calc(var(--orb-opacity) * 0.7); }
+/* Radial gradients rather than a blur filter: same softness, a fraction of the rendering cost on phones. */
+.backdrop i { position: absolute; width: 95vmax; height: 95vmax; border-radius: 50%; opacity: var(--orb-opacity); will-change: transform; }
+.backdrop i:nth-child(1) { background: radial-gradient(closest-side, var(--orb-1), transparent); top: -42vmax; left: -34vmax; }
+.backdrop i:nth-child(2) { background: radial-gradient(closest-side, var(--orb-2), transparent); top: 18vh; right: -46vmax; }
+.backdrop i:nth-child(3) { background: radial-gradient(closest-side, var(--orb-3), transparent); bottom: -52vmax; left: -22vmax;
+  opacity: calc(var(--orb-opacity) * 0.7); }
 
 /* Glass surface shared by panels. */
 .stats, .search, .segmented, .card, .block, .d-metrics, .act, .file, .empty {

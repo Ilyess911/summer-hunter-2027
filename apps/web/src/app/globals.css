@@ -7,13 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-tac-mono), ui-monospace, monospace;
-  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-tac-display), var(--font-geist-sans), sans-serif;
-  --color-tac-cyan: var(--tac-cyan);
-  --color-tac-amber: var(--tac-amber);
-  --color-tac-red: var(--tac-red);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-edge: var(--edge);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -59,95 +58,102 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-/* Summer Hunter OS palette: ink neutrals (buttons in ink, like Linear), one warm "sun" accent for brand and focus,
-   restrained status colours. Light and dark share the same hues. */
+/* Summer Hunter OS: clean glassmorphism, shared with the Telegram Mini App.
+   Frosted panels over a soft light field, system type, generous radii, one blue accent. */
 :root {
-  --background: oklch(0.992 0.002 85);
-  --foreground: oklch(0.21 0.006 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.006 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.006 60);
-  --primary: oklch(0.23 0.006 60);
-  --primary-foreground: oklch(0.985 0.002 85);
-  --secondary: oklch(0.962 0.003 85);
-  --secondary-foreground: oklch(0.26 0.006 60);
-  --muted: oklch(0.962 0.003 85);
-  --muted-foreground: oklch(0.53 0.008 60);
-  --subtle: oklch(0.978 0.003 85);
-  --accent: oklch(0.955 0.004 85);
-  --accent-foreground: oklch(0.21 0.006 60);
-  --brand: oklch(0.66 0.17 48);
-  --brand-soft: oklch(0.96 0.03 60);
-  --tac-cyan: oklch(0.55 0.11 210);
-  --tac-amber: oklch(0.66 0.15 65);
-  --tac-red: oklch(0.57 0.2 20);
-  --destructive: oklch(0.57 0.18 27);
-  --success: oklch(0.56 0.12 155);
-  --warning: oklch(0.7 0.14 75);
-  --info: oklch(0.55 0.1 240);
-  --border: oklch(0.918 0.004 85);
-  --input: oklch(0.9 0.005 85);
-  --ring: oklch(0.66 0.17 48);
-  --chart-1: oklch(0.66 0.17 48);
-  --chart-2: oklch(0.45 0.01 60);
-  --chart-3: oklch(0.56 0.12 155);
-  --chart-4: oklch(0.7 0.14 75);
-  --chart-5: oklch(0.78 0.005 60);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.982 0.003 85);
-  --sidebar-foreground: oklch(0.35 0.006 60);
-  --sidebar-primary: oklch(0.23 0.006 60);
-  --sidebar-primary-foreground: oklch(0.985 0.002 85);
-  --sidebar-accent: oklch(0.945 0.004 85);
-  --sidebar-accent-foreground: oklch(0.2 0.006 60);
-  --sidebar-border: oklch(0.925 0.004 85);
-  --sidebar-ring: oklch(0.66 0.17 48);
+  --background: #dde2eb;
+  --foreground: #0f1422;
+  --glass: rgb(255 255 255 / 0.55);
+  --glass-strong: rgb(255 255 255 / 0.74);
+  --edge: rgb(255 255 255 / 0.7);
+  --edge-top: rgb(255 255 255 / 0.95);
+  --glass-shadow: 0 10px 30px -14px rgb(30 40 80 / 0.28);
+  --orb-1: #2f6bff;
+  --orb-2: #10b8a6;
+  --orb-3: #ff8a5c;
+  --orb-opacity: 0.42;
+  --card: rgb(255 255 255 / 0.55);
+  --card-foreground: #0f1422;
+  --popover: rgb(250 251 253 / 0.92);
+  --popover-foreground: #0f1422;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: rgb(15 20 34 / 0.06);
+  --secondary-foreground: #0f1422;
+  --muted: rgb(15 20 34 / 0.06);
+  --muted-foreground: rgb(15 20 34 / 0.58);
+  --subtle: rgb(255 255 255 / 0.35);
+  --accent: rgb(15 20 34 / 0.06);
+  --accent-foreground: #0f1422;
+  --brand: #2563eb;
+  --brand-soft: rgb(37 99 235 / 0.12);
+  --destructive: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --info: #2563eb;
+  --border: rgb(15 20 34 / 0.09);
+  --input: rgb(15 20 34 / 0.12);
+  --ring: #2563eb;
+  --chart-1: #2563eb;
+  --chart-2: #64748b;
+  --chart-3: #16a34a;
+  --chart-4: #d97706;
+  --chart-5: #cbd5e1;
+  --radius: 0.75rem;
+  --sidebar: rgb(255 255 255 / 0.4);
+  --sidebar-foreground: rgb(15 20 34 / 0.72);
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(255 255 255 / 0.7);
+  --sidebar-accent-foreground: #0f1422;
+  --sidebar-border: rgb(255 255 255 / 0.6);
+  --sidebar-ring: #2563eb;
 }
 
-/* Dark Tactical (Batcave): OLED black, zinc-950 panels, zinc-800 hairlines. Neon cyan / amber / red are reserved for
-   status, alerts and hover feedback. */
 .dark {
-  --background: #000000;
-  --foreground: #e4e4e7;
-  --card: #09090b;
-  --card-foreground: #e4e4e7;
-  --popover: #09090b;
-  --popover-foreground: #e4e4e7;
-  --primary: #e4e4e7;
-  --primary-foreground: #000000;
-  --secondary: #18181b;
-  --secondary-foreground: #e4e4e7;
-  --muted: #18181b;
-  --muted-foreground: #8b8b94;
-  --subtle: #0c0c0e;
-  --accent: #141417;
-  --accent-foreground: #fafafa;
-  --brand: #00e5ff;
-  --brand-soft: rgb(0 229 255 / 0.08);
-  --tac-cyan: #00e5ff;
-  --tac-amber: #ffb020;
-  --tac-red: #ff2d4b;
-  --destructive: #ff2d4b;
-  --success: #00e5ff;
-  --warning: #ffb020;
-  --info: #00e5ff;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #00e5ff;
-  --chart-1: #00e5ff;
-  --chart-2: #71717a;
-  --chart-3: #00e5ff;
-  --chart-4: #ffb020;
-  --chart-5: #3f3f46;
-  --sidebar: #000000;
-  --sidebar-foreground: #a1a1aa;
-  --sidebar-primary: #00e5ff;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: rgb(0 229 255 / 0.06);
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #1f1f23;
-  --sidebar-ring: #00e5ff;
+  --background: #050608;
+  --foreground: #f2f4f8;
+  --glass: rgb(255 255 255 / 0.06);
+  --glass-strong: rgb(255 255 255 / 0.1);
+  --edge: rgb(255 255 255 / 0.12);
+  --edge-top: rgb(255 255 255 / 0.22);
+  --glass-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.55);
+  --orb-opacity: 0.4;
+  --card: rgb(255 255 255 / 0.06);
+  --card-foreground: #f2f4f8;
+  --popover: rgb(22 25 33 / 0.92);
+  --popover-foreground: #f2f4f8;
+  --primary: #6aa8ff;
+  --primary-foreground: #0b0d12;
+  --secondary: rgb(255 255 255 / 0.08);
+  --secondary-foreground: #f2f4f8;
+  --muted: rgb(255 255 255 / 0.08);
+  --muted-foreground: rgb(242 244 248 / 0.58);
+  --subtle: rgb(255 255 255 / 0.04);
+  --accent: rgb(255 255 255 / 0.08);
+  --accent-foreground: #f2f4f8;
+  --brand: #6aa8ff;
+  --brand-soft: rgb(106 168 255 / 0.16);
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #6aa8ff;
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.14);
+  --ring: #6aa8ff;
+  --chart-1: #6aa8ff;
+  --chart-2: #94a3b8;
+  --chart-3: #4ade80;
+  --chart-4: #fbbf24;
+  --chart-5: #334155;
+  --sidebar: rgb(255 255 255 / 0.03);
+  --sidebar-foreground: rgb(242 244 248 / 0.72);
+  --sidebar-primary: #6aa8ff;
+  --sidebar-primary-foreground: #0b0d12;
+  --sidebar-accent: rgb(255 255 255 / 0.1);
+  --sidebar-accent-foreground: #f2f4f8;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #6aa8ff;
 }
 
 @layer base {
@@ -156,25 +162,24 @@
   }
   html {
     @apply font-sans;
+    background: var(--background);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "cv11", "ss01";
-    letter-spacing: -0.006em;
+    /* Transparent so the backdrop orbs show between the page colour and the content. */
+    background: transparent;
+    @apply text-foreground;
   }
   h1, h2, h3 {
-    letter-spacing: -0.018em;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
   .tabular {
-    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 22%, transparent);
+    background: color-mix(in oklch, var(--primary) 24%, transparent);
   }
 }
 
@@ -185,95 +190,78 @@
   }
 }
 
-/* ---------- HUD utilities ---------- */
+/* ---------- Glass ---------- */
 
-/* Chamfered panel: bevelled corners where the browser supports corner-shape, square corners elsewhere. */
-.hud-panel {
-  position: relative;
-  border-radius: 0;
+/* The light field the glass refracts: three soft orbs, fixed behind everything. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
 }
-@supports (corner-shape: bevel) {
-  .hud-panel {
-    border-radius: 12px 0 12px 0;
-    corner-shape: bevel;
-  }
-  .hud-cut {
-    border-radius: 6px 0 6px 0;
-    corner-shape: bevel;
-  }
+/* Soft orbs as radial gradients (no filter: a blurred, animated layer is expensive enough to stall pointer events). */
+.backdrop i {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  opacity: var(--orb-opacity);
+  will-change: transform;
+}
+.backdrop i:nth-child(1) { background: radial-gradient(closest-side, var(--orb-1), transparent); top: -42vmax; left: -28vmax; }
+.backdrop i:nth-child(2) { background: radial-gradient(closest-side, var(--orb-2), transparent); top: 15vh; right: -46vmax; }
+.backdrop i:nth-child(3) { background: radial-gradient(closest-side, var(--orb-3), transparent); bottom: -54vmax; left: 0;
+  opacity: calc(var(--orb-opacity) * 0.7); }
+@media (prefers-reduced-motion: no-preference) {
+  .backdrop i:nth-child(1) { animation: drift 28s ease-in-out infinite alternate; }
+  .backdrop i:nth-child(2) { animation: drift 34s ease-in-out -8s infinite alternate-reverse; }
+  .backdrop i:nth-child(3) { animation: drift 40s ease-in-out -16s infinite alternate; }
+}
+@keyframes drift { to { transform: translate3d(5vmax, 4vmax, 0) scale(1.08); } }
+
+/* Frosted panel: translucent fill, blur, a brighter top edge and a soft shadow. */
+.glass-panel {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid var(--edge);
+  border-top-color: var(--edge-top);
+  border-radius: 22px;
+  box-shadow: var(--glass-shadow);
+}
+.glass-hover {
+  transition: background-color 180ms var(--ease-out);
+}
+.glass-hover:hover {
+  background: var(--glass-strong);
+}
+.glass-alert {
+  border-color: color-mix(in srgb, var(--destructive) 45%, transparent);
 }
 
-/* Glow only on interaction or alert. */
-.dark .hud-hover {
-  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+/* Section title and status label: sentence case, system type. */
+.section-title {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
-.dark .hud-hover:hover {
-  border-color: rgb(0 229 255 / 0.35);
-  box-shadow: 0 0 0 1px rgb(0 229 255 / 0.08), 0 0 24px -6px rgb(0 229 255 / 0.25);
-}
-.dark .hud-alert {
-  border-color: rgb(255 45 75 / 0.45);
-  box-shadow: 0 0 22px -8px rgb(255 45 75 / 0.45);
-}
-
-/* Telemetry gauge: thin bar with a faint neon bleed in dark mode. */
-.gauge-fill {
-  box-shadow: none;
-}
-.dark .gauge-fill {
-  box-shadow: 0 0 6px currentColor;
-}
-
-/* Section titles: geometric display face, wide tracking. */
-.hud-title {
-  font-family: var(--font-display);
-  font-size: 11px;
+.status-label {
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
-/* Terminal label: small mono caps. */
-.hud-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+/* Overlays and the sidebar get the same frosted treatment. */
+[data-slot="popover-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sidebar-inner"],
+[data-slot="tooltip-content"] {
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
 }
-
-/* Faint tactical grid behind the workspace. */
-.dark .hud-grid {
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.022) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.022) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-/* Controls in tactical mode: sharp or bevelled corners, cyan feedback on hover and focus. */
-.dark [data-slot="button"],
-.dark [data-slot="input"],
-.dark [data-slot="textarea"],
-.dark select,
-.dark [data-slot="dropdown-menu-content"],
-.dark [data-slot="popover-content"],
-.dark [data-slot="dialog-content"],
-.dark [data-slot="alert-dialog-content"] {
-  border-radius: 0;
-}
-
-.dark [data-slot="button"] {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.dark [data-slot="button"]:hover {
-  box-shadow: 0 0 14px -4px rgb(0 229 255 / 0.45);
-}
-
-.dark [data-slot="input"]:focus-visible,
-.dark select:focus-visible {
-  border-color: var(--tac-cyan);
-  box-shadow: 0 0 0 1px rgb(0 229 255 / 0.25), 0 0 14px -6px rgb(0 229 255 / 0.5);
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  border-radius: 22px;
 }

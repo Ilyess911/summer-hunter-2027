@@ -25,6 +25,7 @@ test("track an opportunity, then confirm the submission when moving it on the bo
   await page.getByRole("link", { name: /Robotics Deployment Intern/ }).click()
   await page.getByRole("button", { name: "Suivre la candidature" }).click()
   await expect(page.getByText(/Ajoutée à tes candidatures|Déjà suivie/).first()).toBeVisible()
+  await expect(page).toHaveURL(/\/applications\/\d+/)               // tracking opens the application; let it land first
 
   await page.goto("/pipeline")
   const card = page.getByText("Robotics Deployment Intern")
@@ -43,6 +44,8 @@ test("track an opportunity, then confirm the submission when moving it on the bo
   await expect(page.getByText(/Formic : Postulé/)).toBeVisible()
   await page.reload()
   await expect(page.locator('[data-status="APPLIED"]').getByText("Robotics Deployment Intern")).toBeVisible()
+  await page.locator('[data-status="APPLIED"]').getByText("Robotics Deployment Intern").click()   // a click without moving opens it
+  await expect(page).toHaveURL(/\/applications\/\d+/)
 })
 
 test("add a contact, write a validated message, copy it and record it as sent", async ({ page, context }) => {

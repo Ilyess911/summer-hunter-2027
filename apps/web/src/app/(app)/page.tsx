@@ -8,7 +8,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 
 import {
-  ActionBadge, EligibilityBadge, EmptyState, ErrorState, PageHeader, Pay, Reticles, RowsSkeleton, Score, Section, TimingBadge,
+  ActionBadge, EligibilityBadge, EmptyState, ErrorState, PageHeader, Pay, RowsSkeleton, Score, Section, TimingBadge,
 } from "@/components/os/bits"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
@@ -27,9 +27,9 @@ const KIND_CTA: Record<string, string> = {
 
 function Stat({ label, value, href, tone }: { label: string; value: number | undefined; href: string; tone?: string }) {
   return (
-    <Link href={href} className="group min-w-0 bg-card px-4 py-3.5 transition-colors hover:bg-tac-cyan/[0.04]">
-      <div className="hud-label min-h-[2lh] text-[9.5px] leading-[1.35] tracking-[0.1em] text-muted-foreground transition-colors group-hover:text-tac-cyan sm:min-h-0 sm:truncate xl:min-h-[2lh] xl:whitespace-normal">{label}</div>
-      <div className={cn("tabular mt-1.5 text-[24px] leading-none", tone)}>{value === undefined ? "–" : String(value).padStart(2, "0")}</div>
+    <Link href={href} className="min-w-0 rounded-2xl px-3 py-3 text-center transition-colors hover:bg-glass-strong">
+      <div className={cn("tabular text-[26px] font-bold leading-none tracking-[-0.02em]", tone)}>{value ?? "–"}</div>
+      <div className="mt-1.5 truncate text-[12px] text-muted-foreground">{label}</div>
     </Link>
   )
 }
@@ -44,12 +44,12 @@ function greeting(): string {
 function PriorityRow({ p, onDone }: { p: Priority; onDone: (key: string) => void }) {
   const Icon = KIND_ICON[p.kind] ?? Sparkles
   return (
-    <li className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-tac-cyan/[0.03]">
-      <span className={cn("hud-cut flex size-7 shrink-0 items-center justify-center border text-muted-foreground",
-                          URGENT.has(p.kind) && "border-tac-amber/50 text-tac-amber")}><Icon className="size-3.5" /></span>
+    <li className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-glass-strong">
+      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground/6 text-muted-foreground",
+                          URGENT.has(p.kind) && "bg-warning/15 text-warning")}><Icon className="size-3.5" /></span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{p.title}</div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">{p.detail}</div>
+        <div className="truncate text-[12.5px] text-muted-foreground">{p.detail}</div>
       </div>
       <Button variant="ghost" size="xs" className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               onClick={() => onDone(p.key)} aria-label="Marquer comme fait">Fait</Button>
@@ -74,16 +74,15 @@ export default function CommandCenterPage() {
                     {d ? ` · ${d.priorities.length} action${d.priorities.length > 1 ? "s" : ""} à traiter` : ""}</span>} />
       {q.isError ? <ErrorState error={q.error} retry={() => q.refetch()} /> : (
         <div className="space-y-6 px-6 pb-8 pt-4 lg:px-8">
-          <div className="hud-panel hud-hover group/hud relative grid grid-cols-2 gap-px border bg-border sm:grid-cols-4 xl:grid-cols-7">
-            <Reticles />
+          <div className="glass-panel grid grid-cols-2 gap-1 p-1.5 sm:grid-cols-4 xl:grid-cols-7">
             <Stat label="Candidatures actives" value={d?.counts.active} href="/pipeline" />
             <Stat label="Nouvelles (7 j)" value={d?.counts.new} href="/opportunities?sort=discovered" />
             <Stat label="En attente de réponse" value={d?.counts.awaiting} href="/pipeline?status=APPLIED" />
-            <Stat label="Entretiens" value={d?.counts.interviews} href="/pipeline?status=INTERVIEW" tone={d?.counts.interviews ? "text-tac-cyan" : undefined} />
-            <Stat label="Offres" value={d?.counts.offers} href="/pipeline?status=OFFER_RECEIVED" tone={d?.counts.offers ? "text-tac-cyan" : undefined} />
-            <Stat label="Échéances ≤ 14 j" value={d?.counts.deadlines} href="/pipeline" tone={d?.counts.deadlines ? "text-tac-red" : undefined} />
+            <Stat label="Entretiens" value={d?.counts.interviews} href="/pipeline?status=INTERVIEW" tone={d?.counts.interviews ? "text-brand" : undefined} />
+            <Stat label="Offres" value={d?.counts.offers} href="/pipeline?status=OFFER_RECEIVED" tone={d?.counts.offers ? "text-success" : undefined} />
+            <Stat label="Échéances ≤ 14 j" value={d?.counts.deadlines} href="/pipeline" tone={d?.counts.deadlines ? "text-destructive" : undefined} />
             <Stat label="Stages payés" value={d?.counts.paid} href="/opportunities?view=best-paid" />
-            <div className="bg-card xl:hidden" aria-hidden />
+            
           </div>
 
           <div className="grid gap-5 xl:grid-cols-5">
@@ -99,7 +98,7 @@ export default function CommandCenterPage() {
               {q.isLoading ? <RowsSkeleton rows={4} /> : d && d.networking.length ? (
                 <ul className="divide-y">
                   {d.networking.map((c) => (
-                    <li key={`${c.id}-${c.opportunity?.id}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-tac-cyan/[0.03]">
+                    <li key={`${c.id}-${c.opportunity?.id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-glass-strong">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{c.name} <span className="font-normal text-muted-foreground">· {c.category_label}</span></div>
                         <div className="truncate text-xs text-muted-foreground">{c.company} · {c.opportunity?.title}</div>
@@ -121,19 +120,19 @@ export default function CommandCenterPage() {
             {q.isLoading ? <RowsSkeleton rows={5} /> : d && d.top.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="hud-label text-[9.5px] text-muted-foreground">
+                  <thead className="text-[12px] text-muted-foreground">
                     <tr className="border-b">
                       {["Entreprise", "Poste", "Pays", "Recrutabilité", "Adéquation", "Paie", "Éligibilité", "Prochaine étape"].map((h) => (
-                        <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left font-normal">{h}</th>
+                        <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left font-medium first:pl-5">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {d.top.map((o) => (
-                      <tr key={o.id} className="transition-colors hover:bg-tac-cyan/[0.03]">
+                      <tr key={o.id} className="transition-colors hover:bg-glass-strong">
                         <td className="px-4 py-2.5 font-medium">{o.company}</td>
                         <td className="max-w-80 px-4 py-2.5"><Link href={`/opportunities/${o.id}`} className="line-clamp-1 hover:underline">{o.title}</Link></td>
-                        <td className="px-4 py-2.5 font-mono text-[12px] text-muted-foreground">{o.country ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{o.country ?? "—"}</td>
                         <td className="px-4 py-2.5"><Score value={o.recruitability} label="Recrutabilité" /></td>
                         <td className="px-4 py-2.5"><Score value={o.fit} label="Adéquation" /></td>
                         <td className="px-4 py-2.5"><Pay c={o.compensation} compact /></td>
