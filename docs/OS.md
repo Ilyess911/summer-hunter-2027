@@ -63,8 +63,23 @@ Mac (SQLite, découverte, LaTeX, Ollama) --push instantané--> API hébergée (V
 Navigateur --> Next.js (Vercel) --/api/* réécrit--> API hébergée
 ```
 
-Ce qui ne tourne pas en ligne : la découverte nocturne, la génération de CV et de lettres, la
-reformulation IA, l'export Excel. Ces actions répondent 409 en mode hébergé. Un processus Python
+Déroulé d'une synchronisation (`summer-hunter os sync`, ou automatiquement après la nuit) :
+
+1. Le Mac récupère les modifications faites en ligne et les rejoue dans l'ordre, avec les mêmes
+   commandes que l'API (`os/commands.py`) : mêmes événements CRM, retours, interactions.
+2. Chaque modification rejouée est inscrite dans un registre local : un accusé de réception perdu
+   ne la rejoue jamais deux fois.
+3. Les lignes créées en ligne (contacts, brouillons) reçoivent un identifiant du Mac ; la table de
+   correspondance évite qu'une modification en ligne touche la mauvaise ligne.
+4. Une modification en ligne plus ancienne qu'un changement fait sur le Mac n'écrase rien : elle
+   est mise de côté comme conflit (compteur dans la barre latérale, détail dans `os sync`).
+5. L'instantané part en zone de transit, puis remplace la copie hébergée en une seule transaction,
+   seulement si aucune modification en ligne n'est arrivée entre-temps (sinon le cycle recommence,
+   trois fois au plus).
+6. Au premier échec de rejeu, la file s'arrête, rien n'est poussé, l'erreur est affichée.
+
+Ce qui ne tourne pas en ligne : la découverte nocturne, la recherche de profils, la génération de
+CV et de lettres, la reformulation IA, l'export Excel. Ces actions répondent 409 en mode hébergé. Un processus Python
 ne tourne pas en continu sur Vercel : chaque requête est une fonction courte.
 
 ### Mise en place (manuelle, une fois)
@@ -98,9 +113,9 @@ uv export --no-hashes --extra hosted --no-emit-project --no-dev | grep -v "^#\|^
 - Chaque route sauf `/api/health` et `/api/auth/login` exige la session. Toute requête qui modifie
   exige l'en-tête `X-SH-Request: 1` (protection CSRF), sans CORS ouvert.
 - Connexion limitée à 8 essais par client et 40 au total par 15 minutes ; les compteurs sont en base
-  pour tenir entre les instances serverless.
+  pour tenir entre les instances serverless, et toute écriture en ligne passe par un verrou Postgres.
 - Synchronisation : HTTPS + `Authorization: Bearer SH_SYNC_TOKEN` (32 caractères minimum, comparaison
-  à temps constant). Les routes de sync n'existent qu'en mode hébergé.
+  à temps constant), HTTPS obligatoire côté Mac. Les routes de sync n'existent qu'en mode hébergé.
 - Aucune clé ni secret n'est envoyé au navigateur ; le front ne parle qu'à `/api` sur sa propre origine.
 - Pas de documentation OpenAPI publique, en-têtes `nosniff`, `no-referrer`, `DENY`, `no-store`.
 

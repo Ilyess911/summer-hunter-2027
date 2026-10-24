@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { qs } from "@/lib/api"
 import { pay, relative } from "@/lib/format"
+import { safeNext } from "@/lib/nav"
 
 describe("pay", () => {
   it("shows a monthly range when min and max differ", () => {
@@ -29,4 +30,14 @@ describe("qs", () => {
     expect(qs({ q: "data & ops", page: 2, tracked: false, region: "", country: null })).toBe("?q=data+%26+ops&page=2")
   })
   it("returns an empty string with no parameter", () => expect(qs({})).toBe(""))
+})
+
+describe("safeNext", () => {
+  it("keeps same-origin paths", () => expect(safeNext("/pipeline?status=APPLIED")).toBe("/pipeline?status=APPLIED"))
+  it("refuses other origins, including backslash tricks", () => {
+    for (const bad of ["//evil.example", "/\\\\evil.example", "/%5C%5Cevil.example", "https://evil.example/x"]) {
+      expect(safeNext(bad === "/%5C%5Cevil.example" ? decodeURIComponent(bad) : bad)).toBe("/")
+    }
+  })
+  it("falls back to the home page", () => expect(safeNext(null)).toBe("/"))
 })

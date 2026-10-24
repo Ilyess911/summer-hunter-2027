@@ -16,12 +16,12 @@ from typing import Any, Literal
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from summer_hunter.crm import statuses as st
 from summer_hunter.crm.service import CRM
-from summer_hunter.crm.validation import ValidationError, parse_date, parse_datetime
+from summer_hunter.crm.validation import ValidationError
 from summer_hunter.database.models import (
     ContactEvidence,
     ContactOpportunity,
@@ -34,12 +34,16 @@ from summer_hunter.database.models import (
 )
 from summer_hunter.database.repository import Repository
 from summer_hunter.engine.regions import REGIONS
+from summer_hunter.os import commands as cmd
 from summer_hunter.os import messages as msg
 from summer_hunter.os import networking as net
 from summer_hunter.os import security, views
 from summer_hunter.utils.settings import Settings, load_yaml
 
 log = logging.getLogger(__name__)
+WRITE_LOCK = 7_243_001
+GEN_KEY, ORIGIN_KEY, RUN_KEY = "os_snapshot_gen", "os_origin", "os_sync_run"
+SYNC_PROTOCOL = 2
 
 
 # Request schemas ---------------------------------------------------------------------------------------
@@ -105,9 +109,15 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     app = FastAPI(title="Summer Hunter OS", docs_url=None, redoc_url=None, openapi_url=None)
     net_cfg = load_yaml(settings.config_dir / "networking.yaml") if (settings.config_dir / "networking.yaml").exists() else {}
 
-    def db():
+    def db(request: Request):
         with sessions() as s:
+            if hosted and request.method not in {"GET", "HEAD", "OPTIONS"} and s.get_bind().dialect.name == "postgresql":
+                # One writer at a time online: edits, login attempts and the snapshot swap never interleave.
+                s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": WRITE_LOCK})
             yield s
+
+    def ctx(s: Session) -> cmd.Ctx:
+        return cmd.Ctx(s, settings, net_cfg, "web")
 
     def authed(request: Request) -> None:
         if not security.valid_session(request.cookies.get(security.COOKIE)):
@@ -117,12 +127,14 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     def local_only(feature: str) -> None:
         if hosted:
-            raise HTTPException(409, f"{feature} runs on the Mac (local mode); it has been queued for the next sync")
+            raise HTTPException(409, f"{feature} runs on the Mac only (local mode)")
 
     def record(s: Session, kind: str, payload: dict[str, Any]) -> None:
-        """In hosted mode, every edit is also queued for the Mac, which stays the source of truth."""
+        """In hosted mode, every edit is also queued for the Mac, which stays the source of truth. The snapshot
+        generation tells the replay which ids were created online since the last snapshot."""
         if hosted:
-            s.add(SyncChange(kind=kind, payload=payload))
+            gen = int(Repository(s).get_kv(GEN_KEY) or 0)
+            s.add(SyncChange(kind=kind, payload={**payload, "_gen": gen}))
 
     @app.middleware("http")
     async def headers(request: Request, call_next):  # noqa: ANN001
@@ -151,8 +163,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         client = request.client.host if request.client else "unknown"
         if hosted:  # behind Vercel's edge, which sets X-Forwarded-For; the global cap covers a spoofed value
             client = request.headers.get("x-forwarded-for", client).split(",")[0].strip() or client
-        allowed = security.allow_attempt_persistent(Repository(s), client)
-        s.commit()
+        allowed = security.allow_attempt_persistent(s, client)
         if not allowed:
             raise HTTPException(429, "too many attempts, try again in 15 minutes")
         if not security.verify_password(body.password, os.environ.get("SH_OS_PASSWORD_HASH")):
@@ -162,7 +173,9 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         return {"ok": True}
 
     @app.post("/api/auth/logout")
-    def logout(response: Response) -> dict[str, Any]:
+    def logout(request: Request, response: Response) -> dict[str, Any]:
+        if request.headers.get(security.CSRF_HEADER) != "1":
+            raise HTTPException(403, "missing X-SH-Request header")
         response.delete_cookie(security.COOKIE, path="/")
         return {"ok": True}
 
@@ -175,7 +188,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def meta(s: Session = Depends(db)) -> dict[str, Any]:
         repo = Repository(s)
         return {"mode": "hosted" if hosted else "local", "last_sync": repo.get_kv("os_last_sync"), "last_run": views.last_run(s),
-                "features": {"documents": not hosted, "ai_messages": not hosted, "contact_search": bool(settings.brave_api_key)},
+                "sync_conflicts": _conflict_count(repo), "features": {"documents": not hosted, "ai_messages": not hosted, "contact_search": bool(settings.brave_api_key)},
                 "recruitment_mode": repo.get_kv("recruitment_mode") or "conversion"}
 
     @app.get("/api/command-center", dependencies=[Depends(authed)])
@@ -184,8 +197,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/actions/{key:path}/done", dependencies=[Depends(authed)])
     def action_done(key: str, s: Session = Depends(db)) -> dict[str, Any]:
-        Repository(s).set_kv(f"action_done:{key[:180]}", utcnow().isoformat())
-        record(s, "action_done", {"key": key})
+        record(s, "action_done", cmd.action_done(ctx(s), key))
         s.commit()
         return {"ok": True}
 
@@ -223,22 +235,14 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/opportunities/{opp_id}/track", dependencies=[Depends(authed)])
     def track(opp_id: int, s: Session = Depends(db)) -> dict[str, Any]:
-        app_, created = CRM(s, settings.data_dir, settings.timezone).track(_opp(s, opp_id), "web")
-        record(s, "track", {"opportunity_id": opp_id})
+        app_, created, payload = cmd.track(ctx(s), _opp(s, opp_id))
+        record(s, "track", payload)
         s.commit()
         return {"application_id": app_.id, "created": created}
 
     @app.post("/api/opportunities/{opp_id}/dismiss", dependencies=[Depends(authed)])
     def dismiss(opp_id: int, body: DismissIn, s: Session = Depends(db)) -> dict[str, Any]:
-        from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
-
-        repo = Repository(s)
-        o = _opp(s, opp_id)
-        repo.record_feedback(o, "dismiss", source="web", data_dir=settings.data_dir, timezone=settings.timezone)
-        if body.reason in DISMISS_REASONS:
-            repo.record_feedback(o, "reason", body.reason)
-        recompute(repo, settings.scoring)
-        record(s, "dismiss", {"opportunity_id": opp_id, "reason": body.reason})
+        record(s, "dismiss", cmd.dismiss(ctx(s), _opp(s, opp_id), body.reason))
         s.commit()
         return {"ok": True}
 
@@ -249,6 +253,9 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
         o = _opp(s, opp_id)
         links = people_search_links(o)
+        if hosted:
+            return {"status": "disabled", "added": 0, "links": links,
+                    "detail": "Profile search runs on the Mac. Use the LinkedIn searches below, then add the people you find."}
         if not settings.brave_api_key:
             return {"status": "disabled", "added": 0, "links": links,
                     "detail": "No BRAVE_SEARCH_API_KEY: use the LinkedIn searches below, then add the people you find."}
@@ -277,48 +284,26 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/applications/{app_id}/status", dependencies=[Depends(authed)])
     def change_status(app_id: int, body: StatusChange, s: Session = Depends(db)) -> dict[str, Any]:
-        crm = CRM(s, settings.data_dir, settings.timezone)
-        a = _app(crm, app_id)
-        target = body.status.strip().upper()
-        if target == "APPLIED" or (target in st.POST_APPLICATION and a.date_applied is None):
-            if not body.confirm_submission:
-                raise HTTPException(409, "confirm that the application was actually submitted")
-            applied_on = parse_date(body.applied_on, "applied on") if body.applied_on else None
-            crm.confirm_applied(a.opportunity, "web", applied_on)
-            Repository(s).record_feedback(a.opportunity, "applied", source="web", data_dir=settings.data_dir,
-                                          timezone=settings.timezone)
-        if target != a.status:
-            crm.set_status(a, target, "web")
-        net.recompute(s, net_cfg, a.opportunity_id)
-        record(s, "status", {"application_id": app_id, "status": target, "applied_on": body.applied_on,
-                             "confirm_submission": body.confirm_submission})
+        a = _app(CRM(s), app_id)
+        try:
+            payload = cmd.set_status(ctx(s), a, body.status, body.confirm_submission, body.applied_on)
+        except cmd.NeedsConfirmation as exc:
+            raise HTTPException(409, str(exc)) from None
+        record(s, "status", payload)
         s.commit()
         return views.application_row(a)
 
     @app.post("/api/applications/{app_id}/interview", dependencies=[Depends(authed)])
     def interview(app_id: int, body: InterviewIn, s: Session = Depends(db)) -> dict[str, Any]:
-        crm = CRM(s, settings.data_dir, settings.timezone)
-        a = _app(crm, app_id)
-        crm.record_interview(a, parse_datetime(body.at, settings.timezone, "interview"), "web", final=body.final)
-        net.recompute(s, net_cfg, a.opportunity_id)
-        record(s, "interview", {"application_id": app_id, "at": body.at, "final": body.final})
+        a = _app(CRM(s), app_id)
+        record(s, "interview", cmd.interview(ctx(s), a, body.at, body.final))
         s.commit()
         return views.application_row(a)
 
     @app.patch("/api/applications/{app_id}", dependencies=[Depends(authed)])
     def patch_app(app_id: int, body: AppPatch, s: Session = Depends(db)) -> dict[str, Any]:
-        crm = CRM(s, settings.data_dir, settings.timezone)
-        a = _app(crm, app_id)
-        changes: dict[str, Any] = {}
-        sent = body.model_dump(exclude_unset=True)
-        for k in ("notes", "next_action"):
-            if k in sent:
-                changes[k] = sent[k]
-        for k in ("next_action_date", "deadline"):
-            if k in sent:
-                changes[k] = parse_date(sent[k], k) if sent[k] else None
-        crm.update_fields(a, changes, "web")
-        record(s, "patch", {"application_id": app_id, **sent})
+        a = _app(CRM(s), app_id)
+        record(s, "patch", cmd.patch(ctx(s), a, body.model_dump(exclude_unset=True)))
         s.commit()
         return views.application_row(a)
 
@@ -327,7 +312,6 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def generate_document(opp_id: int, kind: Literal["cv", "letter"], s: Session = Depends(db)) -> dict[str, Any]:
         o = _opp(s, opp_id)
         if hosted:
-            s.add(SyncChange(kind="generate_document", payload={"opportunity_id": opp_id, "kind": kind}))
             s.commit()
             local_only("Document generation")
         if kind == "cv":
@@ -405,6 +389,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/networking/refresh", dependencies=[Depends(authed)])
     def networking_refresh(s: Session = Depends(db)) -> dict[str, Any]:
+        local_only("Contact discovery")
         out = net.import_public_contacts(s)
         out["scored"] = net.recompute(s, net_cfg)
         s.commit()
@@ -417,10 +402,8 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/contacts", dependencies=[Depends(authed)])
     def add_contact(body: ContactIn, s: Session = Depends(db)) -> dict[str, Any]:
-        c = net.add_user_contact(s, body.company, body.name, body.position, body.linkedin_url, body.category, body.opportunity_id, body.note)
-        if body.opportunity_id:
-            net.recompute(s, net_cfg, body.opportunity_id)
-        record(s, "add_contact", body.model_dump())
+        c, payload = cmd.add_contact(ctx(s), body.model_dump())
+        record(s, "add_contact", payload)
         s.commit()
         return views.contact_row(c)
 
@@ -440,18 +423,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     @app.post("/api/contacts/{contact_id}/confirm", dependencies=[Depends(authed)])
     def confirm(contact_id: int, s: Session = Depends(db)) -> dict[str, Any]:
         c = _contact(s, contact_id)
-        net.confirm_contact(s, c)
-        net.recompute(s, net_cfg)
-        record(s, "confirm_contact", {"contact_id": contact_id})
+        record(s, "confirm_contact", cmd.confirm_contact(ctx(s), c))
         s.commit()
         return views.contact_row(c)
 
     @app.post("/api/contacts/{contact_id}/dismiss", dependencies=[Depends(authed)])
     def dismiss_contact(contact_id: int, s: Session = Depends(db)) -> dict[str, Any]:
-        c = _contact(s, contact_id)
-        c.dismissed = True
-        net.recompute(s, net_cfg)
-        record(s, "dismiss_contact", {"contact_id": contact_id})
+        record(s, "dismiss_contact", cmd.dismiss_contact(ctx(s), _contact(s, contact_id)))
         s.commit()
         return {"ok": True}
 
@@ -480,8 +458,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         m = OutreachMessage(contact_id=c.id, opportunity_id=o.id if o else None, kind=d.kind, variant=d.variant, text=d.text,
                             generator="template", evidence_refs=d.evidence_refs, validation=d.validation,
                             personalization=d.personalization)
-        s.add(m)
-        record(s, "message", {"contact_id": c.id, "opportunity_id": m.opportunity_id, "kind": d.kind, "variant": d.variant})
+        record(s, "message", cmd.save_message(ctx(s), m))
         s.commit()
         return views.message_row(m)
 
@@ -508,7 +485,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         m = OutreachMessage(contact_id=c.id, opportunity_id=base.opportunity_id, kind=d.kind, variant=d.variant, text=d.text,
                             generator="template", evidence_refs=d.evidence_refs, validation=d.validation,
                             personalization=d.personalization)
-        s.add(m)
+        record(s, "message", cmd.save_message(ctx(s), m))
         s.commit()
         return views.message_row(m)
 
@@ -532,30 +509,23 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         m = _message(s, message_id)
         if m.status == "sent":
             return views.message_row(m)
-        c = _contact(s, m.contact_id)
-        m.status, m.sent_at = "sent", utcnow()
-        net.record_interaction(s, c, "message_sent", m.opportunity_id, note=f"{m.kind} ({m.variant})", message_id=m.id)
-        net.recompute(s, net_cfg)
-        record(s, "message_sent", {"contact_id": c.id, "opportunity_id": m.opportunity_id, "kind": m.kind, "text": m.text})
+        _contact(s, m.contact_id)
+        record(s, "message_sent", cmd.mark_sent(ctx(s), m))
         s.commit()
         return views.message_row(m)
 
     @app.post("/api/messages/{message_id}/dismiss", dependencies=[Depends(authed)])
     def dismiss_message(message_id: int, s: Session = Depends(db)) -> dict[str, Any]:
         m = _message(s, message_id)
-        m.status = "dismissed"
+        record(s, "message_dismiss", cmd.dismiss_message(ctx(s), m))
         s.commit()
         return views.message_row(m)
 
     @app.post("/api/contacts/{contact_id}/interactions", dependencies=[Depends(authed)])
     def interaction(contact_id: int, body: InteractionIn, s: Session = Depends(db)) -> dict[str, Any]:
         c = _contact(s, contact_id)
-        when = parse_date(body.follow_up_on, "follow-up date") if body.follow_up_on else None
-        if body.kind == "follow_up_scheduled" and when is None:
-            raise HTTPException(422, "a scheduled follow-up needs a date")
-        i = net.record_interaction(s, c, body.kind, body.opportunity_id, body.note, follow_up_on=when)
-        net.recompute(s, net_cfg)
-        record(s, "interaction", {"contact_id": c.id, **body.model_dump()})
+        i, payload = cmd.interaction(ctx(s), c, body.kind, body.opportunity_id, body.note, body.follow_up_on)
+        record(s, "interaction", payload)
         s.commit()
         return {"id": i.id, "kind": i.kind}
 
@@ -590,50 +560,56 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     @app.post("/api/config/preferences", dependencies=[Depends(authed)])
     def preferences(body: PreferencesIn, s: Session = Depends(db)) -> dict[str, Any]:
         if body.mode:
-            from summer_hunter.engine import modes
-
-            modes.set_mode(Repository(s), body.mode)
-            record(s, "mode", {"mode": body.mode})
+            record(s, "mode", cmd.set_mode(ctx(s), body.mode))
         s.commit()
         return {"ok": True}
 
-    # Sync (hosted side; the Mac authenticates with SH_SYNC_TOKEN) ------------------------------------------------
+    # Sync (hosted side only; the Mac authenticates with SH_SYNC_TOKEN) -----------------------------------------
+    if hosted:
+        _sync_routes(app, db)
+    return app
+
+
+def _conflict_count(repo: Repository) -> int:
+    import json
+
+    try:
+        return len(json.loads(repo.get_kv("sync_conflicts") or "[]"))
+    except ValueError:
+        return 0
+
+
+def _sync_routes(app: FastAPI, db) -> None:  # noqa: ANN001
+    """Pull of online edits, then an atomic snapshot swap: chunks go to a staging table and /done replaces the
+    synchronized tables in one transaction, only when every online edit has been acknowledged by the Mac."""
+    import json
+    import uuid
+
+    from sqlalchemy import delete
+
+    from summer_hunter.database.models import SyncStaging
+    from summer_hunter.os import sync as sync_mod
+
     def sync_auth(request: Request) -> None:
-        if not hosted or not security.sync_token_ok(request.headers.get("authorization", "").removeprefix("Bearer ")):
+        if not security.sync_token_ok(request.headers.get("authorization", "").removeprefix("Bearer ")):
             raise HTTPException(401, "sync token required")
 
-    @app.post("/api/sync/begin", dependencies=[Depends(sync_auth)])
-    def sync_begin(s: Session = Depends(db)) -> dict[str, Any]:
-        from summer_hunter.os.sync import begin_snapshot
-
-        begin_snapshot(s)
-        s.commit()
-        return {"ok": True}
-
-    @app.post("/api/sync/push/{table}", dependencies=[Depends(sync_auth)])
-    def sync_push(table: str, part: int = 0, rows: list[dict[str, Any]] = Body(...), s: Session = Depends(db)) -> dict[str, Any]:
-        from summer_hunter.os.sync import apply_snapshot_part
-
-        try:
-            n = apply_snapshot_part(s, table, rows)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
-        s.commit()
-        return {"table": table, "part": part, "rows": n}
-
-    @app.post("/api/sync/done", dependencies=[Depends(sync_auth)])
-    def sync_done(s: Session = Depends(db)) -> dict[str, Any]:
-        from summer_hunter.os.sync import finish_snapshot
-
-        finish_snapshot(s)
-        Repository(s).set_kv("os_last_sync", utcnow().isoformat())
-        s.commit()
-        return {"ok": True}
+    def origin(s: Session) -> str:
+        repo = Repository(s)
+        if s.get_bind().dialect.name == "postgresql":           # created once, under the same lock as every write
+            s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": WRITE_LOCK})
+        value = repo.get_kv(ORIGIN_KEY)
+        if not value:
+            value = uuid.uuid4().hex
+            repo.set_kv(ORIGIN_KEY, value)
+            s.commit()
+        return value
 
     @app.get("/api/sync/changes", dependencies=[Depends(sync_auth)])
-    def sync_changes(s: Session = Depends(db)) -> list[dict[str, Any]]:
+    def sync_changes(s: Session = Depends(db)) -> dict[str, Any]:
         rows = s.execute(select(SyncChange).where(SyncChange.applied_at.is_(None)).order_by(SyncChange.id)).scalars()
-        return [{"id": r.id, "kind": r.kind, "payload": r.payload, "created": r.created_at.isoformat()} for r in rows]
+        changes = [{"id": r.id, "kind": r.kind, "payload": r.payload, "created": r.created_at.isoformat()} for r in rows]
+        return {"protocol": SYNC_PROTOCOL, "origin": origin(s), "changes": changes}
 
     @app.post("/api/sync/ack", dependencies=[Depends(sync_auth)])
     def sync_ack(ids: list[int] = Body(...), s: Session = Depends(db)) -> dict[str, Any]:
@@ -642,4 +618,41 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         s.commit()
         return {"acked": len(ids)}
 
-    return app
+    @app.post("/api/sync/begin", dependencies=[Depends(sync_auth)])
+    def sync_begin(s: Session = Depends(db)) -> dict[str, Any]:
+        run_id = uuid.uuid4().hex
+        s.execute(delete(SyncStaging))                       # a newer run supersedes an unfinished one
+        Repository(s).set_kv(RUN_KEY, run_id)
+        s.commit()
+        return {"run_id": run_id, "protocol": SYNC_PROTOCOL}
+
+    @app.post("/api/sync/push/{table}", dependencies=[Depends(sync_auth)])
+    def sync_push(table: str, run_id: str = Query(max_length=40), part: int = 0, rows: list[dict[str, Any]] = Body(...),
+                  s: Session = Depends(db)) -> dict[str, Any]:
+        if table not in sync_mod.BY_NAME:
+            raise HTTPException(422, f"table {table!r} is not synchronized")
+        if Repository(s).get_kv(RUN_KEY) != run_id:
+            raise HTTPException(409, "sync run superseded")
+        s.add(SyncStaging(run_id=run_id, table_name=table, rows=json.dumps(rows)))
+        s.commit()
+        return {"table": table, "part": part, "rows": len(rows)}
+
+    @app.post("/api/sync/done", dependencies=[Depends(sync_auth)])
+    def sync_done(run_id: str = Query(max_length=40), s: Session = Depends(db)) -> dict[str, Any]:
+        repo = Repository(s)
+        if repo.get_kv(RUN_KEY) != run_id:
+            raise HTTPException(409, "sync run superseded")
+        pending = s.execute(select(SyncChange.id).where(SyncChange.applied_at.is_(None)).limit(1)).first()
+        if pending:                                          # an online edit arrived after the pull: pull again first
+            raise HTTPException(409, "pending online edits")
+        staged: dict[str, list[dict[str, Any]]] = {}
+        for part in s.execute(select(SyncStaging).where(SyncStaging.run_id == run_id).order_by(SyncStaging.id)).scalars():
+            staged.setdefault(part.table_name, []).extend(json.loads(part.rows))
+        sync_mod.begin_snapshot(s)
+        counts = {name: sync_mod.apply_snapshot_part(s, name, staged.get(name, [])) for name in sync_mod.BY_NAME}
+        sync_mod.finish_snapshot(s)
+        s.execute(delete(SyncStaging))
+        repo.set_kv(GEN_KEY, str(int(repo.get_kv(GEN_KEY) or 0) + 1))
+        repo.set_kv("os_last_sync", utcnow().isoformat())
+        s.commit()
+        return {"ok": True, "rows": counts}

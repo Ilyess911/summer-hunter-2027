@@ -126,6 +126,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div>Last discovery run {relative(meta.data?.last_run?.finished ?? meta.data?.last_run?.started)}</div>
             <div>Mode: {meta.data?.recruitment_mode ?? "…"}</div>
+            {!!meta.data?.sync_conflicts && (
+              <div className="text-warning" title="Online edits older than a change made on the Mac were kept aside. Details: summer-hunter os sync">
+                {meta.data.sync_conflicts} sync conflict{meta.data.sync_conflicts > 1 ? "s" : ""} kept aside
+              </div>
+            )}
           </div>
         </SidebarFooter>
       </Sidebar>

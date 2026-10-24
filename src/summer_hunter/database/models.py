@@ -356,6 +356,33 @@ class SyncChange(Base):
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class SyncStaging(Base):
+    """Hosted side: snapshot chunks uploaded by the Mac, swapped in atomically by /api/sync/done."""
+    __tablename__ = "sync_staging"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(40), index=True)
+    table_name: Mapped[str] = mapped_column(String(60))
+    rows: Mapped[str] = mapped_column(Text)                      # JSON list of row dicts
+
+
+class SyncApplied(Base):
+    """Mac side: hosted changes already replayed, so a lost acknowledgement never applies a change twice."""
+    __tablename__ = "sync_applied"
+    origin: Mapped[str] = mapped_column(String(40), primary_key=True)
+    change_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SyncIdMap(Base):
+    """Mac side: id of a row created online (per snapshot generation) -> id of the row created by the replay."""
+    __tablename__ = "sync_id_map"
+    origin: Mapped[str] = mapped_column(String(40), primary_key=True)
+    generation: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    entity: Mapped[str] = mapped_column(String(20), primary_key=True)
+    hosted_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    local_id: Mapped[int] = mapped_column(Integer)
+
+
 class CRMEvent(Base):
     """Append-only activity log. Rows are never updated or deleted."""
     __tablename__ = "crm_events"
@@ -489,4 +516,4 @@ class KeyValue(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5

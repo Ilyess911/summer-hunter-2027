@@ -159,6 +159,7 @@ export type Meta = {
   last_run: { status: string; started: string; finished: string | null } | null
   features: { documents: boolean; ai_messages: boolean; contact_search: boolean }
   recruitment_mode: string
+  sync_conflicts: number
 }
 
 export type Paged<T> = { items: T[]; total: number; page: number; page_size: number;

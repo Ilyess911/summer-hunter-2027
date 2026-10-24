@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, ApiError } from "@/lib/api"
+import { safeNext } from "@/lib/nav"
 
 const schema = z.object({ password: z.string().min(1, "Enter your password") })
 
@@ -24,8 +25,7 @@ function LoginForm() {
     setError(null)
     try {
       await api.post("/auth/login", values)
-      const next = params.get("next")
-      router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/")
+      router.replace(safeNext(params.get("next")))
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Cannot reach the API")
     }

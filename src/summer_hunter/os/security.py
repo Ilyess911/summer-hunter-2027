@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 import secrets
+import threading
 import time
 from collections import defaultdict, deque
 
@@ -26,6 +27,7 @@ _ATTEMPTS: dict[str, deque] = defaultdict(deque)
 MAX_ATTEMPTS, WINDOW = 8, 15 * 60
 MAX_GLOBAL_ATTEMPTS = 40          # all clients together: bounds guessing even if client addresses rotate
 ATTEMPTS_KEY = "os_login_attempts"
+_LOCK = threading.Lock()      # local mode: one process, several worker threads (hosted mode adds a database lock)
 
 
 def hash_password(password: str, n: int = 2 ** 14, r: int = 8, p: int = 1) -> str:
@@ -83,9 +85,17 @@ def allow_attempt(client: str, now: float | None = None) -> bool:
     return True
 
 
-def allow_attempt_persistent(repo, client: str, now: float | None = None) -> bool:
-    """Same policy as allow_attempt, stored in the key-value table (repo: Repository). The caller commits."""
-    now = now or time.time()
+def allow_attempt_persistent(session, client: str, now: float | None = None) -> bool:  # noqa: ANN001
+    """Same policy as allow_attempt, stored in the key-value table and committed before the lock is released."""
+    from summer_hunter.database.repository import Repository
+
+    with _LOCK:
+        allowed = _allow_persistent(Repository(session), client, now or time.time())
+        session.commit()
+        return allowed
+
+
+def _allow_persistent(repo, client: str, now: float) -> bool:  # noqa: ANN001
     try:
         state: dict[str, list[float]] = json.loads(repo.get_kv(ATTEMPTS_KEY) or "{}")
     except ValueError:

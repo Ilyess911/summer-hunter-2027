@@ -493,7 +493,8 @@ def _os_after_night(app: App) -> dict:
 
         try:
             res = sync.run(app.settings, app.sessions, url, token)
-            out["sync"] = {"applied": res["applied"], "failed": len(res["failed"])}
+            out["sync"] = {"applied": res["applied"], "failed": len(res["failed"]), "conflicts": len(res["conflicts"]),
+                           "swapped": res["swapped"]}
         except Exception as exc:  # noqa: BLE001 - the hosted copy keeps its last snapshot
             log.warning("hosted sync failed: %s", exc)
             out["sync_error"] = str(exc)[:200]
@@ -548,7 +549,8 @@ def cmd_os(app: App, args) -> int:  # noqa: ANN001
             print("Set SH_OS_HOSTED_URL and SH_SYNC_TOKEN in .env first (see docs/OS.md).")
             return 2
         out = sync.run(app.settings, app.sessions, url, token)
-        _print({"applied": out["applied"], "failed": out["failed"], "tables": len(out["pushed"])})
+        _print({"applied": out["applied"], "failed": out["failed"], "conflicts": out["conflicts"], "swapped": out["swapped"],
+                "tables": len(out["pushed"])})
         return 1 if out["failed"] else 0
     return 2
 

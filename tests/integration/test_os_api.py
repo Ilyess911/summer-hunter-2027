@@ -348,7 +348,7 @@ def test_hosted_sync_round_trip(settings, sessions, hunter, tmp_path):
 
         local_app = CRM(s).application_for(opp_id)
         assert local_app is not None and local_app.notes == "edited online"
-    assert hosted.get("/api/sync/changes", headers={"authorization": "Bearer " + "t" * 40}).json() == []
+    assert hosted.get("/api/sync/changes", headers={"authorization": "Bearer " + "t" * 40}).json()["changes"] == []
 
 
 @pytest.mark.skipif(not os.environ.get("SH_TEST_POSTGRES_URL"), reason="set SH_TEST_POSTGRES_URL to a throwaway Postgres")
