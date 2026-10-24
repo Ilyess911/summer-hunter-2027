@@ -501,6 +501,20 @@ def _os_after_night(app: App) -> dict:
     return out
 
 
+def _ask_hidden_dialog(prompt: str) -> str:
+    """No terminal (e.g. launched from an editor): ask through a macOS dialog with hidden input."""
+    import subprocess
+
+    if sys.platform != "darwin":
+        raise RuntimeError("no terminal to read the password from")
+    script = ('text returned of (display dialog ' + json.dumps(prompt) +
+              ' default answer "" with hidden answer with title "Summer Hunter OS")')
+    r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError("cancelled")
+    return r.stdout.rstrip("\n")
+
+
 def cmd_os(app: App, args) -> int:  # noqa: ANN001
     """Summer Hunter OS: API server, password, networking refresh, sync with the hosted copy."""
     import getpass
@@ -511,9 +525,18 @@ def cmd_os(app: App, args) -> int:  # noqa: ANN001
 
     env_path = app.settings.root / ".env"
     if args.action == "set-password":
-        pw = getpass.getpass("New Summer Hunter OS password (10+ characters): ")
-        if pw != getpass.getpass("Repeat: "):
+        ask = getpass.getpass if sys.stdin.isatty() else _ask_hidden_dialog
+        try:
+            pw = ask("New Summer Hunter OS password (10+ characters): ")
+            again = ask("Repeat: ")
+        except (EOFError, RuntimeError) as exc:
+            print(f"No password entered ({exc or 'no terminal'}). Run it in a terminal window.")
+            return 2
+        if pw != again:
             print("Passwords differ.")
+            return 2
+        if len(pw) < 10:
+            print("At least 10 characters.")
             return 2
         lines = [l for l in env_path.read_text().splitlines() if not l.startswith(("SH_OS_PASSWORD_HASH=", "SH_OS_SECRET="))] \
             if env_path.exists() else []
