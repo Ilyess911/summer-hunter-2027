@@ -25,3 +25,11 @@ graphify-out/
 
 # Office lock files
 ~$*
+
+# Summer Hunter OS web app
+apps/web/node_modules/
+apps/web/.next/
+apps/web/AGENTS.md
+apps/web/tsconfig.tsbuildinfo
+apps/web/test-results/
+apps/web/playwright-report/

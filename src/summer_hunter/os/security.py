@@ -4,7 +4,8 @@
 - Session: HMAC-signed, expiring token in an HttpOnly, SameSite=Lax cookie (Secure in hosted mode), keyed by SH_OS_SECRET.
 - CSRF: every state-changing request must carry the X-SH-Request header, which a cross-site form cannot set
   and which no CORS policy here allows.
-- Login attempts are rate-limited per client.
+- Login attempts are rate-limited per client and globally. The counters live in the database so they hold across
+  serverless instances in hosted mode (an in-memory counter would reset on every cold start).
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import time
@@ -22,6 +24,8 @@ CSRF_HEADER = "x-sh-request"
 SESSION_SECONDS = 14 * 24 * 3600
 _ATTEMPTS: dict[str, deque] = defaultdict(deque)
 MAX_ATTEMPTS, WINDOW = 8, 15 * 60
+MAX_GLOBAL_ATTEMPTS = 40          # all clients together: bounds guessing even if client addresses rotate
+ATTEMPTS_KEY = "os_login_attempts"
 
 
 def hash_password(password: str, n: int = 2 ** 14, r: int = 8, p: int = 1) -> str:
@@ -76,6 +80,22 @@ def allow_attempt(client: str, now: float | None = None) -> bool:
     if len(q) >= MAX_ATTEMPTS:
         return False
     q.append(now)
+    return True
+
+
+def allow_attempt_persistent(repo, client: str, now: float | None = None) -> bool:
+    """Same policy as allow_attempt, stored in the key-value table (repo: Repository). The caller commits."""
+    now = now or time.time()
+    try:
+        state: dict[str, list[float]] = json.loads(repo.get_kv(ATTEMPTS_KEY) or "{}")
+    except ValueError:
+        state = {}
+    state = {k: [t for t in v if now - t <= WINDOW] for k, v in state.items()}
+    state = {k: v for k, v in state.items() if v}
+    if len(state.get(client, [])) >= MAX_ATTEMPTS or sum(map(len, state.values())) >= MAX_GLOBAL_ATTEMPTS:
+        return False
+    state.setdefault(client, []).append(now)
+    repo.set_kv(ATTEMPTS_KEY, json.dumps(state))
     return True
 
 

@@ -1,0 +1,9 @@
+apps
+data
+tests
+docs
+scripts
+graphify-out
+.venv
+*.db
+.env*

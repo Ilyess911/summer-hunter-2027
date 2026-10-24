@@ -147,9 +147,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         return {"ok": True, "mode": "hosted" if hosted else "local"}
 
     @app.post("/api/auth/login")
-    def login(body: Login, request: Request, response: Response) -> dict[str, Any]:
+    def login(body: Login, request: Request, response: Response, s: Session = Depends(db)) -> dict[str, Any]:
         client = request.client.host if request.client else "unknown"
-        if not security.allow_attempt(client):
+        if hosted:  # behind Vercel's edge, which sets X-Forwarded-For; the global cap covers a spoofed value
+            client = request.headers.get("x-forwarded-for", client).split(",")[0].strip() or client
+        allowed = security.allow_attempt_persistent(Repository(s), client)
+        s.commit()
+        if not allowed:
             raise HTTPException(429, "too many attempts, try again in 15 minutes")
         if not security.verify_password(body.password, os.environ.get("SH_OS_PASSWORD_HASH")):
             raise HTTPException(401, "wrong password")

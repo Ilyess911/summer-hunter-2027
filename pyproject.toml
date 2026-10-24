@@ -21,6 +21,11 @@ dependencies = [
 [project.scripts]
 summer-hunter = "summer_hunter.cli:main"
 
+[project.optional-dependencies]
+hosted = [
+    "psycopg[binary]>=3.2",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",

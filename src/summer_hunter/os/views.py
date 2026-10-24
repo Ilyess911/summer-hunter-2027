@@ -310,8 +310,10 @@ def today_priorities(s: Session, cfg_today: date | None = None) -> list[dict[str
                           "title": f"{label.get(row['timing']['action'], 'Contact')} {row['name']} ({row['company']})",
                           "detail": row["timing"]["reason"], "href": f"/outreach/{row['id']}?opportunity={row['opportunity']['id']}",
                           "rank": 2})
+    apply_items = 0
     for o in Repository(s).top_global(30):
-        if o.next_action == "APPLY_NOW" and not crm.application_for(o.id):
+        if o.next_action == "APPLY_NOW" and not crm.application_for(o.id) and apply_items < 8:
+            apply_items += 1
             items.append({"key": f"apply:{o.id}", "kind": "apply", "title": f"Apply: {o.title}",
                           "detail": f"{o.company_name} · priority {o.global_priority:.0f}", "href": f"/opportunities/{o.id}", "rank": 4})
         elif o.next_action == "VERIFY_COMPENSATION":
@@ -347,9 +349,10 @@ def command_center(s: Session) -> dict[str, Any]:
             "awaiting": sum(a.status == "APPLIED" for a in apps),
             "interviews": sum(a.status in st.INTERVIEW_STAGES for a in apps),
             "offers": sum(a.status in st.OFFERS for a in apps),
-            "paid": s.scalar(select(func.count()).select_from(Opportunity).where(Opportunity.compensation_status == "PAID_CONFIRMED",
-                                                                                 Opportunity.status == "active",
-                                                                                 Opportunity.global_priority.is_not(None))) or 0,
+            "paid": s.scalar(select(func.count()).select_from(Opportunity).where(
+                Opportunity.compensation_status == "PAID_CONFIRMED", Opportunity.status == "active", Opportunity.family_tier > 0,
+                Opportunity.eligibility_status != "REJECTED", Opportunity.global_priority.is_not(None),
+                or_(Opportunity.next_action.is_(None), Opportunity.next_action != "DISCARD"))) or 0,
             "deadlines": sum(1 for a in apps if a.deadline and a.status in st.PRE_APPLICATION
                              and 0 <= (a.deadline - datetime.now(timezone.utc).date()).days <= 14),
         },

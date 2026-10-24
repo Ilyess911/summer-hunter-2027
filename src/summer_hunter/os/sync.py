@@ -15,7 +15,7 @@ from datetime import date, datetime
 from typing import Any
 
 import httpx
-from sqlalchemy import Date, DateTime, delete, select
+from sqlalchemy import Date, DateTime, Integer, delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from summer_hunter.database import models as m
@@ -64,8 +64,12 @@ def finish_snapshot(session: Session) -> None:
     from sqlalchemy import text
 
     for model in TABLES:
-        name = model.__tablename__
-        session.execute(text(f"SELECT setval(pg_get_serial_sequence('{name}', 'id'), COALESCE((SELECT MAX(id) FROM {name}), 1))"))
+        pk = list(model.__table__.primary_key.columns)
+        if len(pk) != 1 or not isinstance(pk[0].type, Integer):       # natural keys (e.g. source_health) have no sequence
+            continue
+        name, col = model.__tablename__, pk[0].name
+        session.execute(text(f"SELECT setval(pg_get_serial_sequence('{name}', '{col}'), "
+                             f"COALESCE((SELECT MAX({col}) FROM {name}), 1), (SELECT MAX({col}) FROM {name}) IS NOT NULL)"))
 
 
 def apply_snapshot_part(session: Session, table: str, rows: list[dict[str, Any]], replace: bool = False) -> int:

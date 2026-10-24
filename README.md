@@ -116,6 +116,7 @@ summer-hunter-2027/
 | [docs/V3.md](docs/V3.md) | Rémunération, priorité globale, stratège, Afrique, signaux précoces, performance |
 | [docs/INDUSTRY_TRACK.md](docs/INDUSTRY_TRACK.md) | Piste Industrie & Robotique, recruitability, priorité industrielle |
 | [docs/CRM.md](docs/CRM.md) | Suivi des candidatures, statuts, Excel, relances, documents |
+| [docs/OS.md](docs/OS.md) | Summer Hunter OS : CRM web, networking, messages LinkedIn, mode hébergé |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Pannes courantes et diagnostics |
 
 ## Démarrage
@@ -130,6 +131,7 @@ uv run summer-hunter run                   # cycle réel
 uv run summer-hunter list                  # classement
 uv run summer-hunter digest --dry-run      # aperçu du message Telegram
 scripts/install_macos.sh                   # planification nocturne (launchd)
+uv run summer-hunter os set-password       # puis `make dev` : CRM web sur 127.0.0.1 (docs/OS.md)
 ```
 
 ## Doctrine & règles d'ingénierie
@@ -164,6 +166,8 @@ scripts/install_macos.sh                   # planification nocturne (launchd)
 - [x] Piste Industrie & Robotique (maintenance, projets industriels, RaaS) avec score de recruitability, en parallèle de la piste Business
 - [x] V3 : rémunération (salaire, devises BCE, avantages), priorité globale, stratège, Afrique, signaux précoces, notes, performance
 - [x] CRM des candidatures : Track/Applied, statuts validés, journal, relances, briefing quotidien, classeur Excel synchronisé
+- [x] Summer Hunter OS (V4) : CRM web, Kanban, networking classé, Outreach Studio, mode hébergé synchronisé (docs/OS.md)
+- [ ] Déploiement hébergé (Vercel + Postgres) : étape manuelle
 - [ ] Connexion de tes clés Telegram et Anthropic (étape manuelle)
 - [ ] Remplir les UNKNOWN du profil (nationalité, mois de diplôme, équivalences)
 

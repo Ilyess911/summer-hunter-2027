@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import date, datetime, timedelta, timezone
 
 import httpx
@@ -348,6 +349,58 @@ def test_hosted_sync_round_trip(settings, sessions, hunter, tmp_path):
         local_app = CRM(s).application_for(opp_id)
         assert local_app is not None and local_app.notes == "edited online"
     assert hosted.get("/api/sync/changes", headers={"authorization": "Bearer " + "t" * 40}).json() == []
+
+
+@pytest.mark.skipif(not os.environ.get("SH_TEST_POSTGRES_URL"), reason="set SH_TEST_POSTGRES_URL to a throwaway Postgres")
+def test_hosted_entry_point_on_postgres(settings, sessions, hunter, monkeypatch):
+    """The real hosted build (hosted.build) on Postgres: snapshot push twice, online edit, pull, persistent rate limit."""
+    from summer_hunter.database.models import Base
+    from summer_hunter.os import hosted as hosted_mod
+    from summer_hunter.os import sync
+
+    url = hosted_mod.database_url(os.environ["SH_TEST_POSTGRES_URL"])
+    engine = make_engine(url)
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+    monkeypatch.setenv("DATABASE_URL", os.environ["SH_TEST_POSTGRES_URL"])
+    monkeypatch.setenv("SH_CONFIG_DIR", str(settings.config_dir))
+    monkeypatch.setenv("SH_DATA_DIR", str(settings.data_dir / "hosted"))
+    monkeypatch.delenv("SH_OS_MODE", raising=False)
+    seed(sessions, hunter)
+    hosted = TestClient(hosted_mod.build(), base_url="https://testserver")
+    assert hosted.get("/api/health").json()["mode"] == "hosted"
+    transport = httpx.MockTransport(lambda req: _relay(hosted, req))
+    for _ in range(2):                                     # second push replaces rows and resets sequences
+        out = sync.run(settings, sessions, "https://hosted.test", "t" * 40, httpx.Client(transport=transport))
+        assert out["pushed"]["opportunities"] == 3 and not out["failed"]
+    assert hosted.post("/api/auth/login", json={"password": PASSWORD}).status_code == 200
+    opp_id = hosted.get("/api/opportunities").json()["items"][0]["id"]
+    app_id = hosted.post(f"/api/opportunities/{opp_id}/track", headers=H).json()["application_id"]
+    assert hosted.patch(f"/api/applications/{app_id}", json={"notes": "edited on postgres"}, headers=H).status_code == 200
+    hosted.post("/api/contacts", json={"name": "Jane Roe", "company": "Formic", "category": "talent_acquisition",
+                                        "opportunity_id": opp_id}, headers=H).raise_for_status()   # new row after a pushed id range
+    out = sync.run(settings, sessions, "https://hosted.test", "t" * 40, httpx.Client(transport=transport))
+    assert out["applied"] >= 3 and not out["failed"]
+    with sessions() as s:
+        from summer_hunter.crm.service import CRM
+
+        assert CRM(s).application_for(opp_id).notes == "edited on postgres"
+    # The login limiter is stored in the database: a fresh instance (another serverless cold start) still refuses.
+    other = TestClient(hosted_mod.build(), base_url="https://testserver")
+    codes = [other.post("/api/auth/login", json={"password": "nope"}, headers={"x-forwarded-for": "203.0.113.9"}).status_code
+             for _ in range(8)]
+    assert codes[-1] == 401
+    again = TestClient(hosted_mod.build(), base_url="https://testserver")
+    assert again.post("/api/auth/login", json={"password": PASSWORD}, headers={"x-forwarded-for": "203.0.113.9"}).status_code == 429
+
+
+def test_hosted_build_refuses_incomplete_configuration(monkeypatch):
+    from summer_hunter.os import hosted as hosted_mod
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        hosted_mod.build()
+    assert hosted_mod.database_url("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
 
 
 def _relay(client: TestClient, req: httpx.Request) -> httpx.Response:

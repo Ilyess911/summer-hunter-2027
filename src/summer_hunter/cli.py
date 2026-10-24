@@ -111,6 +111,7 @@ def cmd_night(app: App, args) -> int:  # noqa: ANN001
         with single_instance(app.settings.data_dir / "night.lock"):
             summary = run_night(app.hunter, app.notifier(), app.settings, stop)
             backup_sqlite(app.db_path, app.settings.data_dir / "backups")
+            summary["os"] = _os_after_night(app)
     except AlreadyRunning:
         log.info("another night run holds the lock; exiting")
         print("Another run is in progress; nothing to do.")
@@ -470,6 +471,35 @@ def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def _os_after_night(app: App) -> dict:
+    """Refresh networking priorities, then push to the hosted copy when one is configured. Never fails the night."""
+    import os
+
+    from summer_hunter.os import networking as net
+    from summer_hunter.utils.settings import load_yaml
+
+    out: dict = {}
+    try:
+        with app.sessions() as session:
+            net.import_public_contacts(session)
+            out["contacts_scored"] = net.recompute(session, load_yaml(app.settings.config_dir / "networking.yaml"))
+            session.commit()
+    except Exception as exc:  # noqa: BLE001 - networking refresh is best effort
+        log.warning("networking refresh failed: %s", exc)
+        out["networking_error"] = str(exc)[:200]
+    url, token = os.environ.get("SH_OS_HOSTED_URL"), os.environ.get("SH_SYNC_TOKEN")
+    if url and token:
+        from summer_hunter.os import sync
+
+        try:
+            res = sync.run(app.settings, app.sessions, url, token)
+            out["sync"] = {"applied": res["applied"], "failed": len(res["failed"])}
+        except Exception as exc:  # noqa: BLE001 - the hosted copy keeps its last snapshot
+            log.warning("hosted sync failed: %s", exc)
+            out["sync_error"] = str(exc)[:200]
+    return out
+
+
 def cmd_os(app: App, args) -> int:  # noqa: ANN001
     """Summer Hunter OS: API server, password, networking refresh, sync with the hosted copy."""
     import getpass
@@ -487,7 +517,7 @@ def cmd_os(app: App, args) -> int:  # noqa: ANN001
         lines = [l for l in env_path.read_text().splitlines() if not l.startswith(("SH_OS_PASSWORD_HASH=", "SH_OS_SECRET="))] \
             if env_path.exists() else []
         lines += [f"SH_OS_PASSWORD_HASH={security.hash_password(pw)}",
-                  f"SH_OS_SECRET={os.environ.get('SH_OS_SECRET') or secrets.token_urlsafe(48)}"]
+                  f"SH_OS_SECRET={secrets.token_urlsafe(48)}"]  # a new key signs out every existing session
         env_path.write_text("\n".join(lines) + "\n")
         env_path.chmod(0o600)
         print(f"Saved to {env_path} (mode 600).")
