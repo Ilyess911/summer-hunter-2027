@@ -469,7 +469,7 @@ class Hunter:
         crit = [c.model_dump(mode="json") for c in report.criteria]
         dates_pass = any(c["criterion"] == "dates" and c["status"] == "PASS" for c in crit)
         lang_unknown = any(c["criterion"] == "language" and c["status"] == "UNKNOWN" for c in crit)
-        missing_mandatory = sum("(mandatory)" in m for m in recruit.missing_requirements)
+        missing_mandatory = sum("(obligatoire)" in m for m in recruit.missing_requirements)
         docs_ready = (self.settings.data_dir / "cv" / str(opp.id)).exists()
         ease_score, minutes = gpriority.ease(desc, missing_mandatory, lang_unknown, docs_ready)
         mode = modes.get(repo, rules)

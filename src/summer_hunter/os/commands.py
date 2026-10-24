@@ -85,7 +85,7 @@ def set_status(ctx: Ctx, app: CRMApplication, target: str, confirm_submission: b
         return {}
     if target == "APPLIED" or (target in st.POST_APPLICATION and app.date_applied is None):
         if not confirm_submission:
-            raise NeedsConfirmation("confirm that the application was actually submitted")
+            raise NeedsConfirmation("confirme que la candidature a bien été envoyée")
         day = parse_date(applied_on, "applied on") if applied_on else None
         ctx.crm.confirm_applied(app.opportunity, ctx.source, day)
         ctx.repo.record_feedback(app.opportunity, "applied", source=ctx.source, data_dir=ctx.settings.data_dir,
@@ -173,7 +173,7 @@ def interaction(ctx: Ctx, c: CRMContact, kind: str, opportunity_id: int | None, 
                 follow_up_on: str | None) -> tuple[Any, dict[str, Any]]:
     when = parse_date(follow_up_on, "follow-up date") if follow_up_on else None
     if kind == "follow_up_scheduled" and when is None:
-        raise ValidationError("a scheduled follow-up needs a date")
+        raise ValidationError("une relance prévue a besoin d’une date")
     i = net.record_interaction(ctx.session, c, kind, opportunity_id, note, follow_up_on=when)
     net.recompute(ctx.session, ctx.net_cfg)
     return i, {"contact_id": c.id, "kind": kind, "opportunity_id": opportunity_id, "note": note, "follow_up_on": follow_up_on}

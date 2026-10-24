@@ -109,7 +109,7 @@ def test_unknown_technical_requirements_are_neutral_not_penalized(settings, prof
     rep = recruitability.score("Robotics Intern", VAGUE, fam, profile, settings.scoring)
     assert not rep.technical_requirements_known
     assert rep.components["technical_skills"] == settings.scoring["recruitability"]["unknown_technical_score"]
-    assert rep.blocking_requirements == [] and any("not stated" in c for c in rep.concerns)
+    assert rep.blocking_requirements == [] and any("peu claires" in c for c in rep.concerns)
 
 
 # 8: recruitability scoring -------------------------------------------------------------------------
@@ -120,7 +120,7 @@ def test_recruitability_components_weights_and_honesty(settings, profile, title_
     rep = recruitability.score("Maintenance Engineering Intern", MAINTENANCE, fam, profile, settings.scoring)
     expected = sum(rep.components[k] * v for k, v in w.items())
     assert abs(rep.score - expected) <= 1
-    assert "not a probability" in rep.note
+    assert "pas une probabilité" in rep.note
     bad = recruitability.score("Robotics Software Research Intern", ROBOTICS_RESEARCH,
                                title_rules.classify("Robotics Software Research Intern"), profile, settings.scoring)
     assert bad.score < rep.score - 50 and len(bad.blocking_requirements) >= 2

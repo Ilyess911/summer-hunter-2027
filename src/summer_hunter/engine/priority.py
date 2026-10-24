@@ -88,11 +88,11 @@ def compute(fit: int, recruit: int, networking: int, comp: CompensationReport, r
         return gp
     floor = prefs.get("minimum_monthly_salary_eur")
     if floor is not None and comp.monthly_min_eur is not None and comp.monthly_min_eur < float(floor):
-        gp.filtered = f"pay below the {floor} EUR/month minimum you set"
+        gp.filtered = f"paie sous le minimum de {floor} EUR/mois que tu as fixé"
         return gp
     floor_b = prefs.get("minimum_estimated_monthly_balance_eur")
     if floor_b is not None and comp.monthly_balance_eur is not None and comp.monthly_balance_eur < float(floor_b):
-        gp.filtered = f"estimated balance below the {floor_b} EUR/month minimum you set"
+        gp.filtered = f"solde estimé sous le minimum de {floor_b} EUR/mois que tu as fixé"
         return gp
     weights = dict((gp_cfg.get("weights") or {}).get(mode) or (gp_cfg.get("weights") or {}).get("conversion") or
                    {"recruitability": .30, "career_fit": .20, "compensation": .20, "networking": .10, "quality": .10,
@@ -106,11 +106,11 @@ def compute(fit: int, recruit: int, networking: int, comp: CompensationReport, r
         weights.pop("compensation", None)        # unknown pay: weight redistributed, never a zero
         gp.provisional = True
         penalty = float(gp_cfg.get("unknown_compensation_penalty", 5))
-        gp.notes.append("Compensation unknown: provisional score (weight redistributed, small penalty).")
+        gp.notes.append("Rémunération inconnue : score provisoire (poids redistribué, légère pénalité).")
     if comp.status == UNPAID_CONFIRMED:
         penalty += float(gp_cfg.get("unpaid_penalty", 25))
     if prefs.get("prefer_paid_internships", True) and comp.status == PAID_CONFIRMED:
-        gp.notes.append("Confirmed paid internship.")
+        gp.notes.append("Stage payé confirmé.")
     total_w = sum(weights.values()) or 1.0
     value = sum(comps[k] * w for k, w in weights.items() if k in comps) / total_w - penalty
     gp.score = round(max(0.0, min(100.0, value)), 1)

@@ -232,38 +232,38 @@ def validate(d: Draft, contact: CRMContact, app: CRMApplication | None, evidence
     chars, words = len(text), len(re.findall(r"\b[\w'’-]+\b", text))
     if d.kind in SHORT_KINDS:
         if chars > int(mc.get("connection_request_max_chars", 250)):
-            issues.append(f"{chars} characters, over the {mc.get('connection_request_max_chars', 250)} limit")
+            issues.append(f"{chars} caractères, au-delà de la limite de {mc.get('connection_request_max_chars', 250)}")
     elif d.kind in FOLLOW_KINDS:
         lo, hi = mc.get("follow_up_words", [30, 70])
         if not lo - 10 <= words <= hi + 10:
-            issues.append(f"{words} words, expected about {lo}-{hi}")
+            issues.append(f"{words} mots, environ {lo} à {hi} attendus")
     else:
         lo, hi = mc.get("initial_words", [60, 110])
         if not (lo - 15 <= words <= hi + 15 or d.variant == "shorter" and words >= 30):
-            issues.append(f"{words} words, expected about {lo}-{hi}")
+            issues.append(f"{words} mots, environ {lo} à {hi} attendus")
     for phrase in mc.get("banned_phrases", []):
         if phrase in low:
-            issues.append(f"generic phrase: '{phrase}'")
+            issues.append(f"formule toute faite : « {phrase} »")
     if "—" in text:
-        issues.append("em dash")
+        issues.append("tiret cadratin")
     grams = re.findall(r"\b\w+\b", low)
     four = [" ".join(grams[i:i + 4]) for i in range(len(grams) - 3)]
     if len(four) != len(set(four)):
-        issues.append("repeated wording")
+        issues.append("formulation répétée")
     if ("your post" in low or "votre post" in low) and not any(e.kind == "public_post" and e.verified for e in evidence):
-        issues.append("mentions a post that was not retrieved")
+        issues.append("cite un post qui n’a pas été récupéré")
     if ("an esilv student, a few years" in low or "passé par l'esilv" in low) and contact.category != "alumni_esilv":
-        issues.append("claims a shared school without evidence")
+        issues.append("affirme une école commune sans preuve")
     if ("i applied" in low or "j'ai postulé" in low) and not (app and app.date_applied):
-        issues.append("claims an application that is not recorded")
+        issues.append("affirme une candidature non enregistrée")
     if ("referring me" in low or "recommander" in low) and not any(i.kind == "reply" for i in interactions):
-        issues.append("referral request to someone who has not replied yet")
+        issues.append("demande de recommandation à quelqu’un qui n’a pas encore répondu")
     if "?" not in text and d.kind not in {"thank_you", "post_interview", "after_applying"}:
-        issues.append("no clear request")
+        issues.append("pas de demande claire")
     caps = set(re.findall(r"\b(?:[A-Z][\w'’&-]*\s?){2,4}(?:Industries|Helicopters|Agency)\b", text))
     for org in caps:
         if org.strip().lower() not in ALLOWED_ORGS:
-            issues.append(f"unverified organisation: {org.strip()}")
+            issues.append(f"organisation non vérifiée : {org.strip()}")
     return {"ok": not issues, "issues": issues, "chars": chars, "words": words,
             "personalization": d.personalization, "checked": ["facts", "length", "repetition", "tone", "purpose", "appropriateness"]}
 

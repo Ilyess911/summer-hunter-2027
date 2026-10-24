@@ -144,7 +144,7 @@ def test_public_contacts_are_imported_once_and_ranked(client, sessions):
     contacts = client.get("/api/contacts").json()
     jane = contacts[0]
     assert jane["category"] == "university_recruiter" and jane["verification"] == "verified" and jane["score"] >= 70
-    assert "tied to this opening" in jane["explanation"]
+    assert "lié à cette offre" in jane["explanation"]
 
 
 def test_contact_dedup_across_opportunities_and_manual_add(client, sessions):
@@ -173,7 +173,7 @@ def test_search_results_stay_unverified_until_confirmed(sessions, settings, cfg,
         assert sam.verification == "unverified"
         net.recompute(s, cfg)
         link = s.query(net.ContactOpportunity).filter_by(contact_id=sam.id).one()
-        assert link.timing_confidence == "low" and "not confirmed" in link.explanation
+        assert link.timing_confidence == "low" and "pas encore confirmé" in link.explanation
         net.confirm_contact(s, sam)
         assert sam.verification == "verified"
 
@@ -187,7 +187,7 @@ def test_contact_ranking_rules(cfg):
     ev = [ContactEvidence(contact_id=2, opportunity_id=1, kind="vacancy", url="u", verified=True,
                           retrieved_at=datetime.now(timezone.utc))]
     s_vp, s_rec = net.score_contact(vp, opp, [], cfg), net.score_contact(rec, opp, ev, cfg)
-    assert s_rec.score > s_vp.score and any("Senior title" in x for x in s_vp.explanation)
+    assert s_rec.score > s_vp.score and any("Poste senior" in x for x in s_vp.explanation)
     assert set(s_rec.components) == {"involvement", "relevance", "connection", "recruiting_activity", "accessibility"}
 
 
@@ -201,10 +201,10 @@ def test_timing_engine(cfg):
     alum = CRMContact(id=3, name="A L", company="Formic", category="alumni_esilv", verification="verified")
     assert net.timing(hm, opp, None, [], cfg, today).action == "CONTACT_BEFORE_APPLICATION"
     t = net.timing(rec, opp, None, [], cfg, today)
-    assert t.action == "CONTACT_AFTER_APPLICATION" and "Apply first" in t.reason
+    assert t.action == "CONTACT_AFTER_APPLICATION" and "Postule d’abord" in t.reason
     applied = CRMApplication(opportunity_id=1, status="APPLIED", date_applied=today)
     assert net.timing(rec, opp, applied, [], cfg, today).on == date(2026, 10, 28)
-    assert "not for a referral" in net.timing(alum, opp, None, [], cfg, today).reason
+    assert "pas une recommandation" in net.timing(alum, opp, None, [], cfg, today).reason
     sent = [Interaction(contact_id=1, kind="message_sent", occurred_at=datetime(2026, 10, 26, 9, tzinfo=timezone.utc))]
     assert net.timing(hm, opp, None, sent, cfg, today).action == "WAIT"
     assert net.timing(hm, opp, None, sent, cfg, date(2026, 11, 2)).action == "FOLLOW_UP"
@@ -244,7 +244,7 @@ def test_no_evidence_means_limited_personalization_and_no_false_claims(cfg):
     fake = msg.Draft(text="Hi Jane, I saw your post and I applied already. We both know Paul from Siemens Industries? Ilyess",
                      kind="initial", variant="default", language="en")
     issues = msg.validate(fake, hm, None, [], [], cfg)["issues"]
-    assert any("post that was not retrieved" in i for i in issues) and any("application that is not recorded" in i for i in issues)
+    assert any("post qui n’a pas été récupéré" in i for i in issues) and any("candidature non enregistrée" in i for i in issues)
 
 
 def test_message_limits_and_variants(cfg):

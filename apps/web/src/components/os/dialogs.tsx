@@ -32,7 +32,7 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirm,
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
           <AlertDialogAction variant={destructive ? "destructive" : "default"} onClick={() => { onConfirm(); onOpenChange(false) }}>{confirm}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -47,11 +47,11 @@ export function ConfirmSubmission({ open, onOpenChange, onConfirm, title }: {
   const today = new Date().toISOString().slice(0, 10)
   const [day, setDay] = useState(today)
   return (
-    <ConfirmDialog open={open} onOpenChange={onOpenChange} title="Mark as submitted?" confirm="Yes, it was submitted"
-                   description={<>Confirm that you actually submitted your application for <b>{title}</b>. Your CV and cover letter will be frozen as the submitted version.</>}
+    <ConfirmDialog open={open} onOpenChange={onOpenChange} title="Candidature envoyée ?" confirm="Oui, elle est envoyée"
+                   description={<>Confirme que tu as bien envoyé ta candidature pour <b>{title}</b>. Ton CV et ta lettre seront figés comme version envoyée.</>}
                    onConfirm={() => onConfirm(day)}>
       <div className="space-y-1.5">
-        <Label htmlFor="applied-on">Submission date</Label>
+        <Label htmlFor="applied-on">Date d’envoi</Label>
         <Input id="applied-on" type="date" max={today} value={day} onChange={(e) => setDay(e.target.value)} />
       </div>
     </ConfirmDialog>
@@ -69,7 +69,7 @@ export function PromptDialog({ open, onOpenChange, title, label, onSubmit }: {
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           <div className="space-y-1.5"><Label htmlFor="prompt-value">{label}</Label>
             <Input id="prompt-value" autoFocus value={value} onChange={(e) => setValue(e.target.value)} maxLength={60} /></div>
-          <DialogFooter><Button type="submit" disabled={!value.trim()}>Save</Button></DialogFooter>
+          <DialogFooter><Button type="submit" disabled={!value.trim()}>Enregistrer</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
@@ -77,15 +77,15 @@ export function PromptDialog({ open, onOpenChange, title, label, onSubmit }: {
 }
 
 const CATEGORIES: [string, string][] = [
-  ["hiring_manager", "Hiring manager"], ["team_manager", "Team manager"], ["talent_acquisition", "Talent acquisition"],
-  ["university_recruiter", "University recruiter"], ["program_coordinator", "Internship programme coordinator"],
-  ["team_member", "Team member"], ["referral", "Referral contact"], ["alumni_esilv", "ESILV alumni"],
-  ["alumni_af_airbus", "Former Air France / Airbus"], ["other", "Other"],
+  ["hiring_manager", "Manager qui recrute"], ["team_manager", "Manager de l’équipe"], ["talent_acquisition", "Recrutement (talent acquisition)"],
+  ["university_recruiter", "Recruteur campus"], ["program_coordinator", "Coordinateur du programme de stages"],
+  ["team_member", "Membre de l’équipe"], ["referral", "Contact pour recommandation"], ["alumni_esilv", "Ancien de l’ESILV"],
+  ["alumni_af_airbus", "Ancien d’Air France / Airbus"], ["other", "Autre"],
 ]
 const contactSchema = z.object({
-  name: z.string().trim().min(2, "Name required").max(160),
+  name: z.string().trim().min(2, "Nom obligatoire").max(160),
   position: z.string().trim().max(200).optional(),
-  linkedin_url: z.union([z.literal(""), z.string().trim().regex(/^https:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[A-Za-z0-9\-_%]+\/?$/, "Use the public profile URL, https://www.linkedin.com/in/…")]),
+  linkedin_url: z.union([z.literal(""), z.string().trim().regex(/^https:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[A-Za-z0-9\-_%]+\/?$/, "Utilise l’URL du profil public, https://www.linkedin.com/in/…")]),
   category: z.string(),
   note: z.string().trim().max(600).optional(),
 })
@@ -100,7 +100,7 @@ export function AddContactDialog({ open, onOpenChange, company, opportunityId }:
     mutationFn: (v: z.infer<typeof contactSchema>) => api.post<ContactRow>("/contacts", { ...v, company, opportunity_id: opportunityId,
                                                                                            linkedin_url: v.linkedin_url || null }),
     onSuccess: (c) => {
-      toast.success(`${c.name} added`)
+      toast.success(`${c.name} ajouté`)
       qc.invalidateQueries()
       form.reset()
       onOpenChange(false)
@@ -112,26 +112,26 @@ export function AddContactDialog({ open, onOpenChange, company, opportunityId }:
       <DialogContent className="sm:max-w-md">
         <form onSubmit={form.handleSubmit((v) => add.mutate(v))} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Add a contact at {company}</DialogTitle>
-            <DialogDescription>Only people you found yourself or with public evidence. No guessed emails.</DialogDescription>
+            <DialogTitle>Ajouter un contact chez {company}</DialogTitle>
+            <DialogDescription>Seulement des personnes trouvées par toi ou avec une preuve publique. Aucun email deviné.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <div className="space-y-1.5"><Label htmlFor="c-name">Name</Label><Input id="c-name" {...form.register("name")} aria-invalid={!!form.formState.errors.name} />
+            <div className="space-y-1.5"><Label htmlFor="c-name">Nom</Label><Input id="c-name" {...form.register("name")} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>}</div>
-            <div className="space-y-1.5"><Label htmlFor="c-pos">Position</Label><Input id="c-pos" placeholder="University Recruiter" {...form.register("position")} /></div>
-            <div className="space-y-1.5"><Label htmlFor="c-url">LinkedIn profile</Label>
+            <div className="space-y-1.5"><Label htmlFor="c-pos">Fonction</Label><Input id="c-pos" placeholder="University Recruiter" {...form.register("position")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="c-url">Profil LinkedIn</Label>
               <Input id="c-url" placeholder="https://www.linkedin.com/in/…" {...form.register("linkedin_url")} aria-invalid={!!form.formState.errors.linkedin_url} />
               {form.formState.errors.linkedin_url && <p className="text-xs text-destructive">{form.formState.errors.linkedin_url.message}</p>}</div>
-            <div className="space-y-1.5"><Label htmlFor="c-cat">Relationship to the opening</Label>
+            <div className="space-y-1.5"><Label htmlFor="c-cat">Lien avec l’offre</Label>
               <select id="c-cat" {...form.register("category")} className="h-8 w-full rounded-md border bg-background px-2 text-sm">
                 {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select></div>
-            <div className="space-y-1.5"><Label htmlFor="c-note">Why this person (evidence)</Label>
-              <Input id="c-note" placeholder="Posted about the internship on 20 Oct" {...form.register("note")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="c-note">Pourquoi cette personne (preuve)</Label>
+              <Input id="c-note" placeholder="A publié sur ce stage le 20 oct." {...form.register("note")} /></div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={add.isPending}>{add.isPending && <Loader2 className="animate-spin" />} Add contact</Button>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Annuler</Button>
+            <Button type="submit" disabled={add.isPending}>{add.isPending && <Loader2 className="animate-spin" />} Ajouter le contact</Button>
           </DialogFooter>
         </form>
       </DialogContent>

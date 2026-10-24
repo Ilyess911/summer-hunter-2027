@@ -19,8 +19,8 @@ type Perf = {
 }
 
 function Tile({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
-  return <div className="rounded-xl border bg-card px-4 py-3"><div className="text-xs text-muted-foreground">{label}</div>
-    <div className="tabular mt-1 text-lg font-semibold">{value}</div>{hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}</div>
+  return <div className="bg-card px-4 py-3.5"><div className="truncate text-xs text-muted-foreground">{label}</div>
+    <div className="tabular mt-1 text-lg font-semibold leading-tight">{value}</div>{hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}</div>
 }
 
 export default function PerformancePage() {
@@ -30,24 +30,24 @@ export default function PerformancePage() {
   const failing = p?.sources.filter((s) => s.failures > 0) ?? []
   return (
     <div>
-      <PageHeader title="Hunter Performance" description="Discovery health, quality and cost. Failed collectors are listed, never hidden." />
+      <PageHeader title="Performance" description="Santé de la recherche, qualité et coût. Les sources en échec sont listées, jamais masquées." />
       {q.isError ? <ErrorState error={q.error} retry={() => q.refetch()} /> : !p ? <RowsSkeleton rows={10} /> : (
-        <div className="space-y-5 p-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-            <Tile label="Last successful run" value={relative(p.last_success)} hint={date(p.last_success, true)} />
-            <Tile label="Last sync" value={p.last_sync ? relative(p.last_sync) : "local"} />
-            <Tile label="Offers discovered" value={p.discovered} />
-            <Tile label="Relevant" value={p.relevant} />
-            <Tile label="Duplicate rate" value={p.duplicate_rate === null ? "n/a" : `${Math.round(p.duplicate_rate * 100)}%`} />
-            <Tile label="Pay coverage" value={p.compensation_coverage.label} />
-            <Tile label="Precision@10" value={p.precision_at_10.label} hint="from your ⭐ ratings" />
-            <Tile label="Actionability" value={p.actionability.label} />
+        <div className="space-y-5 px-6 pb-8 pt-4 lg:px-8">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-4 xl:grid-cols-8">
+            <Tile label="Dernière recherche réussie" value={relative(p.last_success)} hint={date(p.last_success, true)} />
+            <Tile label="Dernière synchro" value={p.last_sync ? relative(p.last_sync) : "local"} />
+            <Tile label="Offres découvertes" value={p.discovered} />
+            <Tile label="Pertinentes" value={p.relevant} />
+            <Tile label="Doublons" value={p.duplicate_rate === null ? "n.d." : `${Math.round(p.duplicate_rate * 100)} %`} />
+            <Tile label="Paie connue" value={p.compensation_coverage.label} />
+            <Tile label="Précision@10" value={p.precision_at_10.label} hint="d’après tes notes ⭐" />
+            <Tile label="Actionnabilité" value={p.actionability.label} />
           </div>
           <div className="grid gap-5 xl:grid-cols-2">
-            <Section title={`Source health · ${failing.length} failing`}>
+            <Section title={`Santé des sources · ${failing.length} en échec`}>
               <div className="max-h-[28rem] overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-card text-xs text-muted-foreground"><tr className="border-b">{["Source", "Status", "Runs", "Failures", "Items"].map((h) => <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>)}</tr></thead>
+                  <thead className="sticky top-0 bg-card text-xs text-muted-foreground"><tr className="border-b">{["Source", "État", "Passages", "Échecs", "Offres"].map((h) => <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>)}</tr></thead>
                   <tbody className="divide-y">{[...p.sources].sort((a, b) => b.failures - a.failures).map((s) => (
                     <tr key={s.source} className={cn(s.failures > 0 && "bg-destructive/5")} title={s.error ?? undefined}>
                       <td className="max-w-60 truncate px-4 py-1.5">{s.source}</td>
@@ -59,29 +59,29 @@ export default function PerformancePage() {
               </div>
               {failing.length > 0 && <div className="space-y-1 border-t px-4 py-2 text-xs">{failing.slice(0, 6).map((s) => <p key={s.source}><b>{s.source}</b>: <span className="text-muted-foreground">{s.error}</span></p>)}</div>}
             </Section>
-            <Section title="Discovery runs">
+            <Section title="Recherches">
               <ul className="divide-y">{p.runs.map((r) => (
                 <li key={r.id}>
-                  <button className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-muted/40" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  <button className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-subtle" onClick={() => setOpen(open === r.id ? null : r.id)}>
                     <span className={cn("size-1.5 rounded-full", r.status === "ok" ? "bg-success" : r.status === "partial" ? "bg-warning" : "bg-destructive")} />
                     <span className="tabular w-32 text-xs text-muted-foreground">{date(r.started, true)}</span>
                     <span>#{r.id} · {r.trigger} · {r.status}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{r.errors.length} errors</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{r.errors.length} erreur{r.errors.length > 1 ? "s" : ""}</span>
                     <ChevronDown className={cn("size-3.5 transition-transform", open === r.id && "rotate-180")} />
                   </button>
                   {open === r.id && (
                     <div className="space-y-1 bg-muted/30 px-4 py-2 font-mono text-[11px]">
-                      {r.errors.length ? r.errors.map((e, i) => <p key={i} className="text-destructive">{e}</p>) : <p className="text-muted-foreground">No error.</p>}
+                      {r.errors.length ? r.errors.map((e, i) => <p key={i} className="text-destructive">{e}</p>) : <p className="text-muted-foreground">Aucune erreur.</p>}
                       <p className="text-muted-foreground">{Object.entries(r.stats).filter(([, v]) => typeof v !== "object").map(([k, v]) => `${k}=${v}`).join(" · ")}</p>
                     </div>
                   )}
                 </li>
               ))}</ul>
             </Section>
-            <Section title="AI usage and cost">
+            <Section title="Usage et coût de l’IA">
               <div className="p-4 text-sm">
-                <p>{p.llm.calls} calls · ${p.llm.cost_usd.toFixed(2)} total (cover letters run on the local model at no cost).</p>
-                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">{p.llm.per_day.slice(0, 7).map((d) => <li key={d.day}>{d.day}: {d.calls} calls, ${d.cost.toFixed(3)}</li>)}</ul>
+                <p>{p.llm.calls} appels · {p.llm.cost_usd.toFixed(2)} $ au total (les lettres tournent sur le modèle local, sans coût).</p>
+                <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">{p.llm.per_day.slice(0, 7).map((d) => <li key={d.day}>{d.day} : {d.calls} appels, {d.cost.toFixed(3)} $</li>)}</ul>
               </div>
             </Section>
           </div>

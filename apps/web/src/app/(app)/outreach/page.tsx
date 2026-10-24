@@ -17,21 +17,21 @@ export default function OutreachIndex() {
   const others = (contacts.data ?? []).filter((c) => !rows.some((r) => r.id === c.id))
   return (
     <div>
-      <PageHeader title="Outreach Studio" description="Draft, review and track every LinkedIn message. You send them yourself." />
+      <PageHeader title="Messages" description="Rédige, relis et suis chaque message LinkedIn. C’est toi qui les envoies." />
       {q.isError ? <ErrorState error={q.error} retry={() => q.refetch()} /> : q.isLoading ? <RowsSkeleton rows={8} /> : !rows.length && !others.length ? (
-        <EmptyState title="No contact to write to yet" description="Add contacts from an opportunity page; they will appear here with a recommended message."
-                    action={<Button size="sm" variant="outline" render={<Link href="/networking" />}>Go to Networking</Button>} />
+        <EmptyState title="Personne à qui écrire pour l’instant" description="Ajoute des contacts depuis une offre : ils apparaîtront ici avec un message recommandé."
+                    action={<Button size="sm" variant="outline" render={<Link href="/networking" />}>Aller au réseau</Button>} />
       ) : (
         <ul className="divide-y">
           {[...rows, ...others].map((c) => (
-            <li key={`${c.id}-${c.opportunity?.id ?? 0}`} className="flex items-center gap-4 px-6 py-3">
+            <li key={`${c.id}-${c.opportunity?.id ?? 0}`} className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-subtle lg:px-8">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{c.name} <span className="font-normal text-muted-foreground">· {c.company}</span></div>
                 <div className="truncate text-xs text-muted-foreground">{c.opportunity?.title ?? c.category_label}</div>
               </div>
               <div className="hidden w-56 text-xs md:block"><TimingBadge action={c.timing?.action} />{c.timing?.date && <span className="text-muted-foreground"> · {date(c.timing.date)}</span>}</div>
               <Score value={c.score} />
-              <Button size="sm" variant="outline" render={<Link href={`/outreach/${c.id}${c.opportunity ? `?opportunity=${c.opportunity.id}` : ""}`} />}><PenLine /> Open</Button>
+              <Button size="sm" variant="outline" render={<Link href={`/outreach/${c.id}${c.opportunity ? `?opportunity=${c.opportunity.id}` : ""}`} />}><PenLine /> Ouvrir</Button>
             </li>
           ))}
         </ul>

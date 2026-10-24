@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import {
-  Activity, BarChart3, Bell, Briefcase, Crosshair, Gauge, KanbanSquare, LayoutDashboard, LogOut, MessagesSquare, Monitor,
+  Activity, BarChart3, Bell, Briefcase, Gauge, KanbanSquare, LayoutDashboard, LogOut, MessagesSquare, Monitor,
   Moon, Search, Sun, Users,
 } from "lucide-react"
 import Link from "next/link"
@@ -11,7 +11,7 @@ import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
 import { CommandPalette } from "@/components/os/command-palette"
-import { Kbd } from "@/components/os/bits"
+import { BrandMark, Kbd } from "@/components/os/bits"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -24,16 +24,16 @@ import { relative } from "@/lib/format"
 import type { CommandCenter, Meta } from "@/lib/types"
 
 const NAV = [
-  { href: "/", label: "Command Center", icon: LayoutDashboard },
-  { href: "/opportunities", label: "Opportunities", icon: Briefcase },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { href: "/networking", label: "Networking", icon: Users },
-  { href: "/outreach", label: "Outreach Studio", icon: MessagesSquare },
+  { href: "/", label: "Aujourd’hui", icon: LayoutDashboard },
+  { href: "/opportunities", label: "Opportunités", icon: Briefcase },
+  { href: "/pipeline", label: "Candidatures", icon: KanbanSquare },
+  { href: "/networking", label: "Réseau", icon: Users },
+  { href: "/outreach", label: "Messages", icon: MessagesSquare },
 ]
 const INSIGHTS = [
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/performance", label: "Hunter Performance", icon: Gauge },
-  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/analytics", label: "Statistiques", icon: BarChart3 },
+  { href: "/performance", label: "Performance", icon: Gauge },
+  { href: "/activity", label: "Journal", icon: Activity },
 ]
 
 function active(path: string, href: string) {
@@ -76,12 +76,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" render={<Link href="/" />}>
-                <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <Crosshair className="size-4" />
-                </span>
+                <BrandMark />
                 <span className="flex flex-col leading-tight">
-                  <span className="text-[13px] font-semibold">Summer Hunter OS</span>
-                  <span className="text-[11px] text-muted-foreground">Internships Apr–Aug 2027</span>
+                  <span className="text-[13px] font-semibold tracking-tight">Summer Hunter</span>
+                  <span className="text-[11px] text-muted-foreground">Stage avril – août 2027</span>
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -89,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupLabel>Espace de travail</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV.map((n, i) => (
@@ -104,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarGroupContent>
           </SidebarGroup>
           <SidebarGroup>
-            <SidebarGroupLabel>Insights</SidebarGroupLabel>
+            <SidebarGroupLabel>Analyse</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {INSIGHTS.map((n) => (
@@ -122,34 +120,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="px-2 pb-1 text-[11px] leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
             <div className="flex items-center gap-1.5">
               <span className={`size-1.5 rounded-full ${meta.data?.mode === "hosted" ? "bg-info" : "bg-success"}`} />
-              {meta.data?.mode === "hosted" ? `Hosted · synced ${relative(meta.data.last_sync)}` : "Local · live database"}
+              {meta.data?.mode === "hosted" ? `En ligne · synchronisé ${relative(meta.data.last_sync)}` : "Local · base en direct"}
             </div>
-            <div>Last discovery run {relative(meta.data?.last_run?.finished ?? meta.data?.last_run?.started)}</div>
-            <div>Mode: {meta.data?.recruitment_mode ?? "…"}</div>
+            <div>Dernière recherche {relative(meta.data?.last_run?.finished ?? meta.data?.last_run?.started)}</div>
+            <div>Mode {meta.data?.recruitment_mode === "exploration" ? "exploration" : meta.data?.recruitment_mode === "conversion" ? "conversion" : "…"}</div>
             {!!meta.data?.sync_conflicts && (
-              <div className="text-warning" title="Online edits older than a change made on the Mac were kept aside. Details: summer-hunter os sync">
-                {meta.data.sync_conflicts} sync conflict{meta.data.sync_conflicts > 1 ? "s" : ""} kept aside
+              <div className="text-warning" title="Des modifications en ligne plus anciennes qu’un changement fait sur le Mac ont été mises de côté. Détail : summer-hunter os sync">
+                {meta.data.sync_conflicts} conflit{meta.data.sync_conflicts > 1 ? "s" : ""} de synchro mis de côté
               </div>
             )}
           </div>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur">
+        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border/70 bg-background/90 px-3 backdrop-blur-sm">
           <SidebarTrigger />
           <button onClick={() => setPalette(true)}
-                  className="flex h-8 w-full max-w-md items-center gap-2 rounded-md border bg-subtle px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted">
-            <Search className="size-4" /> Search companies, roles, contacts…
+                  className="flex h-8 w-full max-w-md items-center gap-2 rounded-lg border bg-card px-2.5 text-[13px] text-muted-foreground shadow-[0_1px_2px_oklch(0_0_0/0.03)] transition-colors hover:bg-muted/60">
+            <Search className="size-4" /> Rechercher une entreprise, un poste, un contact…
             <span className="ml-auto"><Kbd>⌘K</Kbd></span>
           </button>
           <div className="ml-auto flex items-center gap-1">
             <Popover>
-              <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Action center" className="relative" />}>
+              <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Centre d’actions" className="relative" />}>
                 <Bell />
-                {pending > 0 && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />}
+                {pending > 0 && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-brand" />}
               </PopoverTrigger>
               <PopoverContent align="end" className="w-96 p-0">
-                <div className="border-b px-3 py-2 text-[13px] font-medium">Action center</div>
+                <div className="border-b px-3 py-2 text-[13px] font-medium">À faire</div>
                 <div className="max-h-96 overflow-y-auto py-1">
                   {(cc.data?.priorities ?? []).slice(0, 12).map((p) => (
                     <Link key={p.key} href={p.href} className="block px-3 py-2 text-sm hover:bg-muted">
@@ -157,21 +155,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <div className="truncate text-xs text-muted-foreground">{p.detail}</div>
                     </Link>
                   ))}
-                  {pending === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Nothing needs you right now.</p>}
+                  {pending === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Rien ne t’attend pour l’instant.</p>}
                 </div>
               </PopoverContent>
             </Popover>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Theme" />}>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Thème" />}>
                 <Sun className="dark:hidden" /><Moon className="hidden dark:block" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setTheme("light")}><Sun /> Light</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")}><Moon /> Dark</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")}><Monitor /> System</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("light")}><Sun /> Clair</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}><Moon /> Sombre</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}><Monitor /> Système</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" aria-label="Sign out" onClick={logout}><LogOut /></Button>
+            <Button variant="ghost" size="icon" aria-label="Se déconnecter" onClick={logout}><LogOut /></Button>
           </div>
         </header>
         <main className="min-w-0 flex-1">{children}</main>

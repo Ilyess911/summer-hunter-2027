@@ -70,7 +70,7 @@ def test_past_cycle_is_rejected(evaluate):
 def test_southern_hemisphere_summer_needs_verification(evaluate):
     report, _ = evaluate("Summer 2027 Solutions Intern", FILLER, "Sydney, Australia")
     assert crit(report, "dates").status == S.UNKNOWN
-    assert "December" in crit(report, "dates").explanation
+    assert "décembre" in crit(report, "dates").explanation
 
 
 # Scenario C — visa unknown --------------------------------------------------------------------
@@ -114,7 +114,7 @@ def test_scenario_e_graduation_window_with_unknown_month(evaluate):
     report, _ = evaluate("Associate Product Marketing Manager Intern", desc, "Dublin, Ireland")
     g = crit(report, "graduation")
     assert g.status == S.UNKNOWN
-    assert "UNKNOWN" in g.explanation
+    assert "INCONNU" in g.explanation
     assert report.decision == Decision.NEEDS_VERIFICATION
 
 

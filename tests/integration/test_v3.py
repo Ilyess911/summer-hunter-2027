@@ -93,7 +93,7 @@ def test_hourly_to_monthly_exact_and_estimated():
     assert exact.hours_source == "posting" and not exact.monthly_is_estimate
     assert exact.monthly_min == pytest.approx(25 * 20 * 4.333, rel=1e-3)
     est = comp("Pay: $25 per hour.")
-    assert est.monthly_is_estimate and est.hours_source == "assumption" and any("assumed" in n for n in est.notes)
+    assert est.monthly_is_estimate and est.hours_source == "assumption" and any("estimé sur" in n for n in est.notes)
     no_est = comp("Pay: $25 per hour.", cfg=CFG | {"hours": {"allow_hourly_estimate": False}})
     assert no_est.monthly_min is None
     assert comp("Monthly stipend of $1,800 for 40 hours per week").pay.period == "month"
@@ -106,7 +106,7 @@ def test_currency_conversion_records_rate_date_source():
     assert (r.fx_rate, r.fx_date) == (11.0, "2026-10-23") and "er-api" in r.fx_source
     assert comp("Stipend 150 000 FCFA par mois", country="SN").monthly_min_eur == pytest.approx(150000 / 655.957, abs=0.01)
     unknown = comp("Stipend of 900 CHF per month", country="CH")
-    assert unknown.monthly_min is not None and unknown.monthly_min_eur is None and any("No exchange rate" in n for n in unknown.notes)
+    assert unknown.monthly_min is not None and unknown.monthly_min_eur is None and any("Pas de taux de change" in n for n in unknown.notes)
 
 
 def test_fx_sources_parse_and_pegs_win():
@@ -133,7 +133,7 @@ def test_gross_and_net_are_recorded_not_mixed():
     assert comp("Salary: £2,000 per month gross", country="GB").pay.basis == "gross"
     assert comp("You will receive €900 net per month", country="DE").pay.basis == "net"
     unknown = comp("Salary: £2,000 per month", country="GB")
-    assert unknown.pay.basis == "unknown" and any("Gross or net" in n for n in unknown.notes)
+    assert unknown.pay.basis == "unknown" and any("Brut ou net" in n for n in unknown.notes)
 
 
 def test_housing_reduces_costs_not_cash():
@@ -157,7 +157,7 @@ def test_cost_of_living_only_with_a_sourced_row():
     assert sourced.monthly_balance_eur == pytest.approx(6000 / 11 - 700, abs=0.01) and sourced.total_outcome_eur is not None
     missing = comp("Gratification : 6 000 MAD par mois.", country="MA", city="Rabat")
     assert missing.living_cost_eur is None and missing.monthly_balance_eur is None
-    assert any("No sourced living-cost" in n for n in missing.notes)
+    assert any("Aucun coût de la vie sourcé" in n for n in missing.notes)
 
 
 def test_compensation_confidence_levels():
@@ -209,7 +209,7 @@ def test_eligibility_filtering_and_unknown_visa(hunter, repo):
     assert crit["work_authorization"] == "UNKNOWN" and opp.eligibility_status == "NEEDS_VERIFICATION"
     assert opp.global_priority is not None and opp.next_action != "DISCARD"
     strat = repo.latest_fit(opp.id).strategy
-    assert strat["caveat"] is None or "work authorization" in strat["caveat"]
+    assert strat["caveat"] is None or "autorisation de travail" in strat["caveat"]
     raw2 = raw.model_copy(update={"source_id": "v2", "url": "https://x.test/v2", "location_text": "Paris, France"})
     bad = hunter.ingest(repo, raw2, stats)
     hunter.evaluate(repo, bad, None, stats)

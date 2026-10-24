@@ -6,23 +6,23 @@ import { safeNext } from "@/lib/nav"
 
 describe("pay", () => {
   it("shows a monthly range when min and max differ", () => {
-    expect(pay({ status: "PAID_CONFIRMED", monthly_min_eur: 5420, monthly_max_eur: 6233 })).toBe("€5,420–6,233/mo")
+    expect(pay({ status: "PAID_CONFIRMED", monthly_min_eur: 5420, monthly_max_eur: 6233 })).toBe("5\u202f420–6\u202f233 €/mois")
   })
   it("collapses a range that is effectively one value", () => {
-    expect(pay({ status: "PAID_CONFIRMED", monthly_min_eur: 2000, monthly_max_eur: 2005 })).toBe("€2,000/mo")
+    expect(pay({ status: "PAID_CONFIRMED", monthly_min_eur: 2000, monthly_max_eur: 2005 })).toBe("2\u202f000 €/mois")
   })
   it("never turns an unknown amount into zero or unpaid", () => {
-    expect(pay({ status: null, monthly_min_eur: null })).toBe("Not stated")
-    expect(pay({ status: "PAID_AMOUNT_UNKNOWN", monthly_min_eur: null })).toBe("Paid, amount ?")
+    expect(pay({ status: null, monthly_min_eur: null })).toBe("Non précisé")
+    expect(pay({ status: "PAID_AMOUNT_UNKNOWN", monthly_min_eur: null })).toBe("Payé, montant ?")
   })
   it("says unpaid only when confirmed", () => {
-    expect(pay({ status: "UNPAID_CONFIRMED", monthly_min_eur: null })).toBe("Unpaid")
+    expect(pay({ status: "UNPAID_CONFIRMED", monthly_min_eur: null })).toBe("Non payé")
   })
 })
 
 describe("relative", () => {
-  it("reports never for a missing timestamp", () => expect(relative(null)).toBe("never"))
-  it("formats hours", () => expect(relative(new Date(Date.now() - 5 * 3600_000).toISOString())).toBe("5 h ago"))
+  it("reports never for a missing timestamp", () => expect(relative(null)).toBe("jamais"))
+  it("formats hours", () => expect(relative(new Date(Date.now() - 5 * 3600_000).toISOString())).toBe("il y a 5 h"))
 })
 
 describe("qs", () => {

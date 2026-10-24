@@ -346,7 +346,7 @@ def assess(text: str, country: str | None, city: str | None, source: str | None,
     if pay:
         rep.confidence = "HIGH" if official else "MEDIUM"
         if pay.basis == "unknown":
-            rep.notes.append("Gross or net not stated: amounts are as advertised, tax treatment unknown.")
+            rep.notes.append("Brut ou net non précisé : montants tels qu’annoncés, fiscalité inconnue.")
     if status == UNPAID_CONFIRMED:
         rep.confidence = "HIGH" if official else "MEDIUM"
     hcfg = cfg.get("hours") or {}
@@ -380,17 +380,17 @@ def assess(text: str, country: str | None, city: str | None, source: str | None,
                 hours = float(hcfg.get("assumed_hours_per_week_for_estimates", 40))
                 rep.hours_source = "assumption"
                 rep.monthly_is_estimate = True
-                rep.notes.append(f"Hourly pay: monthly figure estimated with an assumed {hours:g} h/week (hours not stated).")
+                rep.notes.append(f"Paie horaire : montant mensuel estimé sur {hours:g} h/semaine (heures non précisées).")
             factor = hours * wpm if hours else None
         elif pay.period == "total":
             factor = (1 / rep.months) if rep.months else None
             if factor is None:
-                rep.notes.append("Total internship stipend: monthly figure unknown without the duration.")
+                rep.notes.append("Gratification totale du stage : montant mensuel inconnu sans la durée.")
         if factor and rep.monthly_min is None:
             rep.monthly_min = round(pay.amount_min * factor, 2)
             rep.monthly_max = round(pay.amount_max * factor, 2)
     elif pay:
-        rep.notes.append("Pay period not stated: no monthly figure computed.")
+        rep.notes.append("Période de paie non précisée : aucun montant mensuel calculé.")
     if rep.monthly_min is not None:
         rep.monthly_min_eur, rate = fx.to_eur(rep.monthly_min, pay.currency)
         rep.monthly_max_eur, _ = fx.to_eur(rep.monthly_max, pay.currency)
@@ -401,9 +401,9 @@ def assess(text: str, country: str | None, city: str | None, source: str | None,
             if local and rep.local_currency != pay.currency and rep.monthly_min_eur is not None:
                 rep.monthly_min_local = round(rep.monthly_min_eur * local.per_eur, 0)
         else:
-            rep.notes.append(f"No exchange rate for {pay.currency}: EUR equivalent unavailable.")
+            rep.notes.append(f"Pas de taux de change pour {pay.currency} : équivalent en euros indisponible.")
         if pay.amount_max > pay.amount_min * 2.5:
-            rep.notes.append("Wide pay band (likely several levels): estimates use the minimum.")
+            rep.notes.append("Fourchette large (sans doute plusieurs niveaux) : les estimations prennent le minimum.")
 
     # Living costs and outcome ------------------------------------------------------------------------
     living = _living(cfg, city, country)
@@ -415,12 +415,12 @@ def assess(text: str, country: str | None, city: str | None, source: str | None,
         rep.living_cost_eur = round(sum(parts.values()), 2)
         rep.living_cost_source = src
     else:
-        rep.notes.append("No sourced living-cost estimate for this place: disposable balance unavailable.")
+        rep.notes.append("Aucun coût de la vie sourcé pour ce lieu : solde disponible inconnu.")
     if rep.monthly_min_eur is not None and rep.living_cost_eur is not None:
         rep.monthly_balance_eur = round(rep.monthly_min_eur - rep.living_cost_eur, 2)
         if rep.months:
             rep.total_outcome_eur = round(rep.monthly_balance_eur * rep.months, 2)
-            rep.notes.append("Unreimbursed relocation and visa costs are unknown and not deducted.")
+            rep.notes.append("Frais de déménagement et de visa non remboursés : inconnus, non déduits.")
     if status == UNPAID_CONFIRMED and rep.living_cost_eur is not None:
         rep.monthly_balance_eur = -rep.living_cost_eur
     rep.score, rep.score_components = score(rep, cfg, country)
@@ -454,7 +454,7 @@ def score(rep: CompensationReport, cfg: dict[str, Any], country: str | None) -> 
         # No living costs nor benchmark: nominal pay is the only pay signal (flagged, not cost-adjusted).
         comps["nominal_pay"] = _scale(rep.monthly_min_eur, *sc.get("monthly_scale_eur", [0, 3000]))
         weights["nominal_pay"] = float(w.get("disposable_balance", 0.30)) + float(w.get("benchmark", 0.25))
-        rep.notes.append("Score uses nominal pay: no sourced living cost or benchmark for this place.")
+        rep.notes.append("Score sur la paie nominale : pas de coût de la vie ni de repère sourcé pour ce lieu.")
     total_w = sum(weights.values()) or 1.0
     value = sum(comps[k] * weights[k] for k in comps) / total_w
     if rep.monthly_is_estimate:

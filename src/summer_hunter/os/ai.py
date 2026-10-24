@@ -40,7 +40,7 @@ def rewrite(settings, base: OutreachMessage, contact, opp, app, evidence, intera
                       evidence_refs=base.evidence_refs or [], personalization=base.personalization)
     draft.validation = msg.validate(draft, contact, app, evidence, interactions, cfg)
     if added:
-        draft.validation["issues"].append("new proper nouns: " + ", ".join(sorted(added)))
+        draft.validation["issues"].append("noms propres ajoutés : " + ", ".join(sorted(added)))
         draft.validation["ok"] = False
     if not draft.validation["ok"]:
         return None

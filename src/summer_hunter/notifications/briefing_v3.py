@@ -73,7 +73,7 @@ def build(repo: Repository, new: list[Opportunity], rules: dict, today: date) ->
     b.sections.append(("HIGH-PRIORITY APPLICATIONS", [line(o) for o in top]))
     b.sections.append(("BEST-PAID INTERNSHIPS", [line(o) for o in paid[:3]]))
     b.sections.append(("BEST FINANCIAL VALUE", [line(o) + f" · solde {o.monthly_balance_eur:+,.0f} €" for o in value[:3]]
-                       or ["No sourced living costs configured yet: balances are not estimated."]))
+                       or ["Aucun coût de la vie sourcé configuré : les soldes ne sont pas estimés."]))
     b.sections.append(("AFRICAN OPPORTUNITIES", [line(o) for o in sorted((o for o in pool if o.country_code in africa),
                                                                           key=lambda o: -o.global_priority)[:3]]))
     b.sections.append(("NETWORKING OPPORTUNITIES", [line(o) for o in sorted((o for o in pool if (o.networking_score or 0) >= 75),

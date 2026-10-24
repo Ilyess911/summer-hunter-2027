@@ -45,6 +45,12 @@ def category(fit: int, recruit: int, watch_priority: int | None, cfg: dict[str, 
     return "TARGETED"
 
 
+CRIT_FR = {"work_authorization": "autorisation de travail", "dates": "dates", "language": "langue", "academic": "diplôme",
+           "graduation": "date de diplôme", "citizenship": "nationalité", "technical_requirements": "exigences techniques",
+           "duration": "durée", "country": "pays", "safety": "sécurité", "internship_status": "type de contrat",
+           "qualifications": "licences", "compensation": "rémunération"}
+
+
 def comp_line(comp: CompensationReport) -> str:
     if comp.monthly_min_eur is not None:
         amount = (f"{comp.monthly_min_eur:,.0f} EUR/mois" if comp.monthly_max_eur in (None, comp.monthly_min_eur)
@@ -68,31 +74,31 @@ def decide(gp: GlobalPriority, decision: str, criteria: list[dict], comp: Compen
     score = gp.score
     caveat = None
     if decision == "REJECTED" or gp.filtered:
-        action, why = DISCARD, gp.filtered or "failed a mandatory eligibility check"
+        action, why = DISCARD, gp.filtered or "un critère d’éligibilité obligatoire n’est pas rempli"
     elif talent_pool:
-        action, why = MONITOR, "talent pool / future openings, not a vacancy yet"
+        action, why = MONITOR, "vivier de talents / postes futurs, pas encore une offre"
     elif score is None or score < float(cfg.get("low_priority_below", 40)):
-        action, why = LOW, f"global priority {score if score is not None else 'n/a'}"
+        action, why = LOW, f"priorité globale {score if score is not None else 'n.d.'}"
     elif weak_fail:
-        action, why = VERIFY_ELIG, "a requirement may not be met: " + weak_fail[0]["explanation"][:120]
+        action, why = VERIFY_ELIG, "une exigence n’est peut-être pas remplie : " + weak_fail[0]["explanation"][:120]
     elif score >= float(cfg.get("apply_now_priority", 70)):
         if networking >= 75 and contact:
-            action, why = CONTACT, "strong match and a relevant person to contact first"
+            action, why = CONTACT, "très bonne adéquation et une personne pertinente à contacter d’abord"
         elif comp.status in {COMPENSATION_UNKNOWN, PAID_AMOUNT_UNKNOWN} and score < 80:
-            action, why = VERIFY_COMP, "strong match, pay not stated"
+            action, why = VERIFY_COMP, "très bonne adéquation, paie non précisée"
         else:
-            action, why = APPLY_NOW, f"global priority {score}"
+            action, why = APPLY_NOW, f"priorité globale {score}"
         if unknown_critical:
-            caveat = "subject to verifying: " + ", ".join(c["criterion"].replace("_", " ") for c in unknown_critical[:3])
+            caveat = "sous réserve de vérifier : " + ", ".join(CRIT_FR.get(c["criterion"], c["criterion"]) for c in unknown_critical[:3])
     elif score >= float(cfg.get("prepare_priority", 55)):
-        action, why = PREPARE, f"global priority {score}"
+        action, why = PREPARE, f"priorité globale {score}"
         if unknown_critical:
-            caveat = "verify first: " + ", ".join(c["criterion"].replace("_", " ") for c in unknown_critical[:3])
+            caveat = "à vérifier d’abord : " + ", ".join(CRIT_FR.get(c["criterion"], c["criterion"]) for c in unknown_critical[:3])
     else:
-        action, why = LOW, f"global priority {score}"
+        action, why = LOW, f"priorité globale {score}"
     arguments = list(dict.fromkeys([*(recruit_report.get("reasons") or []), *(fit_report.get("reasons") or [])]))[:3]
     gaps = list(dict.fromkeys([*(recruit_report.get("missing_requirements") or []),
-                               *[f"{c['criterion'].replace('_', ' ')}: {c['explanation']}" for c in unknown_critical[:3]]]))[:5]
+                               *[f"{CRIT_FR.get(c['criterion'], c['criterion'])} : {c['explanation']}" for c in unknown_critical[:3]]]))[:5]
     urgency = (f"date limite dans {deadline_days} j" if deadline_days is not None and deadline_days >= 0
                else "pas de date limite connue")
     net = (f"{contact['name']} ({contact['relationship'].replace('_', ' ')})" if contact else "aucun contact vérifié")

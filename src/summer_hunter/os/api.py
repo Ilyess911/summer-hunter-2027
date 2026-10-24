@@ -121,13 +121,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     def authed(request: Request) -> None:
         if not security.valid_session(request.cookies.get(security.COOKIE)):
-            raise HTTPException(401, "not signed in")
+            raise HTTPException(401, "session expirée, reconnecte-toi")
         if request.method not in {"GET", "HEAD", "OPTIONS"} and request.headers.get(security.CSRF_HEADER) != "1":
-            raise HTTPException(403, "missing X-SH-Request header")
+            raise HTTPException(403, "requête refusée (en-tête X-SH-Request manquant)")
 
     def local_only(feature: str) -> None:
         if hosted:
-            raise HTTPException(409, f"{feature} runs on the Mac only (local mode)")
+            raise HTTPException(409, f"{feature} : disponible seulement sur le Mac (mode local)")
 
     def record(s: Session, kind: str, payload: dict[str, Any]) -> None:
         """In hosted mode, every edit is also queued for the Mac, which stays the source of truth. The snapshot
@@ -165,9 +165,9 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
             client = request.headers.get("x-forwarded-for", client).split(",")[0].strip() or client
         allowed = security.allow_attempt_persistent(s, client)
         if not allowed:
-            raise HTTPException(429, "too many attempts, try again in 15 minutes")
+            raise HTTPException(429, "trop de tentatives, réessaie dans 15 minutes")
         if not security.verify_password(body.password, os.environ.get("SH_OS_PASSWORD_HASH")):
-            raise HTTPException(401, "wrong password")
+            raise HTTPException(401, "mot de passe incorrect")
         response.set_cookie(security.COOKIE, security.make_session(), max_age=security.SESSION_SECONDS, httponly=True,
                             samesite="lax", secure=hosted, path="/")
         return {"ok": True}
@@ -175,7 +175,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     @app.post("/api/auth/logout")
     def logout(request: Request, response: Response) -> dict[str, Any]:
         if request.headers.get(security.CSRF_HEADER) != "1":
-            raise HTTPException(403, "missing X-SH-Request header")
+            raise HTTPException(403, "requête refusée (en-tête X-SH-Request manquant)")
         response.delete_cookie(security.COOKIE, path="/")
         return {"ok": True}
 
@@ -224,13 +224,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def opportunity(opp_id: int, s: Session = Depends(db)) -> dict[str, Any]:
         data = views.opportunity_detail(s, opp_id)
         if data is None:
-            raise HTTPException(404, "opportunity not found")
+            raise HTTPException(404, "offre introuvable")
         return data
 
     def _opp(s: Session, opp_id: int) -> Opportunity:
         o = s.get(Opportunity, opp_id)
         if o is None:
-            raise HTTPException(404, "opportunity not found")
+            raise HTTPException(404, "offre introuvable")
         return o
 
     @app.post("/api/opportunities/{opp_id}/track", dependencies=[Depends(authed)])
@@ -255,10 +255,10 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         links = people_search_links(o)
         if hosted:
             return {"status": "disabled", "added": 0, "links": links,
-                    "detail": "Profile search runs on the Mac. Use the LinkedIn searches below, then add the people you find."}
+                    "detail": "La recherche de profils tourne sur le Mac. Utilise les recherches LinkedIn ci-dessous, puis ajoute les personnes trouvées."}
         if not settings.brave_api_key:
             return {"status": "disabled", "added": 0, "links": links,
-                    "detail": "No BRAVE_SEARCH_API_KEY: use the LinkedIn searches below, then add the people you find."}
+                    "detail": "Pas de clé BRAVE_SEARCH_API_KEY : utilise les recherches LinkedIn ci-dessous, puis ajoute les personnes trouvées."}
         added = search_contacts(s, o, settings.brave_api_key)
         net.recompute(s, net_cfg, o.id)
         s.commit()
@@ -273,13 +273,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def application(app_id: int, s: Session = Depends(db)) -> dict[str, Any]:
         data = views.application_detail(s, app_id)
         if data is None:
-            raise HTTPException(404, "application not found")
+            raise HTTPException(404, "candidature introuvable")
         return data
 
     def _app(crm: CRM, app_id: int):  # noqa: ANN202
         a = crm.application(app_id)
         if a is None:
-            raise HTTPException(404, "application not found")
+            raise HTTPException(404, "candidature introuvable")
         return a
 
     @app.post("/api/applications/{app_id}/status", dependencies=[Depends(authed)])
@@ -380,7 +380,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
             if target.parent == root and target.exists() and target.suffix in {".pdf", ".tex"}:
                 return FileResponse(target, media_type="application/pdf" if target.suffix == ".pdf" else "application/x-tex",
                                     filename=target.name)
-        raise HTTPException(404, "file not found")
+        raise HTTPException(404, "fichier introuvable")
 
     # Networking and outreach ------------------------------------------------------------------------------------
     @app.get("/api/networking", dependencies=[Depends(authed)])
@@ -389,7 +389,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/networking/refresh", dependencies=[Depends(authed)])
     def networking_refresh(s: Session = Depends(db)) -> dict[str, Any]:
-        local_only("Contact discovery")
+        local_only("La découverte de contacts")
         out = net.import_public_contacts(s)
         out["scored"] = net.recompute(s, net_cfg)
         s.commit()
@@ -410,14 +410,14 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def _contact(s: Session, contact_id: int) -> CRMContact:
         c = s.get(CRMContact, contact_id)
         if c is None:
-            raise HTTPException(404, "contact not found")
+            raise HTTPException(404, "contact introuvable")
         return c
 
     @app.get("/api/contacts/{contact_id}", dependencies=[Depends(authed)])
     def contact(contact_id: int, s: Session = Depends(db)) -> dict[str, Any]:
         data = views.contact_detail(s, contact_id)
         if data is None:
-            raise HTTPException(404, "contact not found")
+            raise HTTPException(404, "contact introuvable")
         return data
 
     @app.post("/api/contacts/{contact_id}/confirm", dependencies=[Depends(authed)])
@@ -470,7 +470,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
     def _message(s: Session, message_id: int) -> OutreachMessage:
         m = s.get(OutreachMessage, message_id)
         if m is None:
-            raise HTTPException(404, "message not found")
+            raise HTTPException(404, "message introuvable")
         return m
 
     @app.post("/api/messages/{message_id}/variant", dependencies=[Depends(authed)])
@@ -491,7 +491,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.post("/api/messages/{message_id}/ai", dependencies=[Depends(authed)])
     def ai_rewrite(message_id: int, s: Session = Depends(db)) -> dict[str, Any]:
-        local_only("AI rewriting")
+        local_only("La reformulation par IA")
         from summer_hunter.os.ai import rewrite
 
         base = _message(s, message_id)
@@ -499,7 +499,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
         o, a, ev, inter, _ = _context(s, c, base.opportunity_id)
         result = rewrite(settings, base, c, o, a, ev, inter, net_cfg)
         if result is None:
-            raise HTTPException(422, "the local model's version failed the checks; the validated draft is kept")
+            raise HTTPException(422, "la version du modèle local n’a pas passé les contrôles ; le brouillon validé est conservé")
         s.add(result)
         s.commit()
         return views.message_row(result)
@@ -544,7 +544,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], hosted: bool
 
     @app.get("/api/export/crm", dependencies=[Depends(authed)])
     def export_crm() -> FileResponse:
-        local_only("The Excel export")
+        local_only("L’export Excel")
         from summer_hunter.crm import sync as crm_sync
 
         path = crm_sync.export(settings, sessions)

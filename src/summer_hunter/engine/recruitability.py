@@ -23,7 +23,8 @@ from summer_hunter.engine.normalization import FamilyMatch
 from summer_hunter.models.candidate import CandidateProfile
 from summer_hunter.utils.text import normalize_for_match
 
-NOT_A_PROBABILITY = "Match between verified experience and stated requirements; not a probability of being hired."
+_LEVEL_FR = {"mandatory": "obligatoire", "preferred": "souhaité"}
+NOT_A_PROBABILITY = "Écart entre l’expérience vérifiée et les exigences de l’offre ; pas une probabilité d’embauche."
 
 
 class RecruitabilityReport(BaseModel):
@@ -67,11 +68,11 @@ def score(title: str, description: str, family: FamilyMatch, profile: CandidateP
         if gain:
             direct += gain
             relevant.append(f"{exp.organization}: {', '.join(hits[:4]) or exp.role}")
-            reasons.append((gain, f"{exp.organization} ({exp.role}) matches: {', '.join(hits[:4])}." if hits
-                            else f"{exp.organization} is direct experience for this kind of role."))
+            reasons.append((gain, f"{exp.organization} ({exp.role}) correspond : {', '.join(hits[:4])}." if hits
+                            else f"{exp.organization} est une expérience directe pour ce type de poste."))
     direct = _clamp(direct)
     if direct < 40:
-        concerns.append((70, "Little direct professional overlap with the stated responsibilities."))
+        concerns.append((70, "Peu de recoupement professionnel direct avec les missions de l’offre."))
 
     # 2. Technical skills, by requirement level ----------------------------------------------
     found = found if found is not None else reqs.extract(description, cfg["skills"], profile.verified_skills)
@@ -83,11 +84,11 @@ def score(title: str, description: str, family: FamilyMatch, profile: CandidateP
         technical = 100.0 * matched / total if total else cfg["unknown_technical_score"]
         held = [r.name for r in found if r.verified]
         if held:
-            reasons.append((30 + 5 * len(held), f"Verified skills asked for: {', '.join(held[:4])}."))
+            reasons.append((30 + 5 * len(held), f"Compétences vérifiées demandées : {', '.join(held[:4])}."))
     else:
         technical = float(cfg["unknown_technical_score"])
-        concerns.append((40, "Technical requirements not stated clearly: skill match unknown."))
-    missing = [f"{r.name} ({r.level})" for r in found if not r.verified and r.level != "exposure"]
+        concerns.append((40, "Exigences techniques peu claires : adéquation des compétences inconnue."))
+    missing = [f"{r.name} ({_LEVEL_FR.get(r.level, r.level)})" for r in found if not r.verified and r.level != "exposure"]
     blocking = reqs.blocking(found)
 
     # 3. Academic background --------------------------------------------------------------------
@@ -96,16 +97,16 @@ def score(title: str, description: str, family: FamilyMatch, profile: CandidateP
     field_hits = _hits(norm, ac["field_keywords"])
     if field_hits:
         academic += ac["field_match_points"]
-        reasons.append((35, f"Engineering studies in industry and robotics fit the field asked ({', '.join(field_hits[:3])})."))
+        reasons.append((35, f"Études d’ingénieur en industrie et robotique : correspondent au domaine demandé ({', '.join(field_hits[:3])})."))
     if re.search(r"\bmaintenance\b", norm) and any("maintenance" in d.lower() for d in _previous_degrees(profile)):
         academic += ac["maintenance_degree_points"]
     if re.search(r"\bph\.?d\b.{0,40}\b(required|must)\b|\b(required|must)\b.{0,40}\bph\.?d\b", norm):
         academic -= ac["phd_required_penalty"]
-        concerns.append((80, "A PhD is required."))
+        concerns.append((80, "Un doctorat est exigé."))
     unrelated = _hits(norm, ac["unrelated_fields"])
     if unrelated and not field_hits:
         academic -= ac["unrelated_field_penalty"]
-        concerns.append((50, f"Field of study asked: {', '.join(unrelated[:2])}."))
+        concerns.append((50, f"Domaine d’études demandé : {', '.join(unrelated[:2])}."))
     academic = _clamp(academic)
 
     # 4. Transferable experience (projects, entrepreneurship, leadership) -------------------------
@@ -125,7 +126,7 @@ def score(title: str, description: str, family: FamilyMatch, profile: CandidateP
         if _hits(norm, words):
             industry = float(level)
             if int(level) >= 90:
-                reasons.append((45, "Aerospace / MRO sector: same environment as Air France Industries and Airbus Helicopters."))
+                reasons.append((45, "Secteur aéronautique / MRO : même environnement qu’Air France Industries et Airbus Helicopters."))
             break
 
     components = {"direct_experience": round(direct, 1), "technical_skills": round(technical, 1),
@@ -135,11 +136,11 @@ def score(title: str, description: str, family: FamilyMatch, profile: CandidateP
         total -= cfg["advanced_mandatory_penalty"] * len(blocking)
         if len(blocking) >= 2:
             total = min(total, cfg["advanced_mandatory_cap"])
-        concerns.append((95, "Mandatory specialized expertise not in the verified profile: "
+        concerns.append((95, "Expertise spécialisée obligatoire absente du profil vérifié : "
                          + ", ".join(r.name for r in blocking[:3]) + "."))
     for r in found:
         if r.advanced and not r.verified and r.level == "preferred":
-            concerns.append((30, f"{r.name} is a plus, not a requirement."))
+            concerns.append((30, f"{r.name} est un plus, pas une exigence."))
             break
     reasons.sort(key=lambda x: -x[0])
     concerns.sort(key=lambda x: -x[0])

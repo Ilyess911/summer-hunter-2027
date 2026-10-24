@@ -35,10 +35,12 @@ from summer_hunter.database.repository import as_utc
 
 CATEGORIES = ["hiring_manager", "team_manager", "talent_acquisition", "university_recruiter", "referral", "alumni_esilv",
               "alumni_af_airbus", "team_member", "program_coordinator", "other"]
-CATEGORY_LABEL = {"hiring_manager": "Hiring manager", "team_manager": "Team manager", "talent_acquisition": "Talent acquisition",
-                  "university_recruiter": "University recruiter", "referral": "Referral contact", "alumni_esilv": "ESILV alumni",
-                  "alumni_af_airbus": "Former Air France / Airbus", "team_member": "Team member",
-                  "program_coordinator": "Internship programme coordinator", "other": "Other"}
+CATEGORY_LABEL = {"hiring_manager": "Manager qui recrute", "team_manager": "Manager de l’équipe", "talent_acquisition": "Recrutement",
+                  "university_recruiter": "Recruteur campus", "referral": "Contact pour recommandation", "alumni_esilv": "Ancien de l’ESILV",
+                  "alumni_af_airbus": "Ancien d’Air France / Airbus", "team_member": "Membre de l’équipe",
+                  "program_coordinator": "Coordinateur du programme de stages", "other": "Autre"}
+_STATUS_FR = {"REJECTED": "refusée", "WITHDRAWN": "retirée", "CLOSED": "clôturée"}
+EVIDENCE_LABEL = {"public_post": "post public", "vacancy": "cité dans l’offre", "user": "ajouté par toi"}
 CRM_TYPE = {"hiring_manager": "Hiring Manager", "team_manager": "Hiring Manager", "talent_acquisition": "Recruiter",
             "university_recruiter": "Recruiter", "referral": "Referral Contact", "alumni_esilv": "Alumni",
             "alumni_af_airbus": "Alumni", "team_member": "Employee", "program_coordinator": "Recruiter", "other": "Other"}
@@ -137,7 +139,7 @@ def add_user_contact(session: Session, company: str, name: str, position: str | 
         raise ValidationError(f"category must be one of: {', '.join(CATEGORIES)}")
     url = check_url(linkedin_url, "LinkedIn profile")
     if url and not LINKEDIN_PROFILE.match(url):
-        raise ValidationError("LinkedIn profile URL must look like https://www.linkedin.com/in/<name>")
+        raise ValidationError("L’URL du profil LinkedIn doit ressembler à https://www.linkedin.com/in/<nom>")
     if not (name or "").strip() or not (company or "").strip():
         raise ValidationError("a contact needs a name and a company")
     contact, _ = _get_or_create(session, company.strip(), name.strip(), position, url, category, "verified", "manual")
@@ -203,12 +205,12 @@ def score_contact(contact: CRMContact, opp: Opportunity, evidence: list[ContactE
     involvement = float((sc.get("involvement") or {}).get(cat, 25))
     if linked and cat in {"talent_acquisition", "university_recruiter", "hiring_manager", "team_manager"}:
         involvement = min(100.0, involvement + float(sc.get("linked_to_this_opening_bonus", 15)))
-        why.append(f"{CATEGORY_LABEL[cat]} tied to this opening ({linked[0].kind.replace('_', ' ')}).")
+        why.append(f"{CATEGORY_LABEL[cat]}, lié à cette offre ({EVIDENCE_LABEL.get(linked[0].kind, linked[0].kind)}).")
     else:
         why.append(f"{CATEGORY_LABEL[cat]}.")
     if SENIOR.search(contact.position or "") and not linked:
         involvement = min(involvement, float(sc.get("senior_without_link_cap", 40)))
-        why.append("Senior title without evidence of involvement in this hiring: not a first contact.")
+        why.append("Poste senior sans preuve d’implication dans ce recrutement : pas un premier contact.")
 
     words = _track_words(opp)
     pos = (contact.position or "").lower()
@@ -216,17 +218,17 @@ def score_contact(contact: CRMContact, opp: Opportunity, evidence: list[ContactE
         relevance = 100.0
     elif any(w in pos for w in words):
         relevance = 70.0
-        why.append("Works in the area of the role.")
+        why.append("Travaille dans le domaine du poste.")
     else:
         relevance = 40.0
 
     connection = 20.0
     if cat == "alumni_esilv":
         connection = 100.0
-        why.append("ESILV alumni (stated by you or by public evidence).")
+        why.append("Ancien de l’ESILV (indiqué par toi ou par une preuve publique).")
     elif cat == "alumni_af_airbus":
         connection = 90.0
-        why.append("Former Air France / Airbus: shared professional background.")
+        why.append("Ancien d’Air France / Airbus : parcours professionnel commun.")
     elif any(w in pos for w in ("maintenance", "mro", "robotics", "industrial")) and opp.career_track == "industry_robotics":
         connection = 50.0
 
@@ -234,7 +236,7 @@ def score_contact(contact: CRMContact, opp: Opportunity, evidence: list[ContactE
     dated = [as_utc(e.retrieved_at).date() for e in evidence if e.kind in {"public_post", "vacancy"} and e.retrieved_at]
     if any((today - d).days <= recent_days for d in dated):
         activity = 100.0 if any(e.kind == "public_post" for e in evidence) else 80.0
-        why.append("Recent public recruiting activity.")
+        why.append("Activité de recrutement publique récente.")
     elif dated:
         activity = 40.0
     else:
@@ -244,10 +246,10 @@ def score_contact(contact: CRMContact, opp: Opportunity, evidence: list[ContactE
         access = 100.0
     elif contact.linkedin_url:
         access = 60.0
-        why.append("Profile not confirmed yet: check it before writing.")
+        why.append("Profil pas encore confirmé : vérifie-le avant d’écrire.")
     else:
         access = 20.0
-        why.append("No public profile URL on record.")
+        why.append("Aucune URL de profil public enregistrée.")
 
     comps = {"involvement": involvement, "relevance": relevance, "connection": connection,
              "recruiting_activity": activity, "accessibility": access}
@@ -280,48 +282,48 @@ def timing(contact: CRMContact, opp: Opportunity, app: CRMApplication | None, in
     low = contact.verification != "verified"
     conf = "low" if low else "high"
     if contact.dismissed:
-        return Timing("DO_NOT_CONTACT", None, "Dismissed by you.", "high", None)
+        return Timing("DO_NOT_CONTACT", None, "Écarté par toi.", "high", None)
     if app and app.status in TERMINAL and app.status != "OFFER_ACCEPTED":
-        return Timing("DO_NOT_CONTACT", None, f"Application {app.status.lower()}: no routine follow-up.", "high", None)
+        return Timing("DO_NOT_CONTACT", None, f"Candidature close ({_STATUS_FR.get(app.status, app.status.lower())}) : pas de relance de routine.", "high", None)
     sent = sorted((i for i in interactions if i.kind == "message_sent"), key=lambda i: as_utc(i.occurred_at))
     replies = [i for i in interactions if i.kind == "reply"]
     if replies and (not sent or as_utc(replies[-1].occurred_at) >= as_utc(sent[-1].occurred_at)):
-        return Timing("WAIT", None, "They replied: continue the conversation yourself.", "high", "thank_you")
+        return Timing("WAIT", None, "Cette personne a répondu : poursuis la conversation toi-même.", "high", "thank_you")
     if sent:
         if len(sent) > int(tc.get("max_follow_ups", 1)):
-            return Timing("DO_NOT_CONTACT", None, "One follow-up already sent without reply: stop here.", "high", None)
+            return Timing("DO_NOT_CONTACT", None, "Une relance déjà envoyée sans réponse : on s’arrête là.", "high", None)
         due = add_business_days(as_utc(sent[-1].occurred_at).date(), int(tc.get("follow_up_after_business_days", 5)))
         if today < due:
-            return Timing("WAIT", due, f"Message sent on {as_utc(sent[-1].occurred_at):%d %b}: give it until {due:%d %b}.", "high", None)
-        return Timing("FOLLOW_UP", _next_workday(max(today, due)), "No reply after 5 business days: one short follow-up.",
+            return Timing("WAIT", due, f"Message envoyé le {as_utc(sent[-1].occurred_at):%d/%m} : laisse du temps jusqu’au {due:%d/%m}.", "high", None)
+        return Timing("FOLLOW_UP", _next_workday(max(today, due)), "Pas de réponse après 5 jours ouvrés : une relance courte.",
                       "high", "follow_up")
     if app and app.status in {"INTERVIEW", "FINAL_INTERVIEW"} and app.interview_at:
         after = as_utc(app.interview_at).date() + timedelta(days=int(tc.get("post_interview_follow_up_days", 1)))
-        return Timing("FOLLOW_UP", _next_workday(max(today, after)), "After the interview: a short thank-you note.", conf,
+        return Timing("FOLLOW_UP", _next_workday(max(today, after)), "Après l’entretien : un court message de remerciement.", conf,
                       "post_interview")
     applied = app is not None and app.status in POST_APPLICATION and app.date_applied is not None
     deadline_soon = opp.application_deadline is not None and (opp.application_deadline - today).days <= 7
     if cat in {"alumni_esilv", "alumni_af_airbus", "referral"}:
         kind = "alumni" if cat.startswith("alumni") else "referral_request"
         return Timing("CONTACT_BEFORE_APPLICATION" if not applied else "CONTACT_AFTER_APPLICATION", _next_workday(today),
-                      "Ask for advice on the team and the role, not for a referral in a first message."
-                      + (" Apply first: the deadline is close." if deadline_soon and not applied else ""), conf, kind)
+                      "Demande un conseil sur l’équipe et le poste, pas une recommandation dans un premier message."
+                      + (" Postule d’abord : la date limite approche." if deadline_soon and not applied else ""), conf, kind)
     if cat in {"talent_acquisition", "university_recruiter", "program_coordinator"}:
         if applied:
             when = add_business_days(app.date_applied, int(tc.get("recruiter_after_application_business_days", 2)))
             return Timing("CONTACT_AFTER_APPLICATION", _next_workday(max(today, when)),
-                          "Recruiters act on submitted applications: reference yours.", conf, "after_applying")
+                          "Les recruteurs agissent sur les candidatures envoyées : mentionne la tienne.", conf, "after_applying")
         return Timing("CONTACT_AFTER_APPLICATION", None,
-                      "Apply first, then send a short note referencing the application. A connection request now is fine.",
+                      "Postule d’abord, puis envoie un mot court qui mentionne ta candidature. Une demande de connexion dès maintenant convient.",
                       "low" if low else "medium", "connection_request")
     if cat in {"hiring_manager", "team_manager", "team_member"}:
         if applied:
-            return Timing("CONTACT_AFTER_APPLICATION", _next_workday(today), "Application in: a concise note to the team.", conf,
+            return Timing("CONTACT_AFTER_APPLICATION", _next_workday(today), "Candidature envoyée : un mot concis à l’équipe.", conf,
                           "after_applying")
         return Timing("CONTACT_BEFORE_APPLICATION", _next_workday(today),
-                      "A relevant reason to write before applying; apply anyway, do not wait for a reply."
-                      + (" The deadline is close: apply today." if deadline_soon else ""), conf, "before_applying")
-    return Timing("WAIT", None, "No clear reason to write yet; keep as a reference contact.", "low", None)
+                      "Une vraie raison d’écrire avant de postuler ; postule quand même, sans attendre de réponse."
+                      + (" La date limite approche : postule aujourd’hui." if deadline_soon else ""), conf, "before_applying")
+    return Timing("WAIT", None, "Pas encore de raison claire d’écrire : garde ce contact en référence.", "low", None)
 
 
 # Recompute -------------------------------------------------------------------------------------------------

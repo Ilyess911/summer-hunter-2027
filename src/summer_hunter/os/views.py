@@ -283,6 +283,15 @@ def pipeline(s: Session) -> dict[str, Any]:
             "items": [application_row(a) for a in apps]}
 
 
+_FR_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+_FR_DAYS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]
+
+
+def _fr_day(d: date | datetime) -> str:
+    """'mar. 3 nov.' (French short date, no locale dependency)."""
+    return f"{_FR_DAYS[d.weekday()]} {d.day} {_FR_MONTHS[d.month - 1]}"
+
+
 def today_priorities(s: Session, cfg_today: date | None = None) -> list[dict[str, Any]]:
     """The actions that need the user today, each with the screen and button that performs it."""
     today = cfg_today or datetime.now(timezone.utc).date()
@@ -291,36 +300,36 @@ def today_priorities(s: Session, cfg_today: date | None = None) -> list[dict[str
     for a in crm.applications(st.ACTIVE):
         o = a.opportunity
         if a.interview_at and today <= as_utc(a.interview_at).date() <= today + timedelta(days=7):
-            items.append({"key": f"interview:{a.id}", "kind": "prepare_interview", "title": f"Prepare the {o.company_name} interview",
-                          "detail": f"{o.title} · {as_utc(a.interview_at):%a %d %b %H:%M}", "href": f"/applications/{a.id}", "rank": 0})
+            items.append({"key": f"interview:{a.id}", "kind": "prepare_interview", "title": f"Préparer l’entretien {o.company_name}",
+                          "detail": f"{o.title} · {_fr_day(as_utc(a.interview_at))} {as_utc(a.interview_at):%H:%M}", "href": f"/applications/{a.id}", "rank": 0})
         if a.next_action_date and a.next_action_date <= today:
-            items.append({"key": f"next:{a.id}:{a.next_action_date}", "kind": "next_action", "title": a.next_action or "Planned action due",
+            items.append({"key": f"next:{a.id}:{a.next_action_date}", "kind": "next_action", "title": a.next_action or "Action prévue",
                           "detail": f"{o.company_name} · {o.title}", "href": f"/applications/{a.id}", "rank": 2})
         if a.deadline and a.status in st.PRE_APPLICATION and 0 <= (a.deadline - today).days <= 7:
-            items.append({"key": f"deadline:{a.id}", "kind": "deadline", "title": f"Apply to {o.company_name} before {a.deadline:%d %b}",
+            items.append({"key": f"deadline:{a.id}", "kind": "deadline", "title": f"Postuler chez {o.company_name} avant le {_fr_day(a.deadline)}",
                           "detail": o.title, "href": f"/applications/{a.id}", "rank": 1})
     for r in followups.all_suggestions(crm, today):
         if r.kind != "deadline":
-            items.append({"key": r.key, "kind": "follow_up", "title": r.text, "detail": "Follow-up suggested",
+            items.append({"key": r.key, "kind": "follow_up", "title": r.text, "detail": "Relance suggérée",
                           "href": f"/applications/{r.application.id}" if r.application else "/networking", "rank": 3})
     for row in networking_queue(s, 10):
         if row["due"]:
-            label = {"FOLLOW_UP": "Follow up with", "CONTACT_AFTER_APPLICATION": "Message", "CONTACT_BEFORE_APPLICATION": "Message"}
+            label = {"FOLLOW_UP": "Relancer", "CONTACT_AFTER_APPLICATION": "Écrire à", "CONTACT_BEFORE_APPLICATION": "Écrire à"}
             items.append({"key": f"contact:{row['id']}:{row['opportunity']['id']}", "kind": "contact",
-                          "title": f"{label.get(row['timing']['action'], 'Contact')} {row['name']} ({row['company']})",
+                          "title": f"{label.get(row['timing']['action'], 'Contacter')} {row['name']} ({row['company']})",
                           "detail": row["timing"]["reason"], "href": f"/outreach/{row['id']}?opportunity={row['opportunity']['id']}",
                           "rank": 2})
     apply_items = 0
     for o in Repository(s).top_global(30):
         if o.next_action == "APPLY_NOW" and not crm.application_for(o.id) and apply_items < 8:
             apply_items += 1
-            items.append({"key": f"apply:{o.id}", "kind": "apply", "title": f"Apply: {o.title}",
-                          "detail": f"{o.company_name} · priority {o.global_priority:.0f}", "href": f"/opportunities/{o.id}", "rank": 4})
+            items.append({"key": f"apply:{o.id}", "kind": "apply", "title": f"Postuler : {o.title}",
+                          "detail": f"{o.company_name} · priorité {o.global_priority:.0f}", "href": f"/opportunities/{o.id}", "rank": 4})
         elif o.next_action == "VERIFY_COMPENSATION":
-            items.append({"key": f"pay:{o.id}", "kind": "verify_compensation", "title": f"Check pay: {o.title}",
+            items.append({"key": f"pay:{o.id}", "kind": "verify_compensation", "title": f"Vérifier la paie : {o.title}",
                           "detail": o.company_name, "href": f"/opportunities/{o.id}", "rank": 5})
         elif o.next_action == "VERIFY_ELIGIBILITY":
-            items.append({"key": f"elig:{o.id}", "kind": "verify_eligibility", "title": f"Check eligibility: {o.title}",
+            items.append({"key": f"elig:{o.id}", "kind": "verify_eligibility", "title": f"Vérifier l’éligibilité : {o.title}",
                           "detail": o.company_name, "href": f"/opportunities/{o.id}", "rank": 5})
     done = {k.removeprefix("action_done:") for (k,) in s.execute(select(KeyValue.key).where(KeyValue.key.like("action_done:%")))}
     seen, out = set(), []

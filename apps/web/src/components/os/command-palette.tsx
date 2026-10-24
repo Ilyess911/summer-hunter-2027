@@ -39,12 +39,12 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
 
   const r = results.data
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Command palette" description="Search and run commands">
-      <CommandInput placeholder="Type a command or search…" value={q} onValueChange={setQ} />
+    <CommandDialog open={open} onOpenChange={onOpenChange} title="Palette de commandes" description="Rechercher et lancer une commande">
+      <CommandInput placeholder="Rechercher ou taper une commande…" value={q} onValueChange={setQ} />
       <CommandList>
-        <CommandEmpty>{debounced.length >= 2 && results.isFetching ? "Searching…" : "No results."}</CommandEmpty>
+        <CommandEmpty>{debounced.length >= 2 && results.isFetching ? "Recherche…" : "Aucun résultat."}</CommandEmpty>
         {r && r.opportunities.length > 0 && (
-          <CommandGroup heading="Opportunities">
+          <CommandGroup heading="Opportunités">
             {r.opportunities.map((o) => (
               <CommandItem key={`o${o.id}`} value={`opp ${o.id} ${o.title} ${o.company}`} onSelect={() => go(`/opportunities/${o.id}`)}>
                 <Briefcase /> <span className="truncate">{o.title}</span><span className="ml-auto text-xs text-muted-foreground">{o.company}</span>
@@ -53,7 +53,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </CommandGroup>
         )}
         {r && r.applications.length > 0 && (
-          <CommandGroup heading="Applications">
+          <CommandGroup heading="Candidatures">
             {r.applications.map((a) => (
               <CommandItem key={`a${a.id}`} value={`app ${a.code} ${a.title} ${a.company}`} onSelect={() => go(`/applications/${a.id}`)}>
                 <KanbanSquare /> {a.code} · <span className="truncate">{a.title}</span>
@@ -71,7 +71,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </CommandGroup>
         )}
         {r && r.companies.length > 0 && (
-          <CommandGroup heading="Companies">
+          <CommandGroup heading="Entreprises">
             {r.companies.map((c) => (
               <CommandItem key={`co${c}`} value={`company ${c}`} onSelect={() => go(`/opportunities?q=${encodeURIComponent(c)}`)}>
                 <Building2 /> {c}
@@ -89,16 +89,16 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </CommandGroup>
         )}
         <CommandSeparator />
-        <CommandGroup heading="Commands">
-          <CommandItem value="today priorities command center" onSelect={() => go("/")}><LayoutDashboard /> Show today&apos;s priorities</CommandItem>
-          <CommandItem value="view interviews pipeline" onSelect={() => go("/pipeline?status=INTERVIEW")}><Video /> View interviews</CommandItem>
-          <CommandItem value="generate message outreach networking" onSelect={() => go("/networking")}><MessageSquare /> Generate a message</CommandItem>
-          <CommandItem value="contacts networking" onSelect={() => go("/networking?tab=contacts")}><Users /> Open contacts</CommandItem>
+        <CommandGroup heading="Commandes">
+          <CommandItem value="aujourd’hui priorités accueil today" onSelect={() => go("/")}><LayoutDashboard /> Priorités du jour</CommandItem>
+          <CommandItem value="entretiens candidatures interviews" onSelect={() => go("/pipeline?status=INTERVIEW")}><Video /> Voir les entretiens</CommandItem>
+          <CommandItem value="écrire message réseau linkedin" onSelect={() => go("/networking")}><MessageSquare /> Écrire un message</CommandItem>
+          <CommandItem value="contacts réseau" onSelect={() => go("/networking?tab=contacts")}><Users /> Ouvrir les contacts</CommandItem>
           <CommandItem value="export crm excel" onSelect={() => { onOpenChange(false); window.location.assign(new URL("/api/export/crm", window.location.origin).href) }}>
-            <Download /> Export CRM (Excel)
+            <Download /> Exporter le CRM (Excel)
           </CommandItem>
-          <CommandItem value="switch theme dark light" onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-            {resolvedTheme === "dark" ? <Sun /> : <Moon />} Switch theme
+          <CommandItem value="thème sombre clair theme" onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+            {resolvedTheme === "dark" ? <Sun /> : <Moon />} Changer de thème
           </CommandItem>
         </CommandGroup>
       </CommandList>
