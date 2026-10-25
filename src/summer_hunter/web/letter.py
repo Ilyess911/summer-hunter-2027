@@ -155,7 +155,8 @@ def facts_block(content: dict[str, Any], exp: dict[str, str]) -> str:
              "Experiences (id: facts):"]
     lines += [f"- {k}: {v}" for k, v in exp.items()]
     for group, items in (content.get("skills") or {}).items():
-        lines.append(f"{group}: {', '.join(items)}")
+        # Coursework-only skills belong on the CV, never in a letter as a working skill.
+        lines.append(f"{group}: {', '.join(i for i in items if 'coursework' not in i.lower())}")
     lines.append("No sales quota, closed deals, revenue figures, no certification other than the Lean Management Yellow Belt. Spanish and Dutch are not working languages.")
     return "\n".join(lines)
 

@@ -32,6 +32,7 @@ headlines:
   industrial_digital: "INDUSTRY 4.0 | AUTOMATION | DATA"
   robotics_raas: "ROBOTICS DEPLOYMENT | OPERATIONS | CUSTOMER DELIVERY"
   robotics_specialized: "ROBOTICS | INDUSTRIAL ENGINEERING | AUTOMATION"
+  data: "DATA ANALYSIS | AUTOMATION | TECHNOLOGY"
 
 summary: >-
   Final-year engineering student at ESILV and engineering apprentice at Air France Industries,
@@ -57,7 +58,7 @@ experiences:
     bullets:
       - {text: "Develop AI-enabled tools and automated workflows to improve operational efficiency, data reliability and decision-making.", tags: [ai, artificial, intelligence, automation, data, tools, efficiency, productivity]}
       - {text: "Analyze operational data, monitor performance indicators and collaborate with stakeholders to identify improvement opportunities and deliver practical solutions.", tags: [data, analysis, stakeholder, kpi, solution, customer]}
-      - {text: "Automate the consolidation of aircraft equipment data across fleets with Python and Power Query, giving engineering teams reliable inputs for maintenance decisions.", tracks: [industry], tags: [automation, python, data, maintenance, mro, repair, aircraft, equipment, database, capacity, forecast, engine]}
+      - {text: "Automate the consolidation of aircraft equipment data across fleets with Python and Power Query, giving engineering teams reliable inputs for maintenance decisions.", tracks: [industry, product], tags: [automation, python, data, maintenance, mro, repair, aircraft, equipment, database, capacity, forecast, engine]}
       - {text: "Analyze maintenance and technical data in an MRO environment, monitoring KPIs and identifying process improvement and cost optimization opportunities.", tracks: [industry], tags: [maintenance, mro, repair, analysis, evaluation, kpi, quality, productivity, cost, reduction, improvement, continuous, process, reliability]}
   - org: "Nexya Agency"
     dates: "Jul 2025 -- Present"
@@ -68,6 +69,7 @@ experiences:
       - {text: "Developed a SaaS booking solution for driving schools, including lead tracking and prospect management tools to structure the sales process.", tags: [saas, product, crm, pipeline, sales, lead]}
       - {text: "Engaged industrial decision-makers on an AI-powered recruitment solution, discussing technical integration, business requirements and pricing considerations.", tags: [ai, artificial, intelligence, industrial, enterprise, technical, integration, pricing, stakeholder, customer, demo]}
   - org: "Amundi Asset Management"
+    max_bullets: 1
     dates: "Jul 2023 -- Aug 2023"
     role: "Distribution Assistant -- France & Monaco"
     location: "Paris, France"
@@ -85,22 +87,22 @@ experiences:
 max_projects: 2
 projects:
   - name: "Vinc'IA -- Conferences & Partnerships"
-    tracks: [business]
+    tracks: [business, product]
     tags: [partnerships, business, development, outreach, events, ai, go-to-market]
     bullets:
       - {text: "Led speaker outreach and partnership development for AI-focused masterclasses, engaging technology professionals and coordinating events attracting over 140 registrations."}
   - name: "Predictive Maintenance Lab -- Jet Engine Remaining Useful Life"
-    tracks: [industry]
+    tracks: [industry, product]
     tags: [ai, artificial, intelligence, machine, learning, predictive, maintenance, engine, jet, aerospace, aircraft, reliability, forecast, data, python, cost]
     bullets:
       - {text: "Built a reproducible benchmark predicting turbofan engine remaining useful life on NASA C-MAPSS data (gradient boosting, random forest, CNN), with cost-based maintenance policies and CI-verified results."}
   - name: "Industrial Digital Twin -- Simulated Machining Cell"
-    tracks: [industry]
+    tracks: [industry, product]
     tags: [digital, twin, smart, factory, industry, manufacturing, cnc, robotics, automation, sensor, data, python, ai, capacity]
     bullets:
       - {text: "Built a digital shadow of a simulated machining cell (CNC, robot, conveyor, inspection) that streams sensor data to detect equipment faults and estimate the time left before a thermal trip."}
   - name: "Edge AI Condition Monitor"
-    tracks: [industry]
+    tracks: [industry, product]
     tags: [ai, artificial, intelligence, machine, learning, condition, monitoring, anomaly, quality, sensor, edge, iiot, maintenance, reliability]
     bullets:
       - {text: "Designed a streaming condition-monitoring pipeline with four anomaly detectors, evaluated on real bearing (Paderborn) and compressor (MetroPT-3) data with measured inference latency."}
@@ -119,16 +121,36 @@ education:
 
 skills:
   "Sales & Customer Growth": [Business Development, Customer Outreach, Client Relationship Management, Consultative Selling, CRM, Lead Generation, Stakeholder Engagement]
-  "Analytics & Technology": [Data Analysis, KPI Monitoring, Process Automation, AI Tools, Microsoft Excel, Digital Solutions, SaaS]
+  "Analytics & Technology": [Data Analysis, KPI Monitoring, Process Automation, Python, Power Query, SQL (Academic Coursework), AI Tools, Microsoft Excel, Digital Solutions, SaaS]
   "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]
 # Languages keep the written order (never re-ranked).
 fixed_order_skills: [Languages]
 
 # Offers whose job family is listed here get the industry track below instead of the
-# business defaults above. A bullet or project with `tracks:` only appears on those tracks.
+# business defaults above, unless the listing itself reads nothing like industry (then: product).
+# Families in product_families get the product / data / tech track.
+# A bullet or project with `tracks:` only appears on those tracks.
 industry_families: [maintenance_reliability, industrial_project_management, industrial_operations,
                     industrial_digital, robotics_raas, robotics_specialized, design_engineering]
+product_families: [product_management, product_marketing, ai_solutions, program_management,
+                   commercial_strategy, strategy_consulting]
 tracks:
+  product:
+    summary: >-
+      Final-year engineering student in Industry 4.0 & Robotics at ESILV and engineering apprentice at
+      Air France Industries -- KLM Engineering & Maintenance, building data and AI-enabled tools that support
+      operational decisions. Co-founder of Nexya Agency, taking SaaS and AI solutions
+      from customer needs to working product, and lead of Medical'IA, an AI healthcare project distinguished as
+      AI Startup of the Year. Combines technical depth (Python, data analysis, process automation, machine
+      learning projects) with customer engagement and clear communication to non-technical stakeholders.
+    labels: {projects: PROJECTS}
+    experience_order: ["Air France Industries -- KLM Engineering & Maintenance", "Nexya Agency", "Amundi Asset Management", "Airbus Helicopters"]
+    max_bullets: {"Air France Industries -- KLM Engineering & Maintenance": 3, "Nexya Agency": 2, "Amundi Asset Management": 1, "Airbus Helicopters": 1}
+    skills:
+      "Product & Data": [AI Product Prototyping, Data Analysis, Process Automation, KPI Monitoring, Stakeholder Communication, Project Leadership, Public Speaking]
+      "Technology": [Python, Power Query, SQL (Academic Coursework), Microsoft Excel, Machine Learning, AI Tools, SaaS]
+      "Business": [Business Development, Customer Outreach, CRM, Partnership Outreach, Lead Generation]
+      "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]
   industry:
     summary: >-
       Final-year engineering student in Industry 4.0 & Robotics at ESILV and engineering apprentice at
@@ -137,10 +159,20 @@ tracks:
       improvement, KPI monitoring and the automation of engineering workflows with Python. Builds AI and
       predictive maintenance projects, and brings a structured, data-driven approach to quality, productivity
       and cost.
+    # Used instead of `summary` when the listing is mostly about supply chain or logistics.
+    summary_variants:
+      - when: "supply chain|logistics|inventory|demand|backlog|order management|warehouse|planning"
+        text: >-
+          Final-year engineering student in Industry 4.0 & Robotics at ESILV and engineering apprentice at
+          Air France Industries -- KLM Engineering & Maintenance. Background in industrial engineering, with
+          hands-on experience in industrial logistics and inventory management at Airbus Helicopters (Lean
+          Management Yellow Belt, 5S), data analysis and KPI monitoring, and the automation of data workflows
+          with Python and Power Query. Brings a structured, data-driven approach to process improvement, cost
+          and service performance.
     labels: {projects: TECHNICAL PROJECTS}
     experience_order: ["Air France Industries -- KLM Engineering & Maintenance", "Airbus Helicopters", "Nexya Agency"]
     max_bullets: {"Air France Industries -- KLM Engineering & Maintenance": 3, "Airbus Helicopters": 2, "Nexya Agency": 1}
     skills:
       "Industrial Engineering": [Lean Management (Yellow Belt), Continuous Improvement, Process Improvement, 5S, Maintenance Data Analysis, MRO, KPI Monitoring, Cost Optimization, Inventory Management, Industrial Logistics, 3D Printing, Technical Project Management]
-      "Data & AI": [Python, Power Query, Microsoft Excel, Data Analysis, Process Automation, Machine Learning, AI Tools]
+      "Data & AI": [Python, Power Query, SQL (Academic Coursework), Microsoft Excel, Data Analysis, Process Automation, Machine Learning, AI Tools]
       "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]

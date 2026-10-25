@@ -125,3 +125,32 @@ def test_real_cv_mentions_toeic_once_on_both_tracks():
     for family in ("technical_sales", "industrial_operations"):
         doc = render(tailor(content, "Intern", "", family), "X")
         assert doc.count("TOEIC") == 1
+
+
+def test_track_follows_the_listing_not_only_the_family_label():
+    from summer_hunter.web.cv import track_for
+    content = {"industry_families": ["industrial_project_management"], "product_families": ["product_management"]}
+    fintech = "Responsibilities: build data quality checks for payment flows and dashboards on balances."
+    plant = "Responsibilities: support production planning on the plant floor, maintenance and inventory."
+    assert track_for(content, "industrial_project_management", fintech) == "product"
+    assert track_for(content, "industrial_project_management", plant) == "industry"
+    analytic = "Responsibilities: analysis with SQL and Excel, dashboards in Tableau, metrics and forecast modeling."
+    assert track_for(content, "go_to_market", analytic) == "product"
+    assert track_for(content, "go_to_market", "Responsibilities: prospect new business and build pipeline.") == "business"
+
+
+def test_target_line_names_role_company_and_the_offer_themes():
+    from summer_hunter.web.cv import target_line
+    job = "Role Overview: continuous improvement in manufacturing quality; evaluation of repair processes."
+    line = target_line("GE Aerospace", "Manufacturing Intern", job)
+    assert line.startswith("Seeking the Manufacturing internship at GE Aerospace from April 2027, to contribute to ")
+    assert "continuous improvement" in line and "repair and maintenance processes" in line
+    assert target_line("X", "Intern", "Nothing relevant here.") == ""
+
+
+def test_role_text_drops_benefits_but_keeps_a_role_after_an_early_what_we_offer():
+    from summer_hunter.web.cv import role_text
+    text = ("Job Description Who we are. What we offer: a great place. Key responsibilities: run SQL reports. "
+            "Benefits: Tableau licence for everyone.")
+    role = role_text(text)
+    assert "run SQL reports" in role and "Tableau" not in role

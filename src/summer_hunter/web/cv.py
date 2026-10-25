@@ -110,17 +110,109 @@ GAP_TERMS = {
 }
 
 
-def track_for(content: dict[str, Any], job_family: str | None) -> str:
-    return "industry" if job_family in set(content.get("industry_families", [])) else "business"
+# Words that show a listing really is about plants, production, maintenance or physical flows.
+# A family label alone is not enough: a fintech "operations" role must not get the MRO profile.
+_INDUSTRIAL_SIGNAL = re.compile(
+    r"manufactur|production|plant\b|factory|shop ?floor|maintenance|\bmro\b|repair|supply chain|logistic|"
+    r"warehouse|inventory|lean\b|kaizen|robot|assembly|machin|industrial|cycle time|\boee\b|procurement|"
+    r"sourcing|freight|shipment|material")
+# Analysis-heavy go-to-market roles (SQL, dashboards, metrics) read better with the product / data profile.
+_ANALYTIC_SIGNAL = re.compile(r"\bsql\b|dashboard|analys[ie]s|analytics|metrics|forecast|modeling|excel|tableau")
+_SALES_SIGNAL = re.compile(r"prospect|lead generation|pipeline|cold.call|quota|new business|client acquisition|"
+                           r"relationship|account management|selling|negotiat")
+
+
+def industrial_signal(text: str) -> int:
+    return len({m.group(0).lower() for m in _INDUSTRIAL_SIGNAL.finditer(text or "")})
+
+
+def track_for(content: dict[str, Any], job_family: str | None, job_text: str = "") -> str:
+    role = role_text(job_text)
+    if job_family in set(content.get("industry_families", [])):
+        return "industry" if industrial_signal(role) >= 2 else "product"
+    if job_family in set(content.get("product_families", [])):
+        return "product"
+    if job_family == "go_to_market":
+        analytic = len(_ANALYTIC_SIGNAL.findall(role.lower()))
+        return "product" if analytic > 2 * len(_SALES_SIGNAL.findall(role.lower())) else "business"
+    return "business"
 
 
 def _on_track(item: dict[str, Any], track: str) -> bool:
     return track in item.get("tracks", [track])
 
 
+# Where a listing states what the job is and asks for, as opposed to company pitch, benefits and legal text.
+_ROLE_START = re.compile(r"(?i)\b(job description summary|responsibilit|what you.ll do|your role|role overview|the role|"
+                         r"key tasks|job description\b|the impact you will have|"
+                         r"your impact|requirements|qualifications|what you.ll need|ideal candidate|you should have|"
+                         r"knowledge and skills|skills|your profile|deine aufgaben|about you)")
+_ROLE_END = re.compile(r"(?i)\b(what we can offer|what we offer|benefits|equal (employment )?opportunity|"
+                       r"recruitment fraud|our commitment to diversity|accommodation|we offer)")
+
+
+_ROLE_CORE = re.compile(r"(?i)\b(responsibilit|what you.ll do|key tasks|requirements|qualifications|what you.ll need|"
+                        r"ideal candidate|you should have|knowledge and skills|your profile|deine aufgaben|role overview|"
+                        r"the impact you will have)")
+
+
+def role_text(job_text: str) -> str:
+    """The part of a listing that describes the role and its requirements (whole text when unmarked).
+
+    Benefits and legal text are cut only after the tasks or requirements start, so a company pitch that
+    says "what we offer" before the role itself does not swallow the role.
+    """
+    text = job_text or ""
+    start = _ROLE_START.search(text)
+    if not start:
+        return text
+    core = _ROLE_CORE.search(text, start.start())
+    end = _ROLE_END.search(text, (core or start).end())
+    return text[start.start(): end.start() if end else len(text)]
+
+
+# Offer themes the candidate can credibly say he wants to contribute to (each backed by the CV).
+THEMES = [
+    ("continuous improvement", r"continuous improvement|\blean\b|kaizen|process improvement|best practices"),
+    ("repair and maintenance processes", r"\brepair|maintenance|\bmro\b|overhaul"),
+    ("production quality and productivity", r"\byield\b|production process|production line|manufacturing quality|quality, productivity"),
+    ("supply chain and logistics performance", r"supply chain|logistic|inventory|order backlog|demand and supply"),
+    ("production planning and digitalization", r"production planning|scheduling|digitali[sz]ation"),
+    ("smart factory and automation", r"smart factory|industry 4\.0|robotic|\biot\b"),
+    ("process automation", r"automat|\bmacros?\b|\bscripts?\b"),
+    ("data analysis and reporting", r"data analys|analytics|dashboard|reporting|insights|data quality"),
+    ("AI applications", r"\bai\b|artificial intelligence|machine learning|agentic"),
+    ("product discovery and roadmap", r"roadmap|product requirements|customer problem|prototyp|backlog"),
+    ("go-to-market and positioning", r"go-to-market|\bgtm\b|positioning|messaging|launch|\bmarketing\b"),
+    ("B2B client development", r"lead generation|prospect|pipeline|new business|client acquisition|cold.call"),
+    ("solution design for customers", r"solution architect|solution design|presales|pre-sales|sales engineer|tender"),
+    ("business requirements and documentation", r"business requirement|functional specification|requirement document"),
+    ("cost optimization", r"cost reduction|cost structure|cost optimi"),
+]
+
+
+def target_line(company: str, job_title: str, job_text: str, start: str = "April 2027") -> str:
+    """One sentence naming the role and company and the offer's own themes, in the offer's order of emphasis."""
+    role = role_text(job_text).lower()
+    # Capped counts: a theme the offer repeats in its boilerplate must not outrank its actual tasks.
+    # The job title breaks ties: a "Product Marketing" role leads with positioning, not logistics.
+    title_l = job_title.lower()
+    hits = [(min(len(re.findall(rx, role)), 2) + (1 if re.search(rx, title_l) else 0), i, label)
+            for i, (label, rx) in enumerate(THEMES)]
+    labels = [label for n, _, label in sorted(hits, key=lambda h: (-h[0], h[1])) if n][:3]
+    role = re.sub(r"(?i)\(?\b(intern(ship)?s?|co-op|praktikum|stage|program(me)?)\b\)?|\(\s*\)|[/|]", " ", clean_role(job_title))
+    role = re.sub(r"\s+-\s+[A-Z][a-z]+$", "", re.sub(r"\s{2,}", " ", role).strip(" -,:"))   # "... - Amsterdam"
+    role = re.sub(r"\s+,", ",", role)
+    if not labels or not company.strip() or len(job_title) > 90:
+        return ""
+    themes = labels[0] if len(labels) == 1 else ", ".join(labels[:-1]) + " and " + labels[-1]
+    what = f"the {role} internship" if len(role) >= 3 else "an internship"
+    return f"Seeking {what} at {company.strip()} from {start}, to contribute to {themes}."
+
+
 def gaps(cv: dict[str, Any], job_title: str, job_text: str) -> list[str]:
     """Offer requirements from GAP_TERMS that the tailored CV does not show."""
-    offer = (job_title + " " + job_text).lower()
+    offer = (job_title + " " + role_text(job_text)).lower()
     shown = " ".join([cv.get("summary", "")]
                      + [b["text"] for e in cv.get("experiences", []) for b in e.get("bullets", [])]
                      + [b["text"] for p in cv.get("projects", []) for b in p.get("bullets", [])]
@@ -128,15 +220,29 @@ def gaps(cv: dict[str, Any], job_title: str, job_text: str) -> list[str]:
     return [label for label, rx in GAP_TERMS.items() if re.search(rx, offer) and not re.search(rx, shown)]
 
 
-def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: str | None) -> dict[str, Any]:
-    keys = _tokens(job_title + " " + job_text) | set(FAMILY_KEYWORDS.get(job_family or "", "").split())
-    track = track_for(content, job_family)
+def _summary(over: dict[str, Any], default: str, job_text: str) -> str:
+    text = job_text.lower()
+    for variant in over.get("summary_variants", []):
+        if len(set(re.findall(variant["when"], text))) >= 2:
+            return variant["text"]
+    return over.get("summary", default)
+
+
+def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: str | None,
+           company: str = "") -> dict[str, Any]:
+    keys = _tokens(job_title + " " + role_text(job_text)) | set(FAMILY_KEYWORDS.get(job_family or "", "").split())
+    track = track_for(content, job_family, job_title + " " + job_text)
     over = (content.get("tracks") or {}).get(track, {})
     headlines = content.get("headlines", {})
     out = dict(content)
     out["track"] = track
-    out["headline"] = headlines.get(job_family or "", headlines.get("default", ""))
-    out["summary"] = over.get("summary", content.get("summary", ""))
+    family = job_family or ""
+    if track == "product" and family not in set(content.get("product_families", [])):
+        family = "data"            # an industry label on a listing that reads like a data / tech role
+    out["headline"] = headlines.get(family, headlines.get("default", ""))
+    summary = _summary(over, content.get("summary", ""), job_text)
+    target = target_line(company, job_title, job_text, content.get("start_label", "April 2027")) if company else ""
+    out["summary"] = f"{summary} {target}".strip()
     out["labels"] = dict(content.get("labels", {})) | over.get("labels", {})
     experiences = content.get("experiences", [])
     if over.get("experience_order"):
@@ -149,14 +255,20 @@ def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: s
         limit = int((over.get("max_bullets") or {}).get(exp.get("org"), exp.get("max_bullets", 3)))
         exps.append(exp | {"bullets": bullets[:limit]})
     out["experiences"] = exps          # chronological order kept, bullets ranked
-    out["projects"] = sorted([p for p in content.get("projects", []) if _on_track(p, track)],
-                             key=lambda p: -_score(" ".join(b["text"] for b in p.get("bullets", [])) + p.get("name", ""),
-                                                   p.get("tags", []), keys))[: int(over.get("max_projects", content.get("max_projects", 3)))]
-    skills = {}
+    ranked = sorted(((_score(" ".join(b["text"] for b in p.get("bullets", [])) + " " + p.get("name", ""), p.get("tags", []), keys), p)
+                     for p in content.get("projects", []) if _on_track(p, track)), key=lambda sp: -sp[0])
+    limit = int(over.get("max_projects", content.get("max_projects", 3)))
+    # A project earns its place by matching the offer; the best one stays so the section is never empty.
+    floor = 3 if track == "industry" else 4
+    out["projects"] = [p for i, (sc, p) in enumerate(ranked[:limit]) if i == 0 or sc >= floor]
     fixed = set(content.get("fixed_order_skills", []))
-    for group, items in (over.get("skills") or content.get("skills") or {}).items():
-        skills[group] = list(items) if group in fixed else sorted(items, key=lambda s: -len(_tokens(s) & keys))
-    out["skills"] = skills
+    groups = list((over.get("skills") or content.get("skills") or {}).items())
+    skills = {group: list(items) if group in fixed else sorted(items, key=lambda s: -len(_tokens(s) & keys))
+              for group, items in groups}
+    # Most relevant group first; fixed groups (languages) keep their place at the end.
+    movable = sorted([g for g, _ in groups if g not in fixed],
+                     key=lambda g: -sum(len(_tokens(s) & keys) for s in skills[g]))
+    out["skills"] = {g: skills[g] for g in movable + [g for g, _ in groups if g in fixed]}
     out["gaps"] = gaps(out, job_title, job_text)
     return out
 
@@ -286,7 +398,7 @@ def compile_pdf(tex_path: Path, timeout: int = 90) -> tuple[Path | None, str]:
 def build_cv(config_dir: Path, out_dir: Path, opp_id: int, company: str, title: str, description: str,
              job_family: str | None) -> CVResult:
     content = load_content(config_dir)
-    cv = tailor(content, title, description, job_family)
+    cv = tailor(content, title, description, job_family, company)
     out_dir.mkdir(parents=True, exist_ok=True)
     for old in list(out_dir.glob("*.tex")) + list(out_dir.glob("*.pdf")):
         old.unlink()   # one current version per offer
