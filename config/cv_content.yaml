@@ -38,8 +38,8 @@ summary: >-
   combining analytical problem-solving with hands-on experience in business development, customer
   outreach, CRM and technology-driven entrepreneurship. Experienced in engaging business stakeholders,
   identifying customer needs, presenting digital solutions and improving operational performance.
-  Native French speaker with professional English proficiency (TOEIC 945/990), motivated to help
-  businesses grow through consultative sales and data-driven customer engagement.
+  Native French speaker with professional English proficiency, motivated to help businesses grow
+  through consultative sales and data-driven customer engagement.
 
 labels:
   summary: PROFILE
@@ -55,8 +55,10 @@ experiences:
     role: "Engineering Apprentice -- Equipment Engineering"
     location: "Paris, France"
     bullets:
-      - {text: "Develop AI-enabled tools and automated workflows to improve operational efficiency, data reliability and decision-making.", tags: [ai, automation, data, tools, efficiency]}
+      - {text: "Develop AI-enabled tools and automated workflows to improve operational efficiency, data reliability and decision-making.", tags: [ai, artificial, intelligence, automation, data, tools, efficiency, productivity]}
       - {text: "Analyze operational data, monitor performance indicators and collaborate with stakeholders to identify improvement opportunities and deliver practical solutions.", tags: [data, analysis, stakeholder, kpi, solution, customer]}
+      - {text: "Automate the consolidation of aircraft equipment data across fleets with Python and Power Query, giving engineering teams reliable inputs for maintenance decisions.", tracks: [industry], tags: [automation, python, data, maintenance, mro, repair, aircraft, equipment, database, capacity, forecast, engine]}
+      - {text: "Analyze maintenance and technical data in an MRO environment, monitoring KPIs and identifying process improvement and cost optimization opportunities.", tracks: [industry], tags: [maintenance, mro, repair, analysis, evaluation, kpi, quality, productivity, cost, reduction, improvement, continuous, process, reliability]}
   - org: "Nexya Agency"
     dates: "Jul 2025 -- Present"
     role: "Co-Founder -- SaaS & AI Solutions"
@@ -64,7 +66,7 @@ experiences:
     bullets:
       - {text: "Conducted B2B customer outreach through prospecting calls and email campaigns, identifying business needs and presenting tailored digital solutions.", tags: [b2b, sales, outreach, prospecting, customer, discovery, solution]}
       - {text: "Developed a SaaS booking solution for driving schools, including lead tracking and prospect management tools to structure the sales process.", tags: [saas, product, crm, pipeline, sales, lead]}
-      - {text: "Engaged industrial decision-makers on an AI-powered recruitment solution, discussing technical integration, business requirements and pricing considerations.", tags: [ai, enterprise, technical, integration, pricing, stakeholder, customer, demo]}
+      - {text: "Engaged industrial decision-makers on an AI-powered recruitment solution, discussing technical integration, business requirements and pricing considerations.", tags: [ai, artificial, intelligence, industrial, enterprise, technical, integration, pricing, stakeholder, customer, demo]}
   - org: "Amundi Asset Management"
     dates: "Jul 2023 -- Aug 2023"
     role: "Distribution Assistant -- France & Monaco"
@@ -78,13 +80,30 @@ experiences:
     location: "Le Bourget, France"
     bullets:
       - {text: "Collaborated with technical teams to improve industrial processes and developed a test bench supporting equipment reliability and operational performance.", tags: [industrial, technical, process, engineering, robotics]}
+      - {text: "Supported industrial logistics and inventory management, applying 5S methods to organize workstations and industrial resources.", tracks: [industry], tags: [5s, logistics, inventory, manufacturing, operations, productivity, workplace, organization, improvement, continuous]}
 
 max_projects: 2
 projects:
   - name: "Vinc'IA -- Conferences & Partnerships"
+    tracks: [business]
     tags: [partnerships, business, development, outreach, events, ai, go-to-market]
     bullets:
       - {text: "Led speaker outreach and partnership development for AI-focused masterclasses, engaging technology professionals and coordinating events attracting over 140 registrations."}
+  - name: "Predictive Maintenance Lab -- Jet Engine Remaining Useful Life"
+    tracks: [industry]
+    tags: [ai, artificial, intelligence, machine, learning, predictive, maintenance, engine, jet, aerospace, aircraft, reliability, forecast, data, python, cost]
+    bullets:
+      - {text: "Built a reproducible benchmark predicting turbofan engine remaining useful life on NASA C-MAPSS data (gradient boosting, random forest, CNN), with cost-based maintenance policies and CI-verified results."}
+  - name: "Industrial Digital Twin -- Simulated Machining Cell"
+    tracks: [industry]
+    tags: [digital, twin, smart, factory, industry, manufacturing, cnc, robotics, automation, sensor, data, python, ai, capacity]
+    bullets:
+      - {text: "Built a digital shadow of a simulated machining cell (CNC, robot, conveyor, inspection) that streams sensor data to detect equipment faults and estimate the time left before a thermal trip."}
+  - name: "Edge AI Condition Monitor"
+    tracks: [industry]
+    tags: [ai, artificial, intelligence, machine, learning, condition, monitoring, anomaly, quality, sensor, edge, iiot, maintenance, reliability]
+    bullets:
+      - {text: "Designed a streaming condition-monitoring pipeline with four anomaly detectors, evaluated on real bearing (Paderborn) and compressor (MetroPT-3) data with measured inference latency."}
   - name: "Medical'IA -- AI Entrepreneurship Project"
     tags: [ai, product, startup, healthcare, medtech, presentation, stakeholder]
     bullets:
@@ -104,3 +123,24 @@ skills:
   "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]
 # Languages keep the written order (never re-ranked).
 fixed_order_skills: [Languages]
+
+# Offers whose job family is listed here get the industry track below instead of the
+# business defaults above. A bullet or project with `tracks:` only appears on those tracks.
+industry_families: [maintenance_reliability, industrial_project_management, industrial_operations,
+                    industrial_digital, robotics_raas, robotics_specialized, design_engineering]
+tracks:
+  industry:
+    summary: >-
+      Final-year engineering student in Industry 4.0 & Robotics at ESILV and engineering apprentice at
+      Air France Industries -- KLM Engineering & Maintenance, a leading aircraft MRO provider. Background in
+      industrial engineering and maintenance (Lean Management Yellow Belt), with hands-on experience in maintenance data analysis, process
+      improvement, KPI monitoring and the automation of engineering workflows with Python. Builds AI and
+      predictive maintenance projects, and brings a structured, data-driven approach to quality, productivity
+      and cost.
+    labels: {projects: TECHNICAL PROJECTS}
+    experience_order: ["Air France Industries -- KLM Engineering & Maintenance", "Airbus Helicopters", "Nexya Agency"]
+    max_bullets: {"Air France Industries -- KLM Engineering & Maintenance": 3, "Airbus Helicopters": 2, "Nexya Agency": 1}
+    skills:
+      "Industrial Engineering": [Lean Management (Yellow Belt), Continuous Improvement, Process Improvement, 5S, Maintenance Data Analysis, MRO, KPI Monitoring, Cost Optimization, Inventory Management, Industrial Logistics, 3D Printing, Technical Project Management]
+      "Data & AI": [Python, Power Query, Microsoft Excel, Data Analysis, Process Automation, Machine Learning, AI Tools]
+      "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]

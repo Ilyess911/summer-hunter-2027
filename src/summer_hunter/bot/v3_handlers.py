@@ -190,7 +190,7 @@ class V3Bot:
         return True
 
     def generate_application(self, opp, repo: Repository) -> None:  # noqa: ANN001
-        from summer_hunter.web.cv import build_cv
+        from summer_hunter.web.cv import build_cv, gap_note
         from summer_hunter.web.letter import start_letter_job
         from summer_hunter.web.pack import build_pack
 
@@ -203,6 +203,8 @@ class V3Bot:
                           opp.title, opp.description_text or "", opp.job_family)
             for f in [p for p in (cv.pdf_path, cv.tex_path) if p]:
                 self.bot.telegram.send_document(self.bot.chat_id, f, f.stem)
+            if note := gap_note(cv):
+                self.bot.send(escape(note))
         except (FileNotFoundError, TelegramError) as exc:
             self.bot.send(f"CV impossible : {escape(str(exc))}")
         fit = repo.latest_fit(opp.id)

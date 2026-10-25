@@ -45,7 +45,7 @@ availability:
 compensation:
   allow_unpaid: false
 
-certifications: []          # none verified
+certifications: ["Lean Management Yellow Belt"]   # confirmed by the candidate on 25 Oct 2026
 professional_licenses: []   # none verified
 
 experiences:
@@ -147,8 +147,11 @@ skills:
     - technical project management
     - project coordination
     - excel
+    # Confirmed on 25 Oct 2026 (GE Aerospace CV review).
+    - lean management
+    - 3d printing
   # Explicitly NOT claimed (the integrity guard refuses them in drafts):
-  never_claim: [sales quota, closed deals, revenue generated, certifications, additional languages]
+  never_claim: [sales quota, closed deals, revenue generated, certifications other than the Lean Yellow Belt, additional languages]
 
 achievements:
   - "AI Startup of the Year distinction, Hauts-de-Seine (Medical'IA)"

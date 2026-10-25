@@ -293,7 +293,7 @@ class Bot:
                                                 fit.recruitability))
             elif action == "cv":
                 self.telegram.answer_callback(cq["id"], "CV en préparation…")
-                from summer_hunter.web.cv import build_cv
+                from summer_hunter.web.cv import build_cv, gap_note
 
                 try:
                     result = build_cv(self.settings.config_dir, self.settings.data_dir / "cv" / str(opp.id), opp.id,
@@ -308,6 +308,8 @@ class Bot:
                             log.warning("sendDocument failed", extra={"error": str(exc)})
                     if not result.pdf_path:
                         self.send(f"PDF non compilé, le .tex est joint. {escape(result.log[:300])}")
+                    if note := gap_note(result):
+                        self.send(escape(note))
             elif action == "lm":
                 from summer_hunter.web.letter import start_letter_job
 

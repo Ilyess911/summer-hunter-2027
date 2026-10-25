@@ -90,7 +90,7 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
                                     "(la version envoyée est conservée). Utilise les boutons CV / Lettre si tu veux "
                                     "vraiment une nouvelle version.")
         return
-    from summer_hunter.web.cv import build_cv
+    from summer_hunter.web.cv import build_cv, gap_note
     from summer_hunter.web.letter import run_letter_job
 
     with sessions() as session:
@@ -102,6 +102,8 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
             telegram.send_document(chat, f, f.stem)
         except TelegramError as exc:
             log.warning("CV send failed", extra={"error": str(exc)})
+    if note := gap_note(cv):
+        telegram.send_message(chat, escape(note))
     telegram.send_message(chat, "✉️ Lettre de motivation en cours (modèle local, 2 à 3 min)…")
     run_letter_job(settings, sessions, telegram, opp_id)
 

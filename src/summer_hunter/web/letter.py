@@ -156,7 +156,7 @@ def facts_block(content: dict[str, Any], exp: dict[str, str]) -> str:
     lines += [f"- {k}: {v}" for k, v in exp.items()]
     for group, items in (content.get("skills") or {}).items():
         lines.append(f"{group}: {', '.join(items)}")
-    lines.append("No sales quota, closed deals, revenue figures or certifications. Spanish and Dutch are not working languages.")
+    lines.append("No sales quota, closed deals, revenue figures, no certification other than the Lean Management Yellow Belt. Spanish and Dutch are not working languages.")
     return "\n".join(lines)
 
 

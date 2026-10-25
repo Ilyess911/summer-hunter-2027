@@ -1,8 +1,9 @@
 """Tailored LaTeX CV per opportunity.
 
 Content comes only from `config/cv_content.yaml` (the candidate's own, verified CV text).
-Tailoring never writes new claims: it picks the headline variant for the job family, orders
-bullets and projects by relevance to the listing, and puts matching skills first.
+Tailoring never writes new claims: it picks the track (business or industry) and headline for the
+job family, orders verified bullets and projects by relevance to the listing, puts matching skills
+first, and reports what the offer asks for that the CV cannot show (gaps), without adding it.
 All text is LaTeX-escaped, so nothing from a listing can inject LaTeX commands, and the
 compiler runs with shell escape disabled.
 """
@@ -13,7 +14,7 @@ import os
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -68,8 +69,12 @@ def tex(text: Any) -> str:
     return re.sub(r"\s+", " ", out).strip()
 
 
+_SHORT_TERMS = {"ai", "ml", "5s", "3d", "bi"}   # meaningful acronyms below the 3-letter floor
+
+
 def _tokens(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z][a-z+#.-]{2,}", normalize_for_match(text))}
+    norm = normalize_for_match(text)
+    return {w for w in re.findall(r"[a-z][a-z+#.-]{2,}", norm)} | (set(re.findall(r"\b[a-z0-9]{2}\b", norm)) & _SHORT_TERMS)
 
 
 @dataclass
@@ -77,6 +82,7 @@ class CVResult:
     tex_path: Path
     pdf_path: Path | None
     log: str
+    gaps: list[str] = field(default_factory=list)
 
 
 def load_content(config_dir: Path) -> dict[str, Any]:
@@ -91,25 +97,67 @@ def _score(text: str, tags: list[str], keys: set[str]) -> int:
     return len(words & keys)
 
 
+# Requirements an offer may ask for that the CV can only show if the candidate really has them.
+# When the offer names one and the tailored CV does not, it is reported as a gap, never added.
+GAP_TERMS = {
+    "Lean": r"\blean\b", "Kaizen": r"\bkaizen\b", "Six Sigma": r"\bsix sigma\b|\blean six\b",
+    "3D printing / additive manufacturing": r"\b3d print|\badditive manufacturing\b",
+    "CAD (SolidWorks, CATIA, Creo, NX, AutoCAD)": r"\bcad\b|solidworks|\bcatia\b|\bcreo\b|\bsiemens nx\b|autocad",
+    "SAP / ERP": r"\bsap\b|\berp\b", "PLC programming": r"\bplc\b", "FMEA": r"\bfmea\b|\bpfmea\b",
+    "Root cause analysis": r"root cause|\brca\b|\b8d\b", "Minitab / SPC": r"minitab|\bspc\b",
+    "GD&T": r"gd&t|gd ?& ?t", "SQL": r"\bsql\b", "Power BI": r"power ?bi", "Tableau": r"\btableau\b",
+    "MATLAB": r"\bmatlab\b",
+}
+
+
+def track_for(content: dict[str, Any], job_family: str | None) -> str:
+    return "industry" if job_family in set(content.get("industry_families", [])) else "business"
+
+
+def _on_track(item: dict[str, Any], track: str) -> bool:
+    return track in item.get("tracks", [track])
+
+
+def gaps(cv: dict[str, Any], job_title: str, job_text: str) -> list[str]:
+    """Offer requirements from GAP_TERMS that the tailored CV does not show."""
+    offer = (job_title + " " + job_text).lower()
+    shown = " ".join([cv.get("summary", "")]
+                     + [b["text"] for e in cv.get("experiences", []) for b in e.get("bullets", [])]
+                     + [b["text"] for p in cv.get("projects", []) for b in p.get("bullets", [])]
+                     + [s for items in (cv.get("skills") or {}).values() for s in items]).lower()
+    return [label for label, rx in GAP_TERMS.items() if re.search(rx, offer) and not re.search(rx, shown)]
+
+
 def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: str | None) -> dict[str, Any]:
     keys = _tokens(job_title + " " + job_text) | set(FAMILY_KEYWORDS.get(job_family or "", "").split())
+    track = track_for(content, job_family)
+    over = (content.get("tracks") or {}).get(track, {})
     headlines = content.get("headlines", {})
     out = dict(content)
+    out["track"] = track
     out["headline"] = headlines.get(job_family or "", headlines.get("default", ""))
+    out["summary"] = over.get("summary", content.get("summary", ""))
+    out["labels"] = dict(content.get("labels", {})) | over.get("labels", {})
+    experiences = content.get("experiences", [])
+    if over.get("experience_order"):
+        by_org = {e.get("org"): e for e in experiences}
+        experiences = [by_org[o] for o in over["experience_order"] if o in by_org]
     exps = []
-    for exp in content.get("experiences", []):
-        bullets = sorted(exp.get("bullets", []), key=lambda b: -_score(b["text"], b.get("tags", []), keys))
-        limit = int(exp.get("max_bullets", 3))
+    for exp in experiences:
+        pool = [b for b in exp.get("bullets", []) if _on_track(b, track)]
+        bullets = sorted(pool, key=lambda b: -_score(b["text"], b.get("tags", []), keys))
+        limit = int((over.get("max_bullets") or {}).get(exp.get("org"), exp.get("max_bullets", 3)))
         exps.append(exp | {"bullets": bullets[:limit]})
     out["experiences"] = exps          # chronological order kept, bullets ranked
-    out["projects"] = sorted(content.get("projects", []),
+    out["projects"] = sorted([p for p in content.get("projects", []) if _on_track(p, track)],
                              key=lambda p: -_score(" ".join(b["text"] for b in p.get("bullets", [])) + p.get("name", ""),
-                                                   p.get("tags", []), keys))[: int(content.get("max_projects", 3))]
+                                                   p.get("tags", []), keys))[: int(over.get("max_projects", content.get("max_projects", 3)))]
     skills = {}
     fixed = set(content.get("fixed_order_skills", []))
-    for group, items in (content.get("skills") or {}).items():
+    for group, items in (over.get("skills") or content.get("skills") or {}).items():
         skills[group] = list(items) if group in fixed else sorted(items, key=lambda s: -len(_tokens(s) & keys))
     out["skills"] = skills
+    out["gaps"] = gaps(out, job_title, job_text)
     return out
 
 
@@ -249,7 +297,15 @@ def build_cv(config_dir: Path, out_dir: Path, opp_id: int, company: str, title: 
     final = document_name("CV", content.get("header", {}).get("name", ""), company, title)
     tex_path = work.rename(out_dir / f"{final}.tex")
     pdf_path = pdf.rename(out_dir / f"{final}.pdf") if pdf else None
-    return CVResult(tex_path, pdf_path, log)
+    return CVResult(tex_path, pdf_path, log, cv["gaps"])
+
+
+def gap_note(result: CVResult) -> str:
+    """Telegram note listing what the offer asks for and the CV cannot show (empty when nothing)."""
+    if not result.gaps:
+        return ""
+    return ("⚠️ L'offre demande, et ton CV ne montre pas : " + ", ".join(result.gaps)
+            + ". Je ne l'ajoute pas sans preuve : si tu l'as vraiment pratiqué, dis-le moi et je l'intègre.")
 
 
 _ROLE_NOISE = re.compile(

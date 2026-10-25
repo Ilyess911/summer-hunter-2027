@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
@@ -94,3 +95,33 @@ def test_tailoring_reorders_without_inventing():
 def test_init_data_with_signature_field_is_accepted(client):
     fields = {"auth_date": str(int(time.time())), "user": json.dumps({"id": int(USER)}), "signature": "abc-ed25519"}
     assert client.get("/api/opportunities", headers={"X-Telegram-Init-Data": auth.sign_init_data(fields, TOKEN)}).status_code == 200
+
+
+def test_industry_track_swaps_summary_skills_and_reports_gaps_without_adding_them():
+    content = {"summary": "Sales profile", "industry_families": ["industrial_operations"],
+               "experiences": [{"org": "A", "bullets": [{"text": "Ran customer demos"},
+                                                         {"text": "Analyzed MRO repair data", "tracks": ["industry"]}]},
+                               {"org": "B", "bullets": [{"text": "Kept CRM data"}]}],
+               "projects": [{"name": "Events", "tracks": ["business"], "bullets": [{"text": "Organised events"}]},
+                            {"name": "RUL", "tracks": ["industry"], "bullets": [{"text": "Predicted engine life"}]}],
+               "skills": {"Sales": ["CRM"]},
+               "tracks": {"industry": {"summary": "Industrial profile", "experience_order": ["A"],
+                                       "max_bullets": {"A": 1}, "skills": {"Industrial": ["5S"]}}}}
+    job = "Apply lean and Kaizen in MRO repair processes; 3D printing software and AI familiarity."
+    cv = tailor(content, "Manufacturing Intern", job, "industrial_operations")
+    assert cv["summary"] == "Industrial profile" and list(cv["skills"]) == ["Industrial"]
+    assert [e["org"] for e in cv["experiences"]] == ["A"]
+    assert [b["text"] for b in cv["experiences"][0]["bullets"]] == ["Analyzed MRO repair data"]
+    assert [p["name"] for p in cv["projects"]] == ["RUL"]
+    assert cv["gaps"] == ["Lean", "Kaizen", "3D printing / additive manufacturing"]
+    business = tailor(content, "Sales Intern", "customer demos", "technical_sales")
+    assert business["summary"] == "Sales profile" and [p["name"] for p in business["projects"]] == ["Events"]
+    assert all(b["text"] != "Analyzed MRO repair data" for e in business["experiences"] for b in e["bullets"])
+
+
+def test_real_cv_mentions_toeic_once_on_both_tracks():
+    from summer_hunter.web.cv import load_content
+    content = load_content(Path(__file__).resolve().parents[2] / "config")
+    for family in ("technical_sales", "industrial_operations"):
+        doc = render(tailor(content, "Intern", "", family), "X")
+        assert doc.count("TOEIC") == 1

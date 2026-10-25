@@ -134,5 +134,5 @@ class CandidateProfile(BaseModel):
         for exp in self.experiences:
             lines.append(f"- id={exp.id}: {exp.organization}, {exp.role}. {exp.summary.strip()}")
         lines.append("Achievements: " + "; ".join(self.achievements))
-        lines.append("No sales quota, closed deals, revenue figures or certifications are claimed.")
+        lines.append("No sales quota, closed deals, revenue figures, nor any certification other than the Lean Management Yellow Belt, are claimed.")
         return "\n".join(lines)
