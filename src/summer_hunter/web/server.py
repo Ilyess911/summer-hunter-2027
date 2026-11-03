@@ -25,7 +25,7 @@ from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
 from summer_hunter.engine.geo import country_name
 from summer_hunter.engine.regions import REGIONS, region_of
 from summer_hunter.utils.settings import Settings
-from summer_hunter.web import auth
+from summer_hunter.web import agent, auth
 from summer_hunter.web.cv import build_cv
 
 log = logging.getLogger(__name__)
@@ -60,7 +60,8 @@ class TelegramAuth(BaseHTTPMiddleware):
     def __init__(self, app, settings: Settings) -> None:  # noqa: ANN001
         super().__init__(app)
         self.settings = settings
-        self.dev = os.environ.get("SH_WEB_DEV") == "1"
+        # dev bypass only for a local-only server: never once a public URL (tunnel) is configured
+        self.dev = os.environ.get("SH_WEB_DEV") == "1" and not os.environ.get("SH_WEB_PUBLIC_URL")
 
     async def dispatch(self, request: Request, call_next):  # noqa: ANN001
         if request.url.path.startswith("/api/") and not self.dev:
@@ -69,7 +70,7 @@ class TelegramAuth(BaseHTTPMiddleware):
                                       self.settings.telegram_chat_id or "")
             except auth.AuthError as exc:
                 log.warning("web auth refused", extra={"path": request.url.path, "reason": str(exc)})
-                return JSONResponse({"error": "unauthorized", "detail": str(exc)}, status_code=401)
+                return JSONResponse({"error": "unauthorized", "detail": "Rouvre l'app depuis le bot."}, status_code=401)
         response = await call_next(request)
         log.info("web request", extra={"path": request.url.path, "status": response.status_code})
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -246,6 +247,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
         Route("/api/opportunities/{opp_id:int}/cv/send", send_cv, methods=["POST"]),
         Route("/api/opportunities/{opp_id:int}/letter", make_letter, methods=["POST"]),
         Route("/files/cv/{opp_id:int}/{name:str}", download),
+        *agent.routes(settings, sessions, telegram),
         Mount("/static", StaticFiles(directory=STATIC), name="static"),
     ]
     return Starlette(routes=routes, middleware=[Middleware(TelegramAuth, settings=settings)])

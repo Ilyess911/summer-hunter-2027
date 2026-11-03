@@ -238,7 +238,9 @@ def _forward(app: CRMApplication, kind: str) -> bool:
 
 
 def dedupe_key(item: MailItem) -> str:
-    return f"mail:{hashlib.sha1(item.message_id.encode()).hexdigest()[:20]}"
+    """One key per Message-ID, shared by the mailbox reader and the agent API, so a mail changes a status once."""
+    mid = item.message_id.strip().strip("<>").strip()
+    return f"mail:{hashlib.sha1(mid.encode()).hexdigest()[:20]}"
 
 
 def apply(crm: CRM, items: list[MailItem], dry_run: bool = False) -> MailReport:
