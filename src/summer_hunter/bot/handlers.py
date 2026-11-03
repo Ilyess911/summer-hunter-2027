@@ -55,6 +55,7 @@ TRACK_FILTERS = {   # command -> (title, predicate on an opportunity)
 HIGH_RECRUITABILITY = 75
 
 COMMANDS += CRM_COMMANDS + V3_COMMANDS
+MAIL_EVERY_S = 30 * 60
 
 HELP = "\n".join(f"/{c}: {d}" for c, d in COMMANDS) + (
     "\n\nEnvoie un lien d'offre (ou colle son texte) : je l'évalue, puis je génère ton CV et ta lettre."
@@ -148,7 +149,11 @@ class Bot:
         except TelegramError as exc:
             log.warning("setMyCommands failed", extra={"error": str(exc)})
         backoff = 1
+        next_mail = time.monotonic() + 60          # first mailbox scan a minute after start, then every 30 min
         while stop_after_s is None or time.monotonic() - started < stop_after_s:
+            if time.monotonic() >= next_mail:
+                next_mail = time.monotonic() + MAIL_EVERY_S
+                self.scan_mailbox()
             try:
                 updates = self.telegram.get_updates(offset_int, timeout=30)
                 backoff = 1
@@ -166,6 +171,14 @@ class Bot:
                 with self.session_factory() as session:
                     Repository(session).set_kv("telegram_offset", str(offset_int))
                     session.commit()
+
+    def scan_mailbox(self) -> None:
+        from summer_hunter.crm import mail_status
+
+        try:
+            mail_status.run_in_background(self.settings, self.session_factory, self.send)
+        except Exception:  # noqa: BLE001 - the mailbox must never stop the bot
+            log.exception("mailbox scan failed")
 
     # Commands ------------------------------------------------------------------------------------
 

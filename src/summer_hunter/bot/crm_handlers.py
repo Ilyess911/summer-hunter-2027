@@ -43,6 +43,7 @@ COMMANDS = [
     ("export", "Send the Excel CRM workbook"),
     ("sync", "Import your edits from the Excel workbook"),
     ("company", "Applications for a company: /company <name>"),
+    ("mail", "Read recruiter replies in your mailbox and update statuses"),
 ]
 HELP = (
     "\n\n<b>CRM</b>\n" + "\n".join(f"/{c}: {d}" for c, d in COMMANDS) +
@@ -241,6 +242,12 @@ class CRMBot:
             self.bot.telegram.send_document(self.bot.chat_id, path, "CRM Summer Hunter 2027 (source : SQLite)")
         except TelegramError as exc:
             self.bot.send(f"Envoi impossible : {escape(str(exc))}")
+
+    def cmd_mail(self, args: str) -> None:
+        from summer_hunter.crm import mail_status
+
+        self.bot.send("📬 Je lis ta boîte mail…")
+        mail_status.run_in_background(self.settings, self.bot.session_factory, self.bot.send, quiet=False)
 
     def cmd_sync(self, args: str) -> None:
         path = sync.workbook_path(self.settings)

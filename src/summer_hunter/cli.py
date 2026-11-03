@@ -457,6 +457,20 @@ def cmd_crm(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def cmd_mail(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.crm import mail_status
+
+    report = mail_status.sync_mailbox(app.settings, app.sessions, dry_run=args.dry_run, days=args.days)
+    if report is None:
+        print("IMAP not configured: set IMAP_HOST, IMAP_USER and IMAP_PASSWORD in .env")
+        return 1
+    _print({"scanned": report.scanned, "dry_run": args.dry_run, "errors": report.errors,
+            "changed": [{"app": o.label, "status": o.kind, "subject": o.item.subject} for o in report.changed],
+            "unmatched": [{"status": o.kind, "subject": o.item.subject, "candidates": [c for _, c in o.candidates]}
+                          for o in report.unmatched]})
+    return 1 if report.errors else 0
+
+
 def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     from summer_hunter.engine import fx
 
@@ -736,6 +750,10 @@ def build_parser() -> argparse.ArgumentParser:
     fb.add_argument("action", choices=["save", "dismiss", "applied", "reason"])
     fb.add_argument("--reason", choices=["cold", "role", "company", "country", "other"])
     fb.set_defaults(fn=cmd_feedback)
+    ml = sub.add_parser("mail", help="read recruiter replies (read-only IMAP) and update application statuses")
+    ml.add_argument("--dry-run", action="store_true", help="show what would change, change nothing")
+    ml.add_argument("--days", type=int, help="scan this many days back instead of since the last scan")
+    ml.set_defaults(fn=cmd_mail)
     cr = sub.add_parser("crm", help="application CRM: export/import the Excel workbook, track, statuses")
     cr.add_argument("action", choices=["summary", "list", "followups", "export", "import", "template", "track", "applied",
                                        "status"])
