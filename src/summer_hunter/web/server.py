@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import logging
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,14 @@ from summer_hunter.web.cv import build_cv
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 VIEWS = {"top", "new", "saved", "applied", "rejected", "verify"}
+TRACKS = {"business_tech", "industry_robotics"}
+
+
+def can_still_apply(o: Opportunity, today: date | None = None) -> bool:
+    """False once the listing is closed or its stated application deadline has passed."""
+    if o.status == "closed":
+        return False
+    return not (o.application_deadline and o.application_deadline < (today or date.today()))
 
 
 def summary(o: Opportunity) -> dict[str, Any]:
@@ -42,6 +51,8 @@ def summary(o: Opportunity) -> dict[str, Any]:
             "global": o.global_priority, "provisional": o.global_provisional, "next_action": o.next_action,
             "strategy": o.strategy_category, "comp_status": o.compensation_status, "monthly_eur": o.monthly_min_eur,
             "monthly_max_eur": o.monthly_max_eur, "balance_eur": o.monthly_balance_eur, "comp_confidence": o.compensation_confidence,
+            "open": can_still_apply(o),
+            "deadline": o.application_deadline.isoformat() if o.application_deadline else None,
             "discovered": as_utc(o.first_discovered_at).date().isoformat() if o.first_discovered_at else None}
 
 
@@ -110,6 +121,12 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             region = request.query_params.get("region")
             if region in REGIONS:
                 rows = [o for o in rows if region_of(o.country_code) == region]
+            track = request.query_params.get("track")
+            if track in TRACKS:
+                rows = [o for o in rows if o.career_track == track]
+            # applied stays a full history; everywhere else, offers you can no longer apply to are gone
+            if view != "applied":
+                rows = [o for o in rows if can_still_apply(o)]
             active = [o for o in repo.top(500, include_dismissed=True) if (o.family_tier or 0) > 0]
             stats = {"target": sum(o.user_status not in ("dismissed", "applied") for o in active),
                      "new": sum(o.user_status == "new" and bool(o.notify) for o in active),

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from sqlalchemy import func, select
@@ -120,6 +120,8 @@ class Repository:
                                          Opportunity.priority_score.is_not(None))
         if not include_dismissed:
             stmt = stmt.where(Opportunity.user_status.not_in(("dismissed", "applied")),
+                              # recruitment over: the stated application deadline has passed
+                              (Opportunity.application_deadline.is_(None)) | (Opportunity.application_deadline >= date.today()),
                               # filtered by a hard rule (eligibility, unpaid, your salary floor): never listed
                               (Opportunity.next_action.is_(None)) | (Opportunity.next_action != "DISCARD"))
         return list(self.s.execute(stmt.order_by(Opportunity.priority_score.desc()).limit(limit)).scalars())

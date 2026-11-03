@@ -102,6 +102,9 @@ input { font-size: 16px; }
 
 /* Home ------------------------------------------------------------------- */
 .hero { padding: 24px 18px 6px; }
+.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.crm-btn { flex: none; border: 1px solid var(--edge); background: transparent; color: var(--text); font: inherit; font-size: 13px;
+  font-weight: 600; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
 .eyebrow { color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; }
 .hero h1 { margin: 4px 0 0; font-size: 32px; line-height: 1.05; font-weight: 750; letter-spacing: -0.03em; }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 18px; padding: 14px 4px; border-radius: var(--r-lg); }

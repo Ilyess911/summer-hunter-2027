@@ -154,3 +154,29 @@ def test_role_text_drops_benefits_but_keeps_a_role_after_an_early_what_we_offer(
             "Benefits: Tableau licence for everyone.")
     role = role_text(text)
     assert "run SQL reports" in role and "Tableau" not in role
+
+
+def test_list_filters_by_track_and_hides_offers_you_can_no_longer_apply_to(client, sessions):
+    from datetime import date, timedelta
+
+    from summer_hunter.database.models import Opportunity
+    h = {"X-Telegram-Init-Data": init_data()}
+    with sessions() as session:
+        o = session.get(Opportunity, 1)
+        o.career_track, o.user_status = "business_tech", "saved"
+        session.commit()
+    ids = lambda **q: [i["id"] for i in client.get("/api/opportunities", params={"view": "saved", **q}, headers=h).json()["items"]]
+    assert ids(track="business_tech") == [1] and ids(track="industry_robotics") == []
+    with sessions() as session:
+        session.get(Opportunity, 1).application_deadline = date.today() - timedelta(days=1)
+        session.commit()
+    assert ids() == []
+    with sessions() as session:
+        o = session.get(Opportunity, 1)
+        o.application_deadline, o.status = None, "closed"
+        session.commit()
+    assert ids() == []
+    with sessions() as session:
+        session.get(Opportunity, 1).user_status = "applied"
+        session.commit()
+    assert ids(view="applied") == [1]

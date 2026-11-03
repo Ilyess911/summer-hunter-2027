@@ -7,7 +7,7 @@ if (tg) {
   tg.onEvent && tg.onEvent("themeChanged", () => { document.documentElement.dataset.scheme = tg.colorScheme; });
 }
 
-const state = { view: "new", q: "", region: "", current: null };
+const state = { view: "new", q: "", region: "", track: "", current: null };
 const $ = (s, root = document) => root.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -67,7 +67,8 @@ function card(o, i) {
         ${o.family && FAMILY[o.family] ? `<span class="tag">${esc(FAMILY[o.family])}</span>` : ""}
         <span class="tag ${cls}">${esc(d)}</span>
         ${STATUS[o.user_status] ? `<span class="tag state">${STATUS[o.user_status]}</span>` : ""}
-        ${o.status === "closed" ? `<span class="tag bad">Fermée</span>` : ""}
+        ${o.status === "closed" ? `<span class="tag bad">Fermée</span>` : (o.open === false ? `<span class="tag bad">Date limite passée</span>` : "")}
+        ${o.open && o.deadline ? `<span class="tag warn">Avant le ${esc(day(o.deadline))}</span>` : ""}
       </div>
     </div>
   </button>`;
@@ -79,7 +80,7 @@ async function loadList() {
   list.innerHTML = Array.from({ length: 5 }, () => `<div class="skeleton"></div>`).join("");
   $("#count").textContent = "";
   try {
-    const params = new URLSearchParams({ view: state.view, q: state.q, region: state.region });
+    const params = new URLSearchParams({ view: state.view, q: state.q, region: state.region, track: state.track });
     const data = await api(`/api/opportunities?${params}`);
     const s = data.stats || {};
     $("#s-target").textContent = s.target ?? "–"; $("#s-new").textContent = s.new ?? "–";
@@ -306,6 +307,10 @@ $("#tabs").addEventListener("click", movePill);
 window.addEventListener("resize", movePill);
 requestAnimationFrame(movePill);
 bindChips("#regions", "region", "region");
+bindChips("#tracks", "track", "track");
+// CRM web runs on the Mac only (make dev); from the phone the link cannot reach it
+const CRM_URL = "http://localhost:3000";
+$("#crmbtn").addEventListener("click", () => { haptic(); openLink(CRM_URL); });
 $("#list").addEventListener("click", (ev) => { const c = ev.target.closest(".card"); if (c) { haptic(); openDetail(c.dataset.id); } });
 let debounce; $("#search").addEventListener("input", (ev) => { clearTimeout(debounce); debounce = setTimeout(() => { state.q = ev.target.value; loadList(); }, 250); });
 if (tg) tg.BackButton.onClick(closeDetail);
