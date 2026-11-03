@@ -97,3 +97,38 @@ def test_bot_link_flow_sends_card_cv_and_letter(settings, sessions, monkeypatch)
     monkeypatch.setattr(links, "fetch_posting", paris)
     links.process(settings, sessions, client, "https://jobs.example.com/2")
     assert "sendDocument" not in sent and not letters             # rejected: asks before generating
+
+
+def test_split_paste_is_read_as_one_posting_and_its_inner_link_is_not_fetched(settings, sessions, monkeypatch):
+    from summer_hunter.bot import links
+    from summer_hunter.bot.handlers import Bot
+    from summer_hunter.integrations.telegram_client import TelegramClient
+
+    settings.telegram_bot_token, settings.telegram_chat_id = "123456789:AAbbCCddEEffGGhhIIjjKKllMMnnOOppQQ", "42"
+    client = TelegramClient(settings.telegram_bot_token,
+                            transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"ok": True, "result": {"message_id": 1}})))
+    calls = []
+    monkeypatch.setattr(links, "start", lambda s, f, t, url, text=None: calls.append((url, text)))
+    bot = Bot(settings, sessions, client)
+    bot.paste_wait_s = 60                      # flushed by hand below
+    part1 = "Supply Chain Intern\n" + FILLER
+    part2 = "More on our benefits: https://www.pgcareers.com/benefits " + FILLER
+    for i, text in enumerate((part1, part2), 1):
+        bot.handle_update({"update_id": i, "message": {"chat": {"id": 42}, "text": text}})
+    assert calls == []                         # nothing fetched, nothing read yet
+    bot._paste_timer.cancel()
+    bot.flush_paste()
+    assert calls == [(None, part1.strip() + "\n" + part2.strip())]
+    calls.clear()
+    bot.handle_update({"update_id": 3, "message": {"chat": {"id": 42}, "text": "regarde https://jobs.lever.co/x/y"}})
+    assert calls == [("https://jobs.lever.co/x/y", None)]   # a bare link is still read as a link
+
+
+def test_pasted_text_never_takes_a_pitch_sentence_as_title_or_company():
+    from summer_hunter.collectors.link_ingest import _title_line, plausible_company
+    text = "Start date: the internship runs from June to August.\nGraduate Supply Chain Internship\nWe are P&G."
+    assert _title_line(text) == "Graduate Supply Chain Internship"
+    assert not plausible_company("one of the most innovative startups in France")
+    assert plausible_company("Pasqal") and plausible_company("eBay")
+    with pytest.raises(NeedsText):
+        from_pasted_text(None, "Research shows that women might feel hesitant to apply.\n" + FILLER, None)

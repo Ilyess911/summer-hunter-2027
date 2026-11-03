@@ -160,14 +160,33 @@ def from_pasted_text(url: str | None, text: str, provider: LLMProvider | None) -
         return _raw(url or f"pasted:{sha256(text)[:16]}", title, company, location, text,
                     apply_url=url if url and url.startswith("http") else None)
     fields = extract_fields(provider, text)
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    title = fields.get("title") or (lines[0][:200] if lines else None)
-    company = fields.get("company")
+    title = fields.get("title") or _title_line(text)
+    company = fields.get("company") if plausible_company(fields.get("company")) else None
     if not title or not company:
         raise NeedsText("I could not identify the title and the company; start your message with "
                         "'Title | Company | Location' on the first line")
     return _raw(url or f"pasted:{sha256(text)[:16]}", title, company, fields.get("location"), text,
                 apply_url=url if url and url.startswith("http") else None)
+
+
+_ROLE_WORD = re.compile(r"(?i)\b(intern(ship)?|stagiaire|stage|praktikum|trainee|co-op|apprenti|working student|"
+                        r"werkstudent|graduate)\b")
+
+
+def _title_line(text: str) -> str | None:
+    """A short line that names a role ('... Intern', 'Internship ...'); never just the first line of the paste."""
+    for line in (l.strip() for l in (text or "").splitlines()):
+        if 5 <= len(line) <= 120 and _ROLE_WORD.search(line) and not line.endswith((".", ":")) and line.count(" ") <= 12:
+            return line
+    return None
+
+
+def plausible_company(name: str | None) -> bool:
+    """An employer name, not a phrase lifted from the pitch ('one of the most innovative startups in France')."""
+    if not name:
+        return False
+    words = name.split()
+    return len(words) <= 6 and not re.search(r"(?i)\b(one of|the most|leading|our|we)\b", name)
 
 
 def parse_header_line(text: str) -> tuple[str, str, str | None] | None:

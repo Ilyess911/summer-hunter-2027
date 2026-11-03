@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from datetime import timedelta
 from html import escape
@@ -80,6 +81,13 @@ class Bot:
         self.chat_id = str(settings.telegram_chat_id)
         self.profile = CandidateProfile.from_yaml(settings.profile_raw)
         self.crm = CRMBot(self)
+        # Telegram splits a long pasted posting into several messages: parts are gathered for a few
+        # seconds and read as one text, so a link inside a later part is never mistaken for the offer.
+        self.paste_wait_s = 4.0
+        self._paste_parts: list[str] = []
+        self._paste_url: str | None = None
+        self._paste_timer: threading.Timer | None = None
+        self._paste_lock = threading.Lock()
         self.v3 = V3Bot(self)
 
     # Entry points ----------------------------------------------------------------------------
@@ -118,8 +126,7 @@ class Bot:
             if pasted_for is not None:
                 from summer_hunter.bot import links
 
-                self.send("📥 Texte reçu, analyse de l'offre…")
-                links.start(self.settings, self.session_factory, self.telegram, pasted_for or None, text)
+                self.queue_paste(text, pasted_for or None)
                 return
         if text.startswith("/"):
             head, _, args = text.partition(" ")
@@ -128,16 +135,38 @@ class Bot:
         from summer_hunter.collectors.link_ingest import first_url
 
         url = first_url(text)
-        if url:
+        with self._paste_lock:
+            pending = bool(self._paste_parts)
+        rest = len(text.replace(url, "").strip()) if url else len(text)
+        if url and rest < 300 and not pending:      # a bare link (maybe with a short note): read the page
             from summer_hunter.bot import links
 
             self.send("🔎 Lecture de l'offre… (carte, puis CV, puis lettre)")
             links.start(self.settings, self.session_factory, self.telegram, url)
-        elif len(text) > 400:
+        elif pending or len(text) > 400:            # posting text, or the next part of one
+            self.queue_paste(text)
+
+    def queue_paste(self, text: str, url: str | None = None) -> None:
+        with self._paste_lock:
+            first = not self._paste_parts
+            self._paste_parts.append(text)
+            self._paste_url = self._paste_url or url
+            if self._paste_timer:
+                self._paste_timer.cancel()
+            self._paste_timer = threading.Timer(self.paste_wait_s, self.flush_paste)
+            self._paste_timer.daemon = True
+            self._paste_timer.start()
+        if first:
+            self.send("📥 Texte d'offre reçu, analyse…")
+
+    def flush_paste(self) -> None:
+        with self._paste_lock:
+            text, url = "\n".join(self._paste_parts), self._paste_url
+            self._paste_parts, self._paste_url, self._paste_timer = [], None, None
+        if text:
             from summer_hunter.bot import links
 
-            self.send("📥 Texte d'offre reçu, analyse…")
-            links.start(self.settings, self.session_factory, self.telegram, None, text)
+            links.start(self.settings, self.session_factory, self.telegram, url, text)
 
     def poll_forever(self, stop_after_s: float | None = None) -> None:
         started = time.monotonic()
