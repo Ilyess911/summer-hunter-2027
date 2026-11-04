@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import threading
+import re
 import time
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -46,7 +47,11 @@ RATE_PER_MIN = 60           # authenticated calls
 FAIL_PER_MIN = 20           # failed authentications (never counted against the valid client)
 CLOCK_SKEW = timedelta(minutes=10)
 _WRITE = threading.Lock()   # one status report at a time: check and update see the same state
-RULES = ("Report only replies about an application listed here, with its id. Allowed statuses: REJECTED, CLOSED, "
+RULES = ("Report only replies about an application listed here, with its id. When several applications share a "
+         "company, the subject or the evidence must name the job: quote the sentence of the mail that contains the "
+         "job title or requisition number together with the outcome sentence. To add an application that is "
+         "missing, POST /agent/v1/applications {company, title, applied_on: YYYY-MM-DD, url (optional)} first; "
+         "it returns the id (an existing one if the application is already known). Allowed statuses: REJECTED, CLOSED, "
          "INTERVIEW, ONLINE_ASSESSMENT. Send the mail's Message-ID, its received time (ISO 8601 with timezone), "
          "sender, subject and the exact sentence that shows the outcome. Do not report acknowledgements or "
          "conditional sentences ('if you are not selected...'). When unsure which application a mail is about, do not report it.")
@@ -150,6 +155,8 @@ def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Rou
         if received > datetime.now(timezone.utc) + CLOCK_SKEW:
             return 422, {"error": "received_at is in the future"}, None
         evidence = data["evidence"][:2000]
+        # several applications at one company: the job must be named in the subject or the evidence quoted from the
+        # mail; a title the agent asserts on its own (job_title) is not proof and is ignored
         item = ms.MailItem(data["message_id"].strip()[:500], data["sender"][:300], data["subject"][:500], evidence, received)
         seen = ms.classify(item.subject, evidence)
         if seen != status:
@@ -216,4 +223,90 @@ def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Rou
                                         "application": str(data.get("application"))[:12]})
         return reply(payload, code)
 
-    return [Route("/agent/v1/applications", applications), Route("/agent/v1/status", report, methods=["POST"])]
+    hunter_box: list = []
+
+    def hunter():  # noqa: ANN202 - built on first use: no LLM, ingest only
+        if not hunter_box:
+            from summer_hunter.integrations.anthropic_client import NullProvider
+            from summer_hunter.pipeline import Hunter
+
+            hunter_box.append(Hunter(settings, sessions, provider=NullProvider()))
+        return hunter_box[0]
+
+    def create_application(data: dict) -> tuple[int, dict, str | None]:
+        from summer_hunter.models.opportunity import RawOpportunity
+        from summer_hunter.pipeline import CycleStats
+        from summer_hunter.utils.text import sha256
+
+        company = data.get("company") if isinstance(data.get("company"), str) else ""
+        title = data.get("title") if isinstance(data.get("title"), str) else ""
+        company, title = " ".join(company.split())[:160], " ".join(title.split())[:200]
+        if len(company) < 2 or len(title) < 3:
+            return 422, {"error": "company and title are required"}, None
+        try:
+            applied_on = datetime.strptime(str(data.get("applied_on") or ""), "%Y-%m-%d").date()
+        except ValueError:
+            return 422, {"error": "applied_on must be YYYY-MM-DD"}, None
+        url = data.get("url") if isinstance(data.get("url"), str) and data["url"].startswith(("https://", "http://")) else ""
+        with _WRITE, sessions() as session:
+            crm = CRM(session, settings.data_dir, settings.timezone)
+            if applied_on > crm.today() or applied_on < crm.today() - timedelta(days=365):
+                return 422, {"error": "applied_on must be within the last 12 months"}, None
+            full = " ".join(re.findall(r"[a-z0-9]+", ms._fold(title)))
+            keys = ms.company_keys(company)
+            renewed = False
+            for a in crm.applications():
+                o = a.opportunity
+                same_url = bool(url) and url.rstrip("/") in {(o.apply_url or "").rstrip("/"), (o.official_url or "").rstrip("/")}
+                same_role = bool(ms.company_keys(o.company_name) & keys) and \
+                    " ".join(re.findall(r"[a-z0-9]+", ms._fold(o.title))) == full
+                if same_url or same_role:
+                    if a.status not in st.TERMINAL:
+                        return 200, {"id": app_code(a.id), "created": False, "status": a.status}, None
+                    renewed = True          # same role, earlier cycle already closed: this is a new application
+            ident = sha256(f"{ms._fold(company)}|{full}|{url}" + (f"|{applied_on}" if renewed else ""))[:24]
+            raw = RawOpportunity(source="manual", source_id=f"agent-{ident}", url=url or f"https://summer-hunter.local/agent/{ident}",
+                                 apply_url=url or None, title=title, company=company,
+                                 location_text=(data.get("location") or None) if isinstance(data.get("location"), str) else None,
+                                 description_text="Candidature ajoutée par Instinct depuis tes mails.")
+            from summer_hunter.database.repository import Repository
+
+            opp = hunter().ingest(Repository(session), raw, CycleStats())
+            app = crm.confirm_applied(opp, SOURCE, applied_on=applied_on)
+            session.commit()
+            code, label, status = app_code(app.id), crm.label(app), app.status
+        return 201, {"id": code, "created": True, "status": status}, f"🤖 Instinct a ajouté au CRM : {escape(label)} (postulé le {applied_on:%d/%m})"
+
+    async def read_json(request: Request) -> dict | Response:
+        try:
+            if int(request.headers.get("content-length") or 0) > MAX_BODY:
+                return reply({"error": "body too large"}, 413)
+        except ValueError:
+            return reply({"error": "bad content-length"}, 400)
+        body = b""
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_BODY:
+                return reply({"error": "body too large"}, 413)
+        try:
+            data = json.loads(body)
+        except ValueError:
+            return reply({"error": "invalid JSON"}, 400)
+        return data if isinstance(data, dict) else reply({"error": "expected a JSON object"}, 400)
+
+    async def applications_route(request: Request) -> Response:
+        if request.method == "GET":
+            return await applications(request)
+        if (denied := guard(request)) is not None:
+            return denied
+        data = await read_json(request)
+        if isinstance(data, Response):
+            return data
+        code, payload, notice = await asyncio.to_thread(create_application, data)
+        if notice:
+            await asyncio.to_thread(notify, notice)
+        log.info("agent create", extra={"status": code, "created": payload.get("created"), "id": payload.get("id")})
+        return reply(payload, code)
+
+    return [Route("/agent/v1/applications", applications_route, methods=["GET", "POST"]),
+            Route("/agent/v1/status", report, methods=["POST"])]

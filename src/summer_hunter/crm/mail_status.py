@@ -63,11 +63,15 @@ _PATTERNS: dict[str, list[str]] = {
         r"\b(?:poste|offre) (?:a été|est) (?:annulée?|fermée?|clôturée?)\b",
     ],
     REJECTED: [
-        r"\bnot (?:to )?(?:be )?(?:mov(?:e|ing)|go(?:ing)?) forward with your (?:application|candidacy|profile)",
-        r"\b(?:decided|chosen|elected) not to (?:move forward|proceed|progress|pursue)",
+        r"\bnot (?:to )?(?:be )?(?:mov(?:e|ing)|go(?:ing)?) forward (?:with|for|on) your (?:application|candidacy|profile)",
+        r"\b(?:decided|chosen|elected|decision) (?:not to|to not) (?:move forward|proceed|progress|pursue)",
+        r"\b(?:ne vous a|ne vous avons|nous ne vous avons) pas (?:sélectionné|retenu)e?s?\b",
+        r"\bn[’']avez pas été (?:sélectionnée?|retenue?)\b",
         r"\b(?:move|moving|proceed|proceeding|progress|go) forward with (?:other|another|different) (?:candidates?|applicants?)",
         r"\b(?:decided|chosen|elected) to (?:pursue|proceed with|progress) (?:other|another|different) (?:candidates?|applicants?)",
-        r"\bwill not be (?:moving forward|progressing|proceeding|taking your application)",
+        r"\bwill not be (?:moving forward|proceeding) with your (?:application|candidacy)",
+        r"\bwill not be (?:progressing|taking forward) your (?:application|candidacy)",
+        r"\b(?:we|will) (?:will )?not be moving forward(?= *(?:[.,;]|at this (?:time|stage|point)|$))",
         r"\byou (?:were|have) not (?:been )?(?:selected|successful|shortlisted)\b",
         r"\byour (?:application|candidacy) (?:was|has) not (?:been )?(?:successful|selected|shortlisted)",
         r"\bunable to (?:offer you|progress your|move forward with your)",
@@ -96,6 +100,9 @@ _PATTERNS: dict[str, list[str]] = {
     ],
 }
 _RX = {kind: [re.compile(p, re.I) for p in pats] for kind, pats in _PATTERNS.items()}
+# pending or not-yet-decided wording vetoes the sentence ("not selected for now, your application is still under review")
+_PENDING = re.compile(r"\b(?:still (?:under )?(?:review|consideration)|not (?:yet )?made a decision|have not made|no decision|"
+                      r"pour le moment|pour l[’']instant|reste à l[’']étude|toujours à l[’']étude|en cours d[’']examen)\b", re.I)
 _CONDITIONAL = re.compile(r"\b(?:if|should|unless|in case|whether|si|au cas où|sollten|falls)\b", re.I)
 _QUOTE_START = re.compile(r"^(?:on .{4,120} wrote:|le .{4,120} a écrit\s*:|-{2,} ?original message|de ?: |from: |envoyé ?: |sent: )",
                           re.I | re.M)
@@ -127,7 +134,7 @@ def _sentences(text: str) -> list[str]:
 
 def classify(subject: str, text: str) -> str | None:
     """Kind of recruiter reply; None for acknowledgements, anything conditional, or mixed signals."""
-    sentences = [s for s in _sentences(f"{subject}.\n\n{current_part(text)}") if not _CONDITIONAL.search(s)]
+    sentences = [s for s in _sentences(f"{subject}.\n\n{current_part(text)}") if not _CONDITIONAL.search(s) and not _PENDING.search(s)]
     kinds = {kind for kind, rxs in _RX.items() for s in sentences if any(rx.search(s) for rx in rxs)}
     if kinds == {CLOSED, REJECTED}:
         return CLOSED           # "we regret to inform you the position has been cancelled"

@@ -113,3 +113,48 @@ def test_failed_logins_never_lock_out_the_agent(env):
         client.get("/agent/v1/applications", headers={"Authorization": "Bearer nope"})
     assert client.get("/agent/v1/applications", headers=H).status_code == 200
     assert client.get("/agent/v1/applications", headers=H).headers["cache-control"] == "no-store"
+
+
+def test_create_application_then_report_and_no_duplicate(env):
+    client, tg, _ = env
+    body = {"company": "Bending Spoons", "title": "Product Manager Intern", "applied_on": date.today().isoformat()}
+    r = client.post("/agent/v1/applications", headers=H, json=body)
+    assert r.status_code == 201 and r.json()["created"] is True and "ajouté" in tg.sent[-1]
+    again = client.post("/agent/v1/applications", headers=H, json=body)
+    assert again.status_code == 200 and again.json() == {"id": r.json()["id"], "created": False, "status": "APPLIED"}
+    assert client.post("/agent/v1/applications", headers=H, json={**body, "applied_on": "2030-01-01"}).status_code == 422
+    assert client.post("/agent/v1/applications", json=body).status_code == 401
+    ok = client.post("/agent/v1/status", headers=H, json=report(
+        application=r.json()["id"], message_id="<bs1>", sender="Bending Spoons <jobs@bendingspoons.com>",
+        subject="Your application", evidence="Malheureusement, notre équipe ne vous a pas sélectionné pour ce rôle."))
+    assert ok.json()["changed"] is True
+
+
+def test_asserted_job_title_alone_does_not_pick_among_several_applications(env, settings):
+    client, _, sessions = env
+    with sessions() as session:
+        crm = CRM(session, settings.data_dir, settings.timezone)
+        opp = make_opp(session, 3, company_name="Philips", normalized_company="philips", title="IT AI Solution Analyst Intern")
+        crm.confirm_applied(opp, "cli", applied_on=date.today() - timedelta(days=5))
+        session.commit()
+    r = client.post("/agent/v1/status", headers=H, json=report(
+        application="APP-0003", message_id="<p3>", subject="Update on your application with Philips",
+        job_title="IT AI Solution Analyst Intern"))
+    assert r.status_code == 409
+    quoted = client.post("/agent/v1/status", headers=H, json=report(
+        application="APP-0003", message_id="<p4>", subject="Update on your application with Philips",
+        evidence="Thank you for applying to IT AI Solution Analyst Intern. Unfortunately we will not be moving forward "
+                 "with your application."))
+    assert quoted.json()["changed"] is True
+
+
+def test_create_dedupes_on_full_title_and_url(env):
+    client, _, _ = env
+    day = date.today().isoformat()
+    a = client.post("/agent/v1/applications", headers=H, json={"company": "Acme", "title": "Software Engineer Intern - Backend",
+                                                             "applied_on": day, "url": "https://jobs.acme.com/1"}).json()
+    b = client.post("/agent/v1/applications", headers=H, json={"company": "Acme", "title": "Software Engineer Intern - Frontend",
+                                                             "applied_on": day}).json()
+    c = client.post("/agent/v1/applications", headers=H, json={"company": "Acme", "title": "SWE Intern",
+                                                             "applied_on": day, "url": "https://jobs.acme.com/1/"}).json()
+    assert a["created"] and b["created"] and a["id"] != b["id"] and c == {"id": a["id"], "created": False, "status": "APPLIED"}

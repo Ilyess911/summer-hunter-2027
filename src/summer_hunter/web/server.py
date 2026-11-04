@@ -144,7 +144,8 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             ev, fit = repo.latest_eligibility(opp.id), repo.latest_fit(opp.id)
             post = repo.linkedin_post(opp.linkedin_post_url) if opp.linkedin_post_url else None
             data = summary(opp) | {
-                "apply_url": opp.apply_url or opp.official_url, "official_url": opp.official_url,
+                "apply_url": None if (opp.official_url or "").startswith("https://summer-hunter.local/")
+                             else opp.apply_url or opp.official_url, "official_url": opp.official_url,
                 "linkedin_post_url": opp.linkedin_post_url,
                 "description": (opp.description_text or "")[:6000],
                 "criteria": ev.criteria if ev else [], "sponsorship": ev.sponsorship if ev else None,
