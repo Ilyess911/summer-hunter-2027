@@ -83,8 +83,10 @@ def _authorized(request: Request) -> bool:
     token = _token()
     if len(token) < 32:
         return False
-    given = request.headers.get("authorization", "")
-    return hmac.compare_digest(given.encode(), f"Bearer {token}".encode())
+    scheme, _, given = request.headers.get("authorization", "").strip().partition(" ")
+    if scheme.lower() != "bearer":
+        return False
+    return hmac.compare_digest(given.strip().encode(), token.encode())
 
 
 def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Route]:  # noqa: ANN001
@@ -94,7 +96,9 @@ def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Rou
         if len(_token()) < 32:
             return JSONResponse({"error": "agent API disabled"}, status_code=404)
         if not _authorized(request):
-            log.warning("agent auth refused", extra={"path": request.url.path})
+            sent = request.headers.get("authorization", "").strip()
+            log.warning("agent auth refused", extra={"path": request.url.path, "scheme_ok": sent.lower().startswith("bearer "),
+                                                     "token_len": len(sent.partition(" ")[2].strip()), "expected_len": len(_token())})
             if not failures.allow():
                 return JSONResponse({"error": "rate limited"}, status_code=429)
             return JSONResponse({"error": "unauthorized"}, status_code=401)
