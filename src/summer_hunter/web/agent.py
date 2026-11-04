@@ -153,7 +153,12 @@ def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Rou
         item = ms.MailItem(data["message_id"].strip()[:500], data["sender"][:300], data["subject"][:500], evidence, received)
         seen = ms.classify(item.subject, evidence)
         if seen != status:
-            return 409, {"changed": False, "reason": "evidence does not clearly state this outcome"}, None
+            log.info("agent evidence not recognised", extra={"wanted": status, "seen": seen, "subject": item.subject[:200],
+                                                             "evidence": evidence[:600]})
+            return 409, {"changed": False, "reason": "evidence does not clearly state this outcome"}, (
+                f"🤖 Instinct propose {ms.KIND_FR[status]} pour {escape(data['application'][:12])}, non appliqué "
+                f"(phrase non reconnue). Objet : « {clean(item.subject, 90)} »\nExtrait : « {clean(evidence, 200)} »\n"
+                f"Si c'est juste : /setstatus {clean(data['application'], 12)} {status}")
         with _WRITE, sessions() as session:
             crm = CRM(session, settings.data_dir, settings.timezone)
             app = crm.application(app_id)
@@ -207,7 +212,8 @@ def routes(settings, sessions: sessionmaker[Session], telegram=None) -> list[Rou
         code, payload, notice = await asyncio.to_thread(apply_report, data)
         if notice:
             await asyncio.to_thread(notify, notice)
-        log.info("agent report", extra={"status": code, "changed": payload.get("changed")})
+        log.info("agent report", extra={"status": code, "changed": payload.get("changed"), "reason": payload.get("reason"),
+                                        "application": str(data.get("application"))[:12]})
         return reply(payload, code)
 
     return [Route("/agent/v1/applications", applications), Route("/agent/v1/status", report, methods=["POST"])]
