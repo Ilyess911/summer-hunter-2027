@@ -17,7 +17,7 @@ from summer_hunter.bot.crm_handlers import CRMBot
 from summer_hunter.bot.v3_handlers import COMMANDS as V3_COMMANDS
 from summer_hunter.bot.v3_handlers import V3Bot
 from summer_hunter.database.models import utcnow
-from summer_hunter.database.repository import Repository, as_utc
+from summer_hunter.database.repository import Repository, as_utc, is_fresh
 from summer_hunter.engine.ai_analysis import Analyzer, draft_networking_message
 from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
 from summer_hunter.engine.geo import country_name
@@ -239,7 +239,7 @@ class Bot:
                 rows = repo.by_user_status("saved")
                 self.send("<b>Saved</b>\n" + ("\n".join(_line(o) for o in rows) or "None yet."))
             elif cmd == "rejected":
-                rows = repo.by_eligibility("REJECTED", limit=10)
+                rows = [o for o in repo.by_eligibility("REJECTED", limit=50) if is_fresh(o)][:10]
                 lines = []
                 for o in rows:
                     ev = repo.latest_eligibility(o.id)

@@ -20,7 +20,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from summer_hunter.database.models import Opportunity
-from summer_hunter.database.repository import Repository, as_utc
+from summer_hunter.database.repository import Repository, as_utc, is_fresh
 from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
 from summer_hunter.engine.geo import country_name
 from summer_hunter.engine.regions import REGIONS, region_of
@@ -125,12 +125,13 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
             track = request.query_params.get("track")
             if track in TRACKS:
                 rows = [o for o in rows if o.career_track == track]
-            # applied stays a full history; everywhere else, offers you can no longer apply to are gone
+            # applied stays a full history; everywhere else, offers you can no longer apply to are gone,
+            # and so are offers older than STALE_AFTER_DAYS you never applied to
             if view != "applied":
-                rows = [o for o in rows if can_still_apply(o)]
+                rows = [o for o in rows if can_still_apply(o) and is_fresh(o)]
             active = [o for o in repo.top(500, include_dismissed=True) if (o.family_tier or 0) > 0]
-            stats = {"target": sum(o.user_status not in ("dismissed", "applied") for o in active),
-                     "new": sum(o.user_status == "new" and bool(o.notify) for o in active),
+            stats = {"target": sum(o.user_status not in ("dismissed", "applied") and is_fresh(o) for o in active),
+                     "new": sum(o.user_status == "new" and bool(o.notify) and is_fresh(o) for o in active),
                      "saved": sum(o.user_status == "saved" for o in active),
                      "applied": sum(o.user_status == "applied" for o in active)}
         return JSONResponse({"items": [summary(o) for o in rows], "stats": stats})

@@ -30,6 +30,26 @@ from summer_hunter.database.models import (
 from summer_hunter.engine.deduplication import Candidate
 
 
+# An offer you have not applied to (or saved) leaves every list this long after it was first discovered.
+STALE_AFTER_DAYS = 3
+
+
+def stale_cutoff() -> datetime:
+    return utcnow() - timedelta(days=STALE_AFTER_DAYS)
+
+
+def fresh_clause():  # noqa: ANN201
+    """SQL condition: still listable (applied/saved always kept, others only while recent)."""
+    return Opportunity.user_status.in_(("applied", "saved")) | (Opportunity.first_discovered_at >= stale_cutoff())
+
+
+def is_fresh(o: Opportunity) -> bool:
+    if o.user_status in ("applied", "saved"):
+        return True
+    seen = as_utc(o.first_discovered_at)
+    return seen is None or seen >= stale_cutoff()
+
+
 def as_utc(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
@@ -123,14 +143,16 @@ class Repository:
                               # recruitment over: the stated application deadline has passed
                               (Opportunity.application_deadline.is_(None)) | (Opportunity.application_deadline >= date.today()),
                               # filtered by a hard rule (eligibility, unpaid, your salary floor): never listed
-                              (Opportunity.next_action.is_(None)) | (Opportunity.next_action != "DISCARD"))
+                              (Opportunity.next_action.is_(None)) | (Opportunity.next_action != "DISCARD"),
+                              # older than STALE_AFTER_DAYS and never applied to: gone
+                              fresh_clause())
         return list(self.s.execute(stmt.order_by(Opportunity.priority_score.desc()).limit(limit)).scalars())
 
     def top_global(self, limit: int = 500) -> list[Opportunity]:
         """Ranked by global application priority; filtered items are excluded before the limit applies."""
         stmt = (select(Opportunity).where(Opportunity.status == "active", Opportunity.global_priority.is_not(None),
                                           Opportunity.user_status.not_in(("dismissed", "applied")),
-                                          (Opportunity.family_tier > 0))
+                                          (Opportunity.family_tier > 0), fresh_clause())
                 .order_by(Opportunity.global_priority.desc()).limit(limit))
         return list(self.s.execute(stmt).scalars())
 

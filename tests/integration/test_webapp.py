@@ -180,3 +180,25 @@ def test_list_filters_by_track_and_hides_offers_you_can_no_longer_apply_to(clien
         session.get(Opportunity, 1).user_status = "applied"
         session.commit()
     assert ids(view="applied") == [1]
+
+
+def test_offers_older_than_three_days_leave_lists_unless_applied_or_saved(client, sessions):
+    from datetime import timedelta
+
+    from summer_hunter.database.models import Opportunity, utcnow
+    h = {"X-Telegram-Init-Data": init_data()}
+    ids = lambda view: [i["id"] for i in client.get("/api/opportunities", params={"view": view}, headers=h).json()["items"]]
+    assert ids("top") == [1]
+    with sessions() as session:
+        session.get(Opportunity, 1).first_discovered_at = utcnow() - timedelta(days=3, hours=1)
+        session.commit()
+        assert Repository(session).top(10) == [] and Repository(session).top_global(10) == []
+    assert ids("top") == [] and ids("new") == []
+    with sessions() as session:
+        session.get(Opportunity, 1).user_status = "saved"
+        session.commit()
+    assert ids("saved") == [1]
+    with sessions() as session:
+        session.get(Opportunity, 1).user_status = "applied"
+        session.commit()
+    assert ids("applied") == [1]
