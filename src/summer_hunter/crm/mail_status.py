@@ -80,6 +80,8 @@ _PATTERNS: dict[str, list[str]] = {
         r"\bne (?:pouvons|pourrons) (?:malheureusement )?pas donner (?:une )?suite",
         r"\bvotre candidature n[’']a pas été (?:retenue|sélectionnée)",
         r"\bavons (?:le regret de vous informer|décidé de ne pas donner suite)",
+        r"\b(?:sommes|suis) au regret de vous (?:informer|annoncer)\b",
+        r"\bne (?:répond|correspond) pas (?:à|a) nos (?:exigences|attentes|critères)\b",
         r"\borienté(?:s)? notre choix vers\b",
         r"\bleider (?:mitteilen|absagen)\b",
     ],

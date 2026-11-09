@@ -32,6 +32,10 @@ def mail(subject, text, sender="Talent <no-reply@myworkday.com>", mid="<m1@x>"):
     ("Update", "After careful consideration we will not be moving forward with your application.", ms.REJECTED),
     ("Votre candidature", "Nous avons le regret de vous informer que nous ne pouvons pas donner suite.", ms.REJECTED),
     ("Candidature", "Votre candidature n'a pas été retenue.", ms.REJECTED),
+    ("AIRBUS - Le statut de votre candidature a été mis à jour",
+     "Merci pour votre candidature au poste de Aircraft Sales Gov./Mil Intern. Après l'avoir examinée avec attention, "
+     "nous sommes au regret de vous informer qu'elle ne répond pas à nos exigences pour ce poste.", ms.REJECTED),
+    ("Mise à jour", "Nous sommes au regret de vous informer que le poste a été annulé.", ms.CLOSED),
     ("Requisition update", "The position has been cancelled.", ms.CLOSED),
     ("Next steps", "We would like to invite you to an interview with the team.", ms.INTERVIEW),
     ("Entretien", "Nous souhaitons vous proposer un entretien la semaine prochaine.", ms.INTERVIEW),
