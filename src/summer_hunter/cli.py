@@ -615,24 +615,25 @@ def cmd_launchd(app: App, args) -> int:  # noqa: ANN001
     log_dir = app.settings.data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     labels = [launchd.NIGHT_LABEL] + ([launchd.BOT_LABEL, launchd.WEB_LABEL] if args.with_bot else [])
+    labels += [launchd.OS_LABEL] if args.with_os else []
     uid = subprocess.run(["id", "-u"], capture_output=True, text=True).stdout.strip()
     if args.action == "install":
         for label in labels:
             data = {launchd.NIGHT_LABEL: launchd.night_plist, launchd.BOT_LABEL: launchd.bot_plist,
-                    launchd.WEB_LABEL: launchd.web_plist}[label](exe, app.settings.root, log_dir)
+                    launchd.WEB_LABEL: launchd.web_plist, launchd.OS_LABEL: launchd.os_plist}[label](exe, app.settings.root, log_dir)
             path = launchd.write_plist(data, label)
             subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
             res = subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", str(path)], capture_output=True, text=True)
             print(f"{label}: {'loaded' if res.returncode == 0 else 'bootstrap failed: ' + res.stderr.strip()} ({path})")
     elif args.action == "uninstall":
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL):
             path = launchd.AGENTS_DIR / f"{label}.plist"
             if path.exists():
                 subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
                 path.unlink()
                 print(f"{label}: removed")
     else:
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL):
             res = subprocess.run(["launchctl", "print", f"gui/{uid}/{label}"], capture_output=True, text=True)
             state = next((l.strip() for l in res.stdout.splitlines() if l.strip().startswith("state =")), "not loaded")
             print(f"{label}: {state}")
@@ -777,6 +778,7 @@ def build_parser() -> argparse.ArgumentParser:
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")
     ld.add_argument("action", choices=["install", "uninstall", "status"])
     ld.add_argument("--with-bot", action="store_true", help="also keep the Telegram bot and Mini App running")
+    ld.add_argument("--with-os", action="store_true", help="also keep the OS CRM (API :8800 + web :3000) running")
     ld.set_defaults(fn=cmd_launchd)
     wb = sub.add_parser("web", help="run the Telegram Mini App (local server + HTTPS tunnel)")
     wb.add_argument("--port", type=int, default=8787)

@@ -12,5 +12,5 @@ uv run summer-hunter --quiet os serve --port "$API_PORT" &
 API_PID=$!
 trap 'kill $API_PID 2>/dev/null || true' EXIT INT TERM
 (cd apps/web && [ -d node_modules ] || pnpm install --frozen-lockfile)
-( sleep 4 && open "http://127.0.0.1:$WEB_PORT" ) >/dev/null 2>&1 &
+[ -n "${SH_OS_NO_BROWSER:-}" ] || ( sleep 4 && open "http://127.0.0.1:$WEB_PORT" ) >/dev/null 2>&1 &
 cd apps/web && SH_API_URL="http://127.0.0.1:$API_PORT" pnpm exec next dev --hostname 127.0.0.1 --port "$WEB_PORT"

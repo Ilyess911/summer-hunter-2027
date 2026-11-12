@@ -8,6 +8,7 @@ from pathlib import Path
 NIGHT_LABEL = "com.summerhunter.night"
 BOT_LABEL = "com.summerhunter.bot"
 WEB_LABEL = "com.summerhunter.web"
+OS_LABEL = "com.summerhunter.os"
 AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
 
 
@@ -54,6 +55,20 @@ def web_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
     data.update({"Label": WEB_LABEL, "ProgramArguments": [str(executable), "web"],
                  "StandardOutPath": str(log_dir / "launchd-web.out.log"),
                  "StandardErrorPath": str(log_dir / "launchd-web.err.log")})
+    return data
+
+
+def os_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
+    """Summer Hunter OS (API 127.0.0.1:8800 + Next.js CRM 127.0.0.1:3000), kept alive across reboots.
+
+    Runs scripts/os-dev.sh without opening a browser; ~/.local/bin is on PATH for node and pnpm.
+    """
+    data = bot_plist(executable, project_root, log_dir)
+    path = f"{Path.home() / '.local' / 'bin'}:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+    data.update({"Label": OS_LABEL, "ProgramArguments": ["/bin/bash", str(project_root / "scripts" / "os-dev.sh")],
+                 "StandardOutPath": str(log_dir / "launchd-os.out.log"),
+                 "StandardErrorPath": str(log_dir / "launchd-os.err.log"),
+                 "EnvironmentVariables": {"PATH": path, "PYTHONUNBUFFERED": "1", "SH_OS_NO_BROWSER": "1"}})
     return data
 
 
