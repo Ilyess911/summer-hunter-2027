@@ -9,6 +9,7 @@ NIGHT_LABEL = "com.summerhunter.night"
 BOT_LABEL = "com.summerhunter.bot"
 WEB_LABEL = "com.summerhunter.web"
 OS_LABEL = "com.summerhunter.os"
+TAILSCALE_LABEL = "com.summerhunter.tailscale"
 AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
 
 
@@ -70,6 +71,21 @@ def os_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
                  "StandardErrorPath": str(log_dir / "launchd-os.err.log"),
                  "EnvironmentVariables": {"PATH": path, "PYTHONUNBUFFERED": "1", "SH_OS_NO_BROWSER": "1"}})
     return data
+
+
+def tailscale_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
+    """Tailscale watchdog: brings the node (and the Mini App Funnel) back up at login and every 5 minutes."""
+    return {
+        "Label": TAILSCALE_LABEL,
+        "ProgramArguments": ["/bin/bash", str(project_root / "scripts" / "tailscale-watchdog.sh")],
+        "WorkingDirectory": str(project_root),
+        "RunAtLoad": True,
+        "StartInterval": 300,
+        "StandardOutPath": str(log_dir / "launchd-tailscale.out.log"),
+        "StandardErrorPath": str(log_dir / "launchd-tailscale.err.log"),
+        "EnvironmentVariables": {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        "ProcessType": "Background",
+    }
 
 
 def write_plist(data: dict, label: str, agents_dir: Path = AGENTS_DIR) -> Path:
