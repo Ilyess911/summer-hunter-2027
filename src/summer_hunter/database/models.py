@@ -510,10 +510,29 @@ class TravelAdvisory(Base):
     manual: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class ProfileFact(Base):
+    """A candidate fact added outside the approved YAML files (AI CV Builder profile).
+
+    status: INFERRED (to confirm, never shown as a fact) | USER_CONFIRMED | REJECTED | MISSING.
+    Only USER_CONFIRMED rows may reach application material; nothing is ever added without the
+    candidate's explicit confirmation, and an offer's requirement is never stored here.
+    """
+    __tablename__ = "profile_facts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(20))       # skill | experience | project | education | certification | language | achievement | other
+    text: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="INFERRED")
+    source: Mapped[str] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class KeyValue(Base):
     __tablename__ = "kv_state"
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6

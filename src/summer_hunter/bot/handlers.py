@@ -14,6 +14,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from summer_hunter.bot.crm_handlers import COMMANDS as CRM_COMMANDS
 from summer_hunter.bot.crm_handlers import HELP as CRM_HELP
 from summer_hunter.bot.crm_handlers import CRMBot
+from summer_hunter.bot.cv_handlers import COMMANDS as CV_COMMANDS
+from summer_hunter.bot.cv_handlers import HELP as CV_HELP
+from summer_hunter.bot.cv_handlers import CVBot
 from summer_hunter.bot.v3_handlers import COMMANDS as V3_COMMANDS
 from summer_hunter.bot.v3_handlers import V3Bot
 from summer_hunter.database.models import utcnow
@@ -55,14 +58,14 @@ TRACK_FILTERS = {   # command -> (title, predicate on an opportunity)
 }
 HIGH_RECRUITABILITY = 75
 
-COMMANDS += CRM_COMMANDS + V3_COMMANDS
+COMMANDS += CRM_COMMANDS + V3_COMMANDS + CV_COMMANDS
 MAIL_EVERY_S = 30 * 60
 
 HELP = "\n".join(f"/{c}: {d}" for c, d in COMMANDS) + (
     "\n\nEnvoie un lien d'offre (ou colle son texte) : je l'évalue, puis je génère ton CV et ta lettre."
     "\n\nButtons: Save, Track (creates the CRM record), Applied (asks for confirmation), Dismiss (asks why, to learn), "
     "Explain Score, Networking msg (a draft for you to send yourself; nothing is ever sent to recruiters automatically)."
-) + CRM_HELP
+) + CRM_HELP + CV_HELP
 
 
 def _line(o) -> str:  # noqa: ANN001
@@ -89,6 +92,7 @@ class Bot:
         self._paste_timer: threading.Timer | None = None
         self._paste_lock = threading.Lock()
         self.v3 = V3Bot(self)
+        self.cvb = CVBot(self)
 
     # Entry points ----------------------------------------------------------------------------
 
@@ -218,7 +222,7 @@ class Bot:
             log.warning("send failed", extra={"error": str(exc)})
 
     def handle_command(self, cmd: str, args: str = "") -> None:
-        if self.crm.handle_command(cmd, args) or self.v3.handle_command(cmd, args):
+        if self.crm.handle_command(cmd, args) or self.v3.handle_command(cmd, args) or self.cvb.handle_command(cmd, args):
             return
         with self.session_factory() as session:
             repo = Repository(session)
@@ -295,7 +299,7 @@ class Bot:
             self.telegram.answer_callback(cq["id"], "Unknown action")
             return
         action, opp_id = parts[0], int(parts[1])
-        if self.crm.handle_callback(cq, action, parts):
+        if self.crm.handle_callback(cq, action, parts) or self.cvb.handle_callback(cq, action, parts):
             return
         message = cq.get("message") or {}
         with self.session_factory() as session:
