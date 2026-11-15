@@ -561,7 +561,8 @@ def file_stem(req: CVRequest, version: int = 1, year: int = 2027) -> str:
     """CV_Robotics_Engineer_Singapore_2027_v1 (ASCII, Telegram- and filesystem-safe)."""
     role = re.sub(r"\s+[-–|]\s+[^-–|]+$", "", cvmod.clean_role(req.target_role or "CV"))
     role = re.sub(r"(?i)\b(intern(ship)?|stage|stagiaire)\b", "", role)
-    parts = [role, req.company or "", req.location if req.country_code else ""]
+    org = req.company_aliases[0] if getattr(req, "company_aliases", None) else (req.company or "")   # 'FCCS'
+    parts = [role, org, req.location if req.country_code else ""]
     words = []
     for p in parts:
         flat = unicodedata.normalize("NFKD", p).encode("ascii", "ignore").decode()
