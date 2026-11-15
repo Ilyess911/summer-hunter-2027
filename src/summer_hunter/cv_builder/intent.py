@@ -138,6 +138,8 @@ class CVRequest:
     pages: int = 1
     style: str | None = None
     emphasis: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)          # "retire X": items left out of this CV only
+    personalization: str = "standard"                         # standard | light (no targeted sentence)
     requirements: list[Requirement] = field(default_factory=list)
     expected_skills: list[str] = field(default_factory=list)   # usual for the role, NOT an employer's demand
     keywords: list[str] = field(default_factory=list)

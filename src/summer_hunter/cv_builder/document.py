@@ -119,7 +119,9 @@ def ranked_extras(content: dict[str, Any], cv: dict[str, Any], req: CVRequest) -
     keys = cvmod._tokens(f"{req.target_role or ''} {cvmod.role_text(_job_text(req))}") | \
         set(cvmod.FAMILY_KEYWORDS.get(req.family, "").split())
     shown = {p.get("name") for p in cv.get("projects", [])}
-    pool = [p for p in content.get("projects", []) if p.get("name") not in shown and cvmod._on_track(p, cv.get("track", ""))]
+    excluded = [(_tokens(w) - _GENERIC, _norm(w)) for w in req.exclude]
+    pool = [p for p in content.get("projects", []) if p.get("name") not in shown and cvmod._on_track(p, cv.get("track", ""))
+            and not any((want and want <= _tokens(p.get("name", ""))) or n in _norm(p.get("name", "")) for want, n in excluded)]
     scored = [(cvmod._score(" ".join(b["text"] for b in p.get("bullets", [])) + " " + p.get("name", ""),
                             p.get("tags", []), keys), p) for p in pool]
     return [p for sc, p in sorted(scored, key=lambda sp: -sp[0]) if sc >= 1]
@@ -138,10 +140,12 @@ def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tu
             name, _, detail = f.text.partition(":")
             content.setdefault("projects", []).append({"name": name.strip(), "tags": sorted(_expand(f.text)),
                                                        "bullets": [{"text": _sentence(detail or name)}], "confirmed_fact": True})
-    cv = cvmod.tailor(content, req.target_role or "", _job_text(req), req.family, req.company or "", track=req.track)
+    company = "" if req.personalization == "light" else (req.company or "")     # light: no targeted sentence
+    cv = cvmod.tailor(content, req.target_role or "", _job_text(req), req.family, company, track=req.track)
     keys = _tokens(f"{req.target_role or ''} {_job_text(req)}")
     _place_confirmed(cv, confirmed, keys, notes)
     _apply_emphasis(cv, content, req, notes)
+    _apply_exclude(cv, req, notes)
     if req.language == "fr":
         cv["labels"] = {k: LABELS_FR.get(v, v) for k, v in (cv.get("labels") or {}).items()}
         cv["labels"] = {"summary": "PROFIL", "experience": "EXPÉRIENCE PROFESSIONNELLE", "education": "FORMATION",
@@ -182,7 +186,7 @@ def _place_confirmed(cv: dict[str, Any], confirmed: list[Any], keys: set[str], n
 def _apply_emphasis(cv: dict[str, Any], content: dict[str, Any], req: CVRequest, notes: list[str]) -> None:
     """'Mets en avant X': bring the matching verified project or experience first; never write new text."""
     for what in req.emphasis:
-        want = _tokens(what) - {"mon", "ma", "mes", "my", "projet", "project", "experience"}
+        want = _tokens(what) - _GENERIC
         if not want:
             continue
         pool = list(content.get("projects", []))
@@ -199,6 +203,31 @@ def _apply_emphasis(cv: dict[str, Any], content: dict[str, Any], req: CVRequest,
             cv["experiences"] = [hit] + [e for e in exps if e is not hit]
         else:
             notes.append(f"Rien de vérifié ne correspond à « {what} » : à ajouter d'abord avec /cv_profile add.")
+
+
+_GENERIC = {"mon", "ma", "mes", "my", "projet", "project", "projects", "projets", "experience", "experiences", "stage",
+            "the", "le", "la", "les", "de", "du", "des"}
+
+
+def _apply_exclude(cv: dict[str, Any], req: CVRequest, notes: list[str]) -> None:
+    """'Retire X' for this CV only: drop matching projects, experiences (one always stays) and skills."""
+    for what in req.exclude:
+        want = _tokens(what) - _GENERIC
+        if not want:
+            continue
+
+        def hit(text: str) -> bool:
+            return want <= _tokens(text) or _norm(what) in _norm(text)
+        before = (len(cv.get("projects", [])), len(cv.get("experiences", [])),
+                  sum(len(v) for v in (cv.get("skills") or {}).values()))
+        cv["projects"] = [p for p in cv.get("projects", []) if not hit(p.get("name", ""))]
+        kept = [e for e in cv.get("experiences", []) if not hit(f"{e.get('org', '')} {e.get('role', '')}")]
+        cv["experiences"] = kept or cv.get("experiences", [])[:1]
+        cv["skills"] = {g: [s for s in items if not hit(s)] for g, items in (cv.get("skills") or {}).items()}
+        cv["skills"] = {g: items for g, items in cv["skills"].items() if items}
+        after = (len(cv["projects"]), len(cv["experiences"]), sum(len(v) for v in cv["skills"].values()))
+        if after == before:
+            notes.append(f"« {what} » n'apparaît pas sur ce CV : rien retiré.")
 
 
 def allowed_texts(content: dict[str, Any], confirmed: list[Any]) -> set[str]:

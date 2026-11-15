@@ -1,4 +1,4 @@
-"""AI CV Builder on Telegram, lot 1: the permanent profile (/cv_profile).
+"""AI CV Builder on Telegram.
 
     /cv_profile               overview: verified facts by kind, confirmed additions, facts awaiting confirmation
     /cv_profile all           every verified claim from the approved CV and profile
@@ -6,15 +6,24 @@
     /cv <texte>               lot 3: generate the tailored CV (PDF + DOCX) with an optimization report
     /cv_history [n]           lot 4: generated CVs (latest version of each); n = versions of CV-000n
     /cv_analyze <texte>       lot 2: how a request or posting is understood (role, company, country, language, requirements)
+    /cv (alone)               lot 5: asks for the request; the next message (long postings split by Telegram included) is it
+    /cv_settings              lot 5: default language, pages, style, formats, personalization
+    /cv_upload                lot 5: read an existing CV (PDF/DOCX) and propose its new lines as facts to confirm
 
-Buttons pf:<id>:ok (confirm), pf:<id>:no (reject), pf:<id>:undo (back to "to confirm").
+Conversation (lot 5): after a CV, a short message such as "en anglais, une page" or "mets en avant Nexya"
+(or a reply to the CV's message) creates the next version. "J'ai obtenu…" proposes a profile fact instead.
+
+Buttons pf:<id>:ok|no|undo (profile facts); cvh/cvf (history); on a CV: cvr regenerate, cve edit,
+cvs style, cvl language, cvp PDF, cvd DOCX, cvk save; cvo settings.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections import Counter
+from pathlib import Path
 from html import escape
 from typing import TYPE_CHECKING
 
@@ -33,13 +42,28 @@ COMMANDS = [
     ("cv", "Créer un CV adapté (PDF + DOCX) : /cv <offre ou demande>"),
     ("cv_history", "CV générés et leurs versions"),
     ("cv_analyze", "Analyse d'une demande de CV ou d'une offre (sans générer)"),
+    ("cv_settings", "Réglages CV : langue, pages, style, formats"),
+    ("cv_upload", "Importer un CV existant pour enrichir ton profil"),
 ]
 HELP = ("\n\n<b>Profil CV</b> : /cv_profile montre ce qui est vérifié et ce qui attend ta confirmation. "
         "/cv_profile add &lt;texte&gt; propose un nouveau fait ; rien n'est enregistré sans « Confirmer ». "
         "/cv_analyze &lt;offre ou demande&gt; montre comment je comprends la demande. "
-        "/cv &lt;offre ou demande&gt; génère le CV en PDF et DOCX.")
+        "/cv &lt;offre ou demande&gt; génère le CV en PDF et DOCX ; ensuite, écris simplement la modification "
+        "(« en anglais, une page », « mets en avant Nexya », « retire Amundi ») pour une nouvelle version. "
+        "/cv_history, /cv_settings, /cv_upload.")
+AWAIT_TTL_S = 15 * 60          # how long /cv, ✏️ Modifier or /cv_upload wait for the next message
+ACTIVE_TTL_S = 2 * 3600        # how long a short message may still edit the last CV
+EDIT_EXAMPLES = ("Exemples : « en anglais, une page », « mets davantage en avant mon projet de robotique », "
+                 "« retire Amundi », « style ATS », « pour un poste de Sales Engineer ».")
 MAX_PENDING_BUTTONS = 12
 ADD_WORDS = {"add", "ajouter", "ajoute", "+"}
+
+
+def version_buttons(vid: int, saved: bool = False) -> list[list[dict[str, str]]]:
+    return [[{"text": "🔁 Regénérer", "callback_data": f"cvr:{vid}"}, {"text": "✏️ Modifier", "callback_data": f"cve:{vid}"}],
+            [{"text": "🎨 Style", "callback_data": f"cvs:{vid}"}, {"text": "🌐 Langue", "callback_data": f"cvl:{vid}"}],
+            [{"text": "📄 PDF", "callback_data": f"cvp:{vid}"}, {"text": "📝 DOCX", "callback_data": f"cvd:{vid}"},
+             {"text": "⭐ Sauvegardée" if saved else "⭐ Sauvegarder", "callback_data": f"cvk:{vid}"}]]
 
 
 def fact_buttons(fact_id: int) -> list[list[dict[str, str]]]:
@@ -52,6 +76,11 @@ class CVBot:
         self.bot = bot
         self._seeded = False
         self._lock = threading.Lock()
+        self._await: tuple[str, int | None, float] | None = None     # (request | edit | upload, version id, since)
+        self.buffer_wait_s = 4.0
+        self._buf: list[str] = []
+        self._buf_timer: threading.Timer | None = None
+        self._buf_lock = threading.Lock()
 
     def _store(self, session) -> ProfileStore:  # noqa: ANN001
         store = ProfileStore(session)
@@ -80,6 +109,14 @@ class CVBot:
             return True
         if cmd == "cv_history":
             self.history(args)
+            return True
+        if cmd == "cv_settings":
+            self.show_settings()
+            return True
+        if cmd == "cv_upload":
+            self._await = ("upload", None, time.time())
+            self.bot.send("📎 Envoie ton CV en PDF ou DOCX (10 Mo max). Je lis ses lignes et je te propose celles "
+                          "que ton profil n'a pas encore ; rien n'est ajouté sans ta confirmation.")
             return True
         if cmd != "cv_profile":
             return False
@@ -153,14 +190,141 @@ class CVBot:
 
     def generate(self, text: str, background: bool = True) -> None:
         if not text.strip():
-            self.bot.send("Envoie-moi une offre d'emploi, un métier, une entreprise ou simplement le type de CV voulu, "
-                          "après la commande. Exemple :\n/cv stage AI Business Development à Singapour")
+            self._await = ("request", None, time.time())
+            self.bot.send("Envoie-moi une offre d'emploi, un métier, une entreprise ou simplement le type de CV que tu "
+                          "souhaites créer.")
             return
         self.bot.send("⏳ Analyse en cours…")
         if background:
-            threading.Thread(target=self._generate, args=(text,), daemon=True, name="cv-builder").start()
+            self._collect(text)       # Telegram splits a long posting: the next parts join this one
         else:
             self._generate(text)
+
+    def _collect(self, text: str) -> None:
+        with self._buf_lock:
+            self._buf.append(text)
+            if self._buf_timer:
+                self._buf_timer.cancel()
+            self._buf_timer = threading.Timer(self.buffer_wait_s, self._flush)
+            self._buf_timer.daemon = True
+            self._buf_timer.start()
+
+    def _flush(self) -> None:
+        with self._buf_lock:
+            text, self._buf, self._buf_timer = "\n".join(self._buf), [], None
+        if text.strip():
+            self._generate(text)
+
+    # Conversation ---------------------------------------------------------------------------------
+
+    def handle_text(self, text: str, reply_to: int | None = None) -> bool:
+        """Free text that belongs to the CV builder. False leaves it to the rest of the bot."""
+        from summer_hunter.collectors.link_ingest import first_url
+        from summer_hunter.database.repository import Repository
+
+        text = text.strip()
+        if not text or text.startswith("/"):
+            return False
+        now = time.time()
+        if reply_to:
+            with self.bot.session_factory() as session:
+                vid = Repository(session).get_kv(f"cv_msg:{reply_to}")
+            if vid:
+                self.edit(int(vid), text)
+                return True
+        with self._buf_lock:
+            collecting = bool(self._buf)
+        if collecting:
+            self._collect(text)
+            return True
+        waiting = self._await if self._await and now - self._await[2] < AWAIT_TTL_S else None
+        if waiting:
+            kind, vid, _ = waiting
+            if kind == "request":
+                self._await = None
+                self.bot.send("⏳ Analyse en cours…")
+                self._collect(text)
+                return True
+            if kind == "edit" and vid:
+                self._await = None
+                self.edit(vid, text)
+                return True
+            if kind == "upload":
+                self.bot.send("J'attends un fichier PDF ou DOCX (ton CV), pas du texte. /cv_upload pour recommencer.")
+                self._await = None
+                return True
+        with self.bot._paste_lock:
+            if self.bot._paste_parts:         # the next part of a posting being pasted, not an edit
+                return False
+        active = self._active()
+        if active and len(text) < 400 and not first_url(text):
+            from summer_hunter.cv_builder import edits
+
+            e = edits.parse(text)
+            if not e.empty:
+                self.edit(active, text, e)
+                return True
+        return False
+
+    def _active(self) -> int | None:
+        from summer_hunter.database.repository import Repository
+
+        with self.bot.session_factory() as session:
+            raw = Repository(session).get_kv("cv_active") or ""
+        vid, _, since = raw.partition(":")
+        if vid.isdigit() and since.replace(".", "").isdigit() and time.time() - float(since) < ACTIVE_TTL_S:
+            return int(vid)
+        return None
+
+    def edit(self, vid: int, text: str, e=None, background: bool = True) -> None:  # noqa: ANN001
+        from summer_hunter.cv_builder import edits
+
+        e = e or edits.parse(text)
+        if e.facts:
+            with self.bot.session_factory() as session:
+                store = self._store(session)
+                for fact in e.facts:
+                    self._propose(store, fact)
+                session.commit()
+            self.bot.send("Une fois le fait confirmé, appuie sur 🔁 Regénérer sous le CV pour l'intégrer.")
+        if not e.overrides:
+            if not e.facts:
+                self.bot.send("Je n'ai pas compris la modification. " + EDIT_EXAMPLES)
+            return
+        self.bot.send("✏️ Nouvelle version : " + escape("; ".join(e.understood)) + "…")
+        args = (vid, text[:300], dict(e.overrides))
+        if background:
+            threading.Thread(target=self._derive, args=args, daemon=True, name="cv-edit").start()
+        else:
+            self._derive(*args)
+
+    def _derive(self, vid: int, change: str, overrides: dict) -> None:  # noqa: ANN001
+        from summer_hunter.cv_builder.intent import CVRequest, classify_family, context_from
+
+        with self._lock:
+            try:
+                with self.bot.session_factory() as session:
+                    vs = self.versions(session)
+                    parent = vs.get(vid)
+                    if parent is None:
+                        self.bot.send("Version introuvable.")
+                        return
+                    if "target_role" in overrides:      # a new role re-targets family and track, nothing else
+                        ctx = context_from(self.bot.settings, session)
+                        family = classify_family(ctx, overrides["target_role"], "", False)
+                        overrides["family"] = family
+                        overrides["track"] = ("industry" if family in set(ctx.cv_content.get("industry_families", []))
+                                              else "product" if family in set(ctx.cv_content.get("product_families", []))
+                                              else "business")
+                    row, res = vs.derive(parent, self._store(session).confirmed(), change, **overrides)
+                    session.commit()
+                    tag, req, rid = label(row), CVRequest.from_dict(row.request), row.id
+            except Exception:  # noqa: BLE001
+                log.exception("cv edit failed")
+                self.bot.send("❌ Modification impossible (erreur interne, voir les logs).")
+                return
+        log.info("cv edited", extra={"cv": tag, "fields": sorted(overrides)})
+        self.deliver(req, res, tag, rid)
 
     def versions(self, session):  # noqa: ANN001, ANN201
         from summer_hunter.cv_builder.versions import VersionStore
@@ -174,21 +338,45 @@ class CVBot:
             try:
                 with self.bot.session_factory() as session:
                     store = self._store(session)
+                    from summer_hunter.cv_builder import prefs
+                    from summer_hunter.database.repository import Repository
+
                     req = analyze(text, context_from(self.bot.settings, session))
+                    req = prefs.apply(req, prefs.load(Repository(session)), text)
                     row, res = self.versions(session).create(req, store.confirmed())
                     session.commit()
-                    tag = label(row)
+                    tag, rid = label(row), row.id
             except Exception:  # noqa: BLE001 - a failed build must answer, never crash the bot
                 log.exception("cv build failed")
                 self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
                 return
         log.info("cv built", extra={"cv": tag, "mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
-        self.deliver(req, res, tag)
+        self.deliver(req, res, tag, rid)
 
-    def deliver(self, req, res, tag: str) -> None:  # noqa: ANN001
-        self.bot.send(summary_card(req, res, tag))
-        self._send_files([p for p in (res.pdf_path, res.docx_path) if p])
-        self.bot.send(optimization_report(req, res))
+    def deliver(self, req, res, tag: str, vid: int | None = None) -> None:  # noqa: ANN001
+        from summer_hunter.cv_builder import prefs
+        from summer_hunter.database.repository import Repository
+
+        with self.bot.session_factory() as session:
+            wanted = prefs.formats(prefs.load(Repository(session)))
+        ids = [self._send_id(summary_card(req, res, tag))]
+        self._send_files([p for p, fmt in ((res.pdf_path, "pdf"), (res.docx_path, "docx")) if p and fmt in wanted])
+        ids.append(self._send_id(optimization_report(req, res), version_buttons(vid) if vid else None))
+        if vid:
+            with self.bot.session_factory() as session:
+                repo = Repository(session)
+                for mid in ids:
+                    if mid:
+                        repo.set_kv(f"cv_msg:{mid}", str(vid))      # a reply to these messages edits this version
+                repo.set_kv("cv_active", f"{vid}:{time.time():.0f}")
+                session.commit()
+
+    def _send_id(self, text: str, buttons=None) -> int | None:  # noqa: ANN001
+        try:
+            return self.bot.telegram.send_message(self.bot.chat_id, text, buttons)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("send failed", extra={"error": str(exc)})
+            return None
 
     def _send_files(self, paths) -> None:  # noqa: ANN001
         for path in paths:
@@ -242,6 +430,65 @@ class CVBot:
         log.info("cv request analyzed", extra={"mode": req.mode, "family": req.family, "track": req.track})
         self.bot.send(describe(req))
 
+    # Settings ------------------------------------------------------------------------------------
+
+    def show_settings(self) -> None:
+        from summer_hunter.cv_builder import prefs
+        from summer_hunter.database.repository import Repository
+
+        with self.bot.session_factory() as session:
+            current = prefs.load(Repository(session))
+        lines = ["⚙️ <b>Réglages CV</b> (une demande explicite passe toujours avant)"]
+        lines += [f"{prefs.LABEL_FR[k]} : <b>{escape(prefs.VALUE_FR.get(v, v))}</b>" for k, v in current.items()]
+        lines.append("<i>Styles Modern Professional et Consulting / Business : pas encore disponibles.</i>")
+        buttons = [[{"text": f"↻ {prefs.LABEL_FR[k]}", "callback_data": f"cvo:0:{k}"}] for k in current]
+        self.bot.send("\n".join(lines), buttons)
+
+    # Upload --------------------------------------------------------------------------------------
+
+    def receive_document(self, document: dict) -> bool:
+        """A CV sent as PDF or DOCX: read it and propose its new lines. False for other files."""
+        name = str(document.get("file_name") or "")
+        suffix = Path(name).suffix.lower()
+        if suffix not in {".pdf", ".docx"}:
+            return False
+        self._await = None
+        if int(document.get("file_size") or 0) > 10_000_000:
+            self.bot.send("Fichier trop gros (10 Mo maximum).")
+            return True
+        from summer_hunter.cv_builder.upload import extract_text, novel_lines
+
+        tmp = self.bot.settings.data_dir / "cv_builder" / "uploads" / f"{time.time_ns()}{suffix}"
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.bot.telegram.download_file(document["file_id"], tmp)
+            text = extract_text(tmp)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cv upload failed", extra={"error": type(exc).__name__})
+            self.bot.send("Lecture du CV impossible (fichier illisible ou protégé).")
+            return True
+        finally:
+            tmp.unlink(missing_ok=True)       # personal data: the copy never outlives the reading
+        with self.bot.session_factory() as session:
+            store = self._store(session)
+            known = _all_strings(self._cv()) + [f.text for f in store.facts()]
+            lines = novel_lines(text, known)
+            created = []
+            for line in lines:
+                proposal = store.propose(line, source="CV importé")
+                if proposal.created:
+                    created.append(proposal.fact)
+            session.commit()
+        log.info("cv upload read", extra={"proposed": len(created)})
+        if not created:
+            self.bot.send("📄 CV lu : rien de nouveau par rapport à ton profil.")
+            return True
+        self.bot.send(f"📄 CV lu : {len(created)} ligne(s) absentes de ton profil. Confirme seulement ce qui est exact ; "
+                      "le reste ne sera jamais affiché sur un CV.")
+        for f in created:
+            self.bot.send(f"#{f.id} <b>{escape(KIND_FR.get(f.kind, f.kind))}</b> : {escape(f.text)}", fact_buttons(f.id))
+        return True
+
     def _version_callback(self, cq: dict, action: str, ident: int) -> bool:
         self.bot.telegram.answer_callback(cq["id"])
         with self.bot.session_factory() as session:
@@ -261,11 +508,84 @@ class CVBot:
             self._send_files(files)
         return True
 
+    def _cv_button(self, cq: dict, action: str, vid: int, arg: str | None) -> bool:
+        from summer_hunter.cv_builder.document import STYLES
+        from summer_hunter.cv_builder.edits import Edit
+
+        tg = self.bot.telegram
+        with self.bot.session_factory() as session:
+            vs = self.versions(session)
+            row = vs.get(vid)
+            if row is None:
+                tg.answer_callback(cq["id"], "Version introuvable")
+                return True
+            tag, language, saved = label(row), row.language, row.saved
+            if action == "cvk":
+                vs.set_saved(vid, not saved)
+                session.commit()
+            files = {"cvp": row.pdf_path, "cvd": row.docx_path}
+        if action == "cvk":
+            tg.answer_callback(cq["id"], "Version sauvegardée ⭐" if not saved else "Sauvegarde retirée")
+            mid = (cq.get("message") or {}).get("message_id")
+            if mid:
+                try:
+                    tg.edit_buttons(self.bot.chat_id, mid, version_buttons(vid, not saved))
+                except Exception:  # noqa: BLE001
+                    pass
+            return True
+        tg.answer_callback(cq["id"])
+        if action in files:
+            path = Path(files[action]) if files[action] else None
+            if path and path.exists():
+                self._send_files([path])
+            else:
+                self.bot.send(f"{tag} : fichier absent du disque.")
+        elif action == "cve":
+            self._await = ("edit", vid, time.time())
+            self.bot.send(f"✏️ Écris la modification de {tag}. " + EDIT_EXAMPLES)
+        elif action == "cvr":
+            self._regenerate(vid)
+        elif action == "cvl":
+            other = "fr" if language == "en" else "en"
+            self.edit(vid, f"langue : {other}", Edit({"language": other}, [], [f"langue : {'français' if other == 'fr' else 'anglais'}"]))
+        elif action == "cvs":
+            if arg in STYLES:
+                self.edit(vid, f"style : {arg}", Edit({"style": arg}, [], [f"style : {STYLES[arg]}"]))
+            else:
+                buttons = [[{"text": name, "callback_data": f"cvs:{vid}:{sid}"} for sid, name in STYLES.items()]]
+                self.bot.send("🎨 Styles disponibles. Modern Professional et Consulting / Business arrivent plus tard.", buttons)
+        return True
+
+    def _regenerate(self, vid: int, background: bool = True) -> None:
+        """Same request, current profile (e.g. after confirming a fact): a new version, nothing else changes."""
+        self.bot.send("🔁 Régénération avec ton profil à jour…")
+        args = (vid, "régénération (profil à jour)", {})
+        if background:
+            threading.Thread(target=self._derive, args=args, daemon=True, name="cv-regen").start()
+        else:
+            self._derive(*args)
+
     # Callbacks ------------------------------------------------------------------------------------
 
     def handle_callback(self, cq: dict, action: str, parts: list[str]) -> bool:
         if action in {"cvh", "cvf"}:
             return self._version_callback(cq, action, int(parts[1]))
+        if action in {"cvr", "cve", "cvs", "cvl", "cvp", "cvd", "cvk"}:
+            return self._cv_button(cq, action, int(parts[1]), parts[2] if len(parts) > 2 else None)
+        if action == "cvo" and len(parts) == 3:
+            from summer_hunter.cv_builder import prefs
+            from summer_hunter.database.repository import Repository
+
+            with self.bot.session_factory() as session:
+                try:
+                    prefs.cycle(Repository(session), parts[2])
+                except KeyError:
+                    self.bot.telegram.answer_callback(cq["id"], "Réglage inconnu")
+                    return True
+                session.commit()
+            self.bot.telegram.answer_callback(cq["id"], "Réglage modifié")
+            self.show_settings()
+            return True
         if action != "pf" or len(parts) != 3 or parts[2] not in {"ok", "no", "undo"}:
             return False
         status = {"ok": USER_CONFIRMED, "no": REJECTED, "undo": INFERRED}[parts[2]]
@@ -372,3 +692,16 @@ def optimization_report(req, res) -> str:  # noqa: ANN001
         lines.append("\n<b>Questions</b>")
         lines += [f"{i}. {escape(q)}" for i, q in enumerate(req.questions, 1)]
     return "\n".join(lines)
+
+
+def _all_strings(node) -> list[str]:  # noqa: ANN001
+    out: list[str] = []
+    if isinstance(node, str):
+        out.append(node)
+    elif isinstance(node, dict):
+        for v in node.values():
+            out += _all_strings(v)
+    elif isinstance(node, list):
+        for v in node:
+            out += _all_strings(v)
+    return out

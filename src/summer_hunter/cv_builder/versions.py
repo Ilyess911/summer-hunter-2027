@@ -21,7 +21,8 @@ from summer_hunter.cv_builder.document import Rendered, build
 from summer_hunter.cv_builder.intent import CVRequest
 from summer_hunter.database.models import CVVersion
 
-EDITABLE = {"language", "pages", "style", "emphasis", "target_role", "company", "country_code", "track", "family"}
+EDITABLE = {"language", "pages", "style", "emphasis", "exclude", "target_role", "company", "country_code", "track",
+            "family", "personalization"}
 
 
 def label(v: CVVersion) -> str:
@@ -109,6 +110,8 @@ class VersionStore:
         req = CVRequest.from_dict(parent.request)
         if "emphasis" in overrides:
             overrides["emphasis"] = list(dict.fromkeys([*overrides["emphasis"], *req.emphasis]))[:3]
+        if "exclude" in overrides:
+            overrides["exclude"] = list(dict.fromkeys([*req.exclude, *overrides["exclude"]]))[:6]
         if "language" in overrides:
             overrides.setdefault("language_reason", "modification demandée")
         req = replace(req, **overrides)

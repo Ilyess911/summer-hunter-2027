@@ -117,6 +117,7 @@ summer-hunter-2027/
 | [docs/INDUSTRY_TRACK.md](docs/INDUSTRY_TRACK.md) | Piste Industrie & Robotique, recruitability, priorité industrielle |
 | [docs/CRM.md](docs/CRM.md) | Suivi des candidatures, statuts, Excel, relances, documents |
 | [docs/OS.md](docs/OS.md) | Summer Hunter OS : CRM web, networking, messages LinkedIn, mode hébergé |
+| [docs/CV_BUILDER.md](docs/CV_BUILDER.md) | AI CV Builder : /cv, profil vérifié, retouches par message, versions PDF + DOCX |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Pannes courantes et diagnostics |
 
 ## Démarrage

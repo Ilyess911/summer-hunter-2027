@@ -111,7 +111,8 @@ class Bot:
             log.warning("message from unauthorized chat ignored")
             return
         if msg.get("document"):
-            self.crm.receive_document(msg["document"])
+            if not self.cvb.receive_document(msg["document"]):     # a CV (PDF/DOCX) for the profile, else CRM
+                self.crm.receive_document(msg["document"])
             return
         text = (msg.get("text") or "").strip()
         reply_to = (msg.get("reply_to_message") or {}).get("message_id")
@@ -132,6 +133,8 @@ class Bot:
 
                 self.queue_paste(text, pasted_for or None)
                 return
+        if text and not text.startswith("/") and self.cvb.handle_text(text, reply_to):
+            return                          # CV builder: awaited request, edit of the last CV, or reply to a CV
         if text.startswith("/"):
             head, _, args = text.partition(" ")
             self.handle_command(head[1:].split("@")[0].lower(), args)
