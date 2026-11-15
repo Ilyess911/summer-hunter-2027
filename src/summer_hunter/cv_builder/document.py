@@ -127,6 +127,18 @@ def ranked_extras(content: dict[str, Any], cv: dict[str, Any], req: CVRequest) -
     return [p for sc, p in sorted(scored, key=lambda sp: -sp[0]) if sc >= 1]
 
 
+def request_target_line(req: CVRequest, content: dict[str, Any]) -> str:
+    """'Seeking a Business Development internship at the French Chamber of Commerce in Singapore from April 2027.'"""
+    from summer_hunter.cv_builder.email import _the
+
+    role = re.sub(r"(?i)\b(intern(ship)?|stage|stagiaire)\b", "", req.target_role or "")
+    role = re.sub(r"\s{2,}", " ", role).strip(" -–,&")
+    what = f"{role} internship" if role else "internship"
+    article = "an" if what[:1].lower() in "aeio" else "a"
+    start = content.get("start_label", "April 2027")
+    return f"Seeking {article} {what} at {_the(req.company or '')} from {start}."
+
+
 def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tuple[dict[str, Any], list[str]]:
     """Tailored CV dict for the request, with the candidate-confirmed facts placed where they belong."""
     notes: list[str] = []
@@ -141,7 +153,12 @@ def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tu
             content.setdefault("projects", []).append({"name": name.strip(), "tags": sorted(_expand(f.text)),
                                                        "bullets": [{"text": _sentence(detail or name)}], "confirmed_fact": True})
     company = "" if req.personalization == "light" else (req.company or "")     # light: no targeted sentence
-    cv = cvmod.tailor(content, req.target_role or "", _job_text(req), req.family, company, track=req.track)
+    # A posting gets the hunter's targeted sentence (its own themes); a free request gets a plain one, because its
+    # text is instructions, not the employer's themes.
+    cv = cvmod.tailor(content, req.target_role or "", _job_text(req), req.family, company if req.mode == "offer" else "",
+                      track=req.track)
+    if company and req.mode != "offer":
+        cv["summary"] = f"{cv.get('summary', '').rstrip()} {request_target_line(req, content)}".strip()
     cv["recipient"] = company or None          # the only organisation the CV addresses (checked before delivery)
     keys = _tokens(f"{req.target_role or ''} {_job_text(req)}")
     _place_confirmed(cv, confirmed, keys, notes)
