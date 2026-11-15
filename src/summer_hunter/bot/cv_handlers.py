@@ -3,6 +3,7 @@
     /cv_profile               overview: verified facts by kind, confirmed additions, facts awaiting confirmation
     /cv_profile all           every verified claim from the approved CV and profile
     /cv_profile add <texte>   propose a new fact ("J'ai obtenu une certification IBM"); stored only after Confirmer
+    /cv <texte>               lot 3: generate the tailored CV (PDF + DOCX) with an optimization report
     /cv_analyze <texte>       lot 2: how a request or posting is understood (role, company, country, language, requirements)
 
 Buttons pf:<id>:ok (confirm), pf:<id>:no (reject), pf:<id>:undo (back to "to confirm").
@@ -11,7 +12,9 @@ Buttons pf:<id>:ok (confirm), pf:<id>:no (reject), pf:<id>:undo (back to "to con
 from __future__ import annotations
 
 import logging
+import threading
 from collections import Counter
+from datetime import datetime
 from html import escape
 from typing import TYPE_CHECKING
 
@@ -25,11 +28,13 @@ log = logging.getLogger(__name__)
 
 COMMANDS = [
     ("cv_profile", "Profil CV permanent : voir, confirmer, ajouter un fait"),
+    ("cv", "Créer un CV adapté (PDF + DOCX) : /cv <offre ou demande>"),
     ("cv_analyze", "Analyse d'une demande de CV ou d'une offre (sans générer)"),
 ]
 HELP = ("\n\n<b>Profil CV</b> : /cv_profile montre ce qui est vérifié et ce qui attend ta confirmation. "
         "/cv_profile add &lt;texte&gt; propose un nouveau fait ; rien n'est enregistré sans « Confirmer ». "
-        "/cv_analyze &lt;offre ou demande&gt; montre comment je comprends la demande.")
+        "/cv_analyze &lt;offre ou demande&gt; montre comment je comprends la demande. "
+        "/cv &lt;offre ou demande&gt; génère le CV en PDF et DOCX.")
 MAX_PENDING_BUTTONS = 12
 ADD_WORDS = {"add", "ajouter", "ajoute", "+"}
 
@@ -65,6 +70,9 @@ class CVBot:
     def handle_command(self, cmd: str, args: str) -> bool:
         if cmd == "cv_analyze":
             self.analyze(args)
+            return True
+        if cmd == "cv":
+            self.generate(args)
             return True
         if cmd != "cv_profile":
             return False
@@ -135,6 +143,42 @@ class CVBot:
                       f"<b>{escape(KIND_FR.get(f.kind, f.kind))}</b> : {escape(f.text)}\n\n"
                       "<i>Tant qu'il n'est pas confirmé, il ne sera jamais affiché comme un fait sur un CV.</i>",
                       fact_buttons(f.id))
+
+    def generate(self, text: str, background: bool = True) -> None:
+        if not text.strip():
+            self.bot.send("Envoie-moi une offre d'emploi, un métier, une entreprise ou simplement le type de CV voulu, "
+                          "après la commande. Exemple :\n/cv stage AI Business Development à Singapour")
+            return
+        self.bot.send("⏳ Analyse en cours…")
+        if background:
+            threading.Thread(target=self._generate, args=(text,), daemon=True, name="cv-builder").start()
+        else:
+            self._generate(text)
+
+    def _generate(self, text: str) -> None:
+        from summer_hunter.cv_builder.document import build
+        from summer_hunter.cv_builder.intent import analyze, context_from
+
+        try:
+            with self.bot.session_factory() as session:
+                store = self._store(session)
+                req = analyze(text, context_from(self.bot.settings, session))
+                confirmed = store.confirmed()
+            out_dir = self.bot.settings.data_dir / "cv_builder" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+            res = build(self.bot.settings.config_dir, out_dir, req, confirmed)
+        except Exception:  # noqa: BLE001 - a failed build must answer, never crash the bot
+            log.exception("cv build failed")
+            self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
+            return
+        log.info("cv built", extra={"mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
+        self.bot.send(summary_card(req, res))
+        for path in (res.pdf_path, res.docx_path):
+            if path:
+                try:
+                    self.bot.telegram.send_document(self.bot.chat_id, path, path.stem)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("sendDocument failed", extra={"error": str(exc)})
+        self.bot.send(optimization_report(req, res))
 
     def analyze(self, text: str) -> None:
         from summer_hunter.cv_builder.intent import analyze, context_from
@@ -211,6 +255,49 @@ def describe(req) -> str:  # noqa: ANN001 - CVRequest
                      + escape(", ".join(req.expected_skills)))
     if req.keywords:
         lines.append("Mots-clés ATS : " + escape(", ".join(req.keywords)))
+    if req.questions:
+        lines.append("\n<b>Questions</b>")
+        lines += [f"{i}. {escape(q)}" for i, q in enumerate(req.questions, 1)]
+    return "\n".join(lines)
+
+
+def summary_card(req, res) -> str:  # noqa: ANN001
+    head = "✅ <b>CV GÉNÉRÉ</b>" if res.ok else "⚠️ <b>CV GÉNÉRÉ, À VÉRIFIER</b>"
+    return "\n".join([head, "",
+                      f"Poste : {escape(req.target_role or 'non précisé')}",
+                      f"Entreprise : {escape(req.company or 'non précisée')}",
+                      f"Lieu : {escape(req.location if req.country_code else 'non précisé')}",
+                      f"Langue : {'anglais' if req.language == 'en' else 'français'}",
+                      f"Format : {res.pages or '?'} page{'s' if (res.pages or 1) > 1 else ''}, style ATS Classic",
+                      f"Fichiers : {escape(res.stem)}.pdf / .docx"])
+
+
+def optimization_report(req, res) -> str:  # noqa: ANN001
+    from summer_hunter.cv_builder.document import _norm, blocks
+
+    shown = _norm(" ".join(t for _, t in blocks(res.cv)))
+    lines = ["📊 <b>Rapport d'optimisation</b>"]
+    strengths = [e.get("org", "").split(" -- ")[0] for e in res.cv.get("experiences", [])[:2]]
+    strengths += [p.get("name", "").split(" -- ")[0] for p in res.cv.get("projects", [])[:2]]
+    lines.append("• Mis en avant : " + escape(", ".join(s for s in strengths if s)))
+    kw = [k for k in req.keywords if _norm(k) and _norm(k) in shown]
+    if kw:
+        lines.append("• Mots-clés présents : " + escape(", ".join(kw[:10])))
+    if req.mode == "offer":
+        missing = [r for r in req.requirements if r.coverage == "missing" and r.level == "mandatory"]
+        partial = [r for r in req.requirements if r.coverage in {"partial", "to_confirm"}]
+        if missing:
+            lines.append("• Exigences non couvertes (jamais ajoutées) : " + escape(", ".join(r.name for r in missing)))
+        if partial:
+            lines.append("• Partielles ou à confirmer : " + escape(", ".join(r.name for r in partial)))
+    gaps = res.cv.get("gaps") or []
+    if gaps:
+        lines.append("• L'offre cite, ton CV ne montre pas : " + escape(", ".join(gaps)))
+    for n in res.notes:
+        lines.append("• " + escape(n))
+    failed = [c for c in res.checks if not c.ok]
+    lines.append("• Contrôles : " + ("tous OK (dates, sections, faits vérifiés, pages, PDF = DOCX)" if not failed
+                                    else escape("; ".join(f"{c.name} : {c.detail}" for c in failed))))
     if req.questions:
         lines.append("\n<b>Questions</b>")
         lines += [f"{i}. {escape(q)}" for i, q in enumerate(req.questions, 1)]

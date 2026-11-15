@@ -229,9 +229,9 @@ def _summary(over: dict[str, Any], default: str, job_text: str) -> str:
 
 
 def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: str | None,
-           company: str = "") -> dict[str, Any]:
+           company: str = "", track: str | None = None) -> dict[str, Any]:
     keys = _tokens(job_title + " " + role_text(job_text)) | set(FAMILY_KEYWORDS.get(job_family or "", "").split())
-    track = track_for(content, job_family, job_title + " " + job_text)
+    track = track or track_for(content, job_family, job_title + " " + job_text)
     over = (content.get("tracks") or {}).get(track, {})
     headlines = content.get("headlines", {})
     out = dict(content)
