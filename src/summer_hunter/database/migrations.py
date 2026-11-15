@@ -68,6 +68,8 @@ ADDED_COLUMNS = [
     ("crm_contacts", "category", "VARCHAR(30)"),
     ("crm_contacts", "verification", "VARCHAR(20)"),
     ("crm_contacts", "dismissed", "BOOLEAN"),
+    # 16 Nov 2026: AI CV Builder in the Mini App (report notes per version)
+    ("cv_versions", "notes", "JSON"),
 ]
 
 

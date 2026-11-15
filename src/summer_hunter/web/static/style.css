@@ -132,7 +132,8 @@ input { font-size: 16px; }
   box-shadow: 0 2px 8px -2px rgb(0 0 0 / 0.25), inset 0 1px 0 var(--edge-top);
   transition: transform 280ms var(--ease-out), width 280ms var(--ease-out); }
 .segmented button { position: relative; z-index: 1; flex: 1 0 auto; border: 0; background: transparent; color: var(--muted);
-  padding: 7px 11px; border-radius: 11px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: color 160ms ease; }
+  padding: 7px 7px; border-radius: 11px; font-size: 13px; font-weight: 600; cursor: pointer; transition: color 160ms ease;
+  letter-spacing: -0.01em; }
 .segmented button.on { color: var(--text); }
 .chips-row { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
 .chips-row button { flex: none; border: 1px solid var(--edge); background: transparent; color: var(--muted);
@@ -236,6 +237,39 @@ details.desc summary::-webkit-details-marker { display: none; }
 details.desc div { white-space: pre-wrap; font-size: 13px; color: var(--muted); margin-top: 10px; max-height: 360px; overflow: auto; overscroll-behavior: contain; }
 .src { color: var(--faint); font-size: 12px; margin-top: 16px; text-align: center; }
 a { color: var(--link); text-decoration: none; }
+
+/* CV tab ------------------------------------------------------------------ */
+body.cvmode .search, body.cvmode #regions, body.cvmode #tracks, body.cvmode #count { display: none; }
+.cv-input { width: 100%; border: 1px solid var(--edge); border-radius: var(--r); background: var(--glass); color: var(--text);
+  font: inherit; font-size: 16px; padding: 12px 14px; outline: none; resize: vertical;
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.cv-input:focus { background: var(--glass-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.cv-input::placeholder { color: var(--faint); }
+textarea.cv-input { min-height: 104px; line-height: 1.45; }
+.cv-go { width: 100%; margin-top: 12px; }
+.cv-go:disabled { opacity: 0.6; }
+.cv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.cv-head > div { min-width: 0; }
+.cv-head .tag { flex: none; white-space: nowrap; }
+.cv-role { font-size: 19px; font-weight: 720; letter-spacing: -0.02em; line-height: 1.2; margin: 2px 0 3px; }
+.cv-acts { margin-top: 10px; }
+.cv-sub { margin-top: 16px !important; }
+.cv-edit { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.cv-edit .primary { padding: 0 18px; border-radius: var(--r); }
+.cv-report { padding-left: 18px; margin: 0; font-size: 13.5px; }
+.cv-report li { margin: 6px 0; }
+.cv-wait { display: flex; align-items: center; gap: 12px; color: var(--muted); font-weight: 600; padding: 10px 2px; }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--edge); border-top-color: var(--accent); flex: none; }
+.fact { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--edge); font-size: 14px; }
+.fact .n { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.fact-btns { display: flex; gap: 6px; }
+.mini { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--edge); background: var(--glass); font-weight: 800; cursor: pointer; }
+.mini.ok { color: var(--good); } .mini.bad { color: var(--bad); }
+.mini:active { transform: scale(0.94); }
+.hist + .hist { margin-top: 8px; }
+.hist .vers { margin-top: 6px; }
+@media (prefers-reduced-motion: no-preference) { .spin { animation: turn 0.8s linear infinite; } }
+@keyframes turn { to { transform: rotate(360deg); } }
 
 /* Toast: a glass pill from the bottom, interruptible ------------------------ */
 #toast { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); z-index: 9; max-width: calc(100% - 32px);

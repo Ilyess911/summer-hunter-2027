@@ -310,32 +310,20 @@ class CVBot:
             self._derive(*args)
 
     def _derive(self, vid: int, change: str, overrides: dict) -> None:  # noqa: ANN001
-        from summer_hunter.cv_builder.intent import CVRequest, classify_family, context_from
+        from summer_hunter.cv_builder import service
 
         with self._lock:
             try:
-                with self.bot.session_factory() as session:
-                    vs = self.versions(session)
-                    parent = vs.get(vid)
-                    if parent is None:
-                        self.bot.send("Version introuvable.")
-                        return
-                    if "target_role" in overrides:      # a new role re-targets family and track, nothing else
-                        ctx = context_from(self.bot.settings, session)
-                        family = classify_family(ctx, overrides["target_role"], "", False)
-                        overrides["family"] = family
-                        overrides["track"] = ("industry" if family in set(ctx.cv_content.get("industry_families", []))
-                                              else "product" if family in set(ctx.cv_content.get("product_families", []))
-                                              else "business")
-                    row, res = vs.derive(parent, self._store(session).confirmed(), change, **overrides)
-                    session.commit()
-                    tag, req, rid = label(row), CVRequest.from_dict(row.request), row.id
+                built = service.derive(self.bot.settings, self.bot.session_factory, vid, change, overrides)
             except Exception as exc:  # noqa: BLE001
                 log.error("cv edit failed", extra=safe_error(exc))
                 self.bot.send("❌ Modification impossible (erreur interne, voir les logs).")
                 return
-            log.info("cv edited", extra={"cv": tag, "fields": sorted(overrides)})
-            self.deliver(req, res, tag, rid)
+            if built is None:
+                self.bot.send("Version introuvable.")
+                return
+            log.info("cv edited", extra={"cv": built.tag, "fields": sorted(overrides)})
+            self.deliver(built.req, built.res, built.tag, built.version_id)
 
     def versions(self, session):  # noqa: ANN001, ANN201
         from summer_hunter.cv_builder.versions import VersionStore
@@ -343,26 +331,21 @@ class CVBot:
         return VersionStore(session, self.bot.settings.data_dir, self.bot.settings.config_dir)
 
     def _generate(self, text: str) -> None:
-        from summer_hunter.cv_builder.intent import analyze, context_from
+        from summer_hunter.cv_builder import service
 
-        with self._lock:              # one build at a time: version numbers and files stay consistent
+        with self._lock:              # one build at a time in this process; service.build_lock covers the Mini App
             try:
                 with self.bot.session_factory() as session:
-                    store = self._store(session)
-                    from summer_hunter.cv_builder import prefs
-                    from summer_hunter.database.repository import Repository
-
-                    req = analyze(text, context_from(self.bot.settings, session))
-                    req = prefs.apply(req, prefs.load(Repository(session)), text)
-                    row, res = self.versions(session).create(req, store.confirmed())
-                    session.commit()
-                    tag, rid = label(row), row.id
+                    self._store(session)
+                built = service.generate(self.bot.settings, self.bot.session_factory, text)
             except Exception as exc:  # noqa: BLE001 - a failed build must answer, never crash the bot
                 log.error("cv build failed", extra=safe_error(exc))
                 self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
                 return
-            log.info("cv built", extra={"cv": tag, "mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
-            self.deliver(req, res, tag, rid)      # under the lock: an older build can never become the active CV
+            req, res = built.req, built.res
+            log.info("cv built", extra={"cv": built.tag, "mode": req.mode, "family": req.family, "pages": res.pages,
+                                        "ok": res.ok})
+            self.deliver(req, res, built.tag, built.version_id)   # under the lock: an older build never becomes active
 
     def deliver(self, req, res, tag: str, vid: int | None = None) -> None:  # noqa: ANN001
         from summer_hunter.cv_builder import prefs
@@ -680,36 +663,22 @@ def summary_card(req, res, tag: str = "") -> str:  # noqa: ANN001
 
 
 def optimization_report(req, res) -> str:  # noqa: ANN001
-    from summer_hunter.cv_builder.document import _norm, blocks
+    from summer_hunter.cv_builder.service import report_items
 
-    shown = _norm(" ".join(t for _, t in blocks(res.cv)))
+    checks = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in res.checks]
     lines = ["📊 <b>Rapport d'optimisation</b>"]
-    strengths = [e.get("org", "").split(" -- ")[0] for e in res.cv.get("experiences", [])[:2]]
-    strengths += [p.get("name", "").split(" -- ")[0] for p in res.cv.get("projects", [])[:2]]
-    lines.append("• Mis en avant : " + escape(", ".join(s for s in strengths if s)))
-    kw = [k for k in req.keywords if _norm(k) and _norm(k) in shown]
-    if kw:
-        lines.append("• Mots-clés présents : " + escape(", ".join(kw[:10])))
-    if req.mode == "offer":
-        missing = [r for r in req.requirements if r.coverage == "missing" and r.level == "mandatory"]
-        partial = [r for r in req.requirements if r.coverage in {"partial", "to_confirm"}]
-        if missing:
-            lines.append("• Exigences non couvertes (jamais ajoutées) : " + escape(", ".join(r.name for r in missing)))
-        if partial:
-            lines.append("• Partielles ou à confirmer : " + escape(", ".join(r.name for r in partial)))
-    gaps = res.cv.get("gaps") or []
-    if gaps:
-        lines.append("• L'offre cite, ton CV ne montre pas : " + escape(", ".join(gaps)))
-    for n in res.notes:
-        lines.append("• " + escape(n))
-    failed = [c for c in res.checks if not c.ok]
-    lines.append("• Contrôles : " + ("tous OK (dates, sections, faits vérifiés, pages, PDF = DOCX)" if not failed
-                                    else escape("; ".join(f"{c.name} : {c.detail}" for c in failed))))
-    if req.questions:
+    questions = []
+    for label_, text in report_items(req, res.cv, checks, res.notes):
+        if label_ == "Question":
+            questions.append(text)
+        elif label_ == "Note":
+            lines.append("• " + escape(text))
+        else:
+            lines.append(f"• {escape(label_)} : {escape(text)}")
+    if questions:
         lines.append("\n<b>Questions</b>")
-        lines += [f"{i}. {escape(q)}" for i, q in enumerate(req.questions, 1)]
+        lines += [f"{i}. {escape(q)}" for i, q in enumerate(questions, 1)]
     return "\n".join(lines)
-
 
 def _all_strings(node) -> list[str]:  # noqa: ANN001
     out: list[str] = []

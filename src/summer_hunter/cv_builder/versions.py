@@ -85,7 +85,8 @@ class VersionStore:
                         target_role=req.target_role, company=req.company, country_code=req.country_code,
                         language=req.language, pages=res.pages, style=res.style, request=req.to_dict(), content=res.cv,
                         profile=profile_snapshot(self.config_dir, confirmed),
-                        checks=[{"name": c.name, "ok": c.ok, "detail": c.detail} for c in res.checks])
+                        checks=[{"name": c.name, "ok": c.ok, "detail": c.detail} for c in res.checks],
+                        notes=list(res.notes))
         self.s.add(row)
         self.s.flush()
         if row.lineage_id is None:

@@ -560,6 +560,7 @@ class CVVersion(Base):
     docx_path: Mapped[str | None] = mapped_column(String(500))
     tex_path: Mapped[str | None] = mapped_column(String(500))
     saved: Mapped[bool] = mapped_column(Boolean, default=False)       # pinned by the candidate ("Save Version")
+    notes: Mapped[list | None] = mapped_column(JSON, default=list)   # build notes shown in the report
 
 
 class KeyValue(Base):

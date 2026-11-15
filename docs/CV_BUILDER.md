@@ -32,6 +32,21 @@ Un PDF ou DOCX n'est lu comme un CV qu'après `/cv_upload` (un PDF peut être un
 doivent jamais entrer dans le profil ; les sections « Requirements », « Profil recherché »… sont de toute façon
 ignorées). Un `.xlsx` reste un import du CRM.
 
+## Mini App : onglet CV
+
+Le 6e onglet de la Mini App fait la même chose qu'au clavier : zone de texte (offre ou demande), puces
+Langue et Pages, bouton Générer, puis fiche du CV avec téléchargement PDF / DOCX, envoi dans le chat,
+Sauvegarder, Regénérer, changement de langue, retouches rapides (1 page, 2 pages, générique, ciblé) ou
+libres (« mets en avant Nexya »), rapport, profil (faits à confirmer ✓ / ✕, ajout d'un fait) et
+historique avec toutes les versions.
+
+API (`web/cv_api.py`, authentification Telegram initData sur `/api/`, liens signés sur `/files/`) :
+`POST /api/cv`, `GET /api/cv/history`, `GET|POST /api/cv/profile`, `POST /api/cv/profile/{id}`,
+`GET /api/cv/{id}`, `POST /api/cv/{id}/edit|regenerate|save|send`, `GET /files/cvb/{id}/pdf|docx`.
+
+Le bot et la Mini App sont deux processus : `cv_builder/service.py` porte la logique commune et sérialise
+les générations par un verrou de fichier (`data/cv_builder/.build.lock`).
+
 ## Chaîne
 
 ```

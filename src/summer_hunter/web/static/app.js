@@ -75,6 +75,8 @@ function card(o, i) {
 }
 
 async function loadList() {
+  document.body.classList.toggle("cvmode", state.view === "cv");
+  if (state.view === "cv") return renderCV();
   const list = $("#list");
   list.classList.remove("stagger");
   list.innerHTML = Array.from({ length: 5 }, () => `<div class="skeleton"></div>`).join("");
@@ -287,6 +289,194 @@ function closeDetail() {
   hideNativeButtons();
   history.replaceState(null, "", "#");
   loadList();
+}
+
+/* CV tab: AI CV Builder ---------------------------------------------------- */
+
+const cvState = { lang: "", pages: "", current: null, busy: false };
+const LANG = { en: "anglais", fr: "français" };
+
+function chipRow(id, items, on) {
+  return `<div class="chips-row" id="${id}">${items.map(([v, label]) =>
+    `<button data-v="${esc(v)}" class="${v === on ? "on" : ""}">${esc(label)}</button>`).join("")}</div>`;
+}
+
+function renderCV() {
+  const list = $("#list");
+  list.classList.remove("stagger");
+  list.innerHTML = `
+    <section class="block cv-new">
+      <h3>Nouveau CV</h3>
+      <textarea id="cvtext" class="cv-input" rows="4" maxlength="20000"
+        placeholder="Colle une offre, ou écris simplement : stage AI Business Development à Singapour"></textarea>
+      ${chipRow("cvlang", [["", "Langue auto"], ["en", "Anglais"], ["fr", "Français"]], cvState.lang)}
+      ${chipRow("cvpages", [["", "Pages auto"], ["1", "1 page"], ["2", "2 pages"]], cvState.pages)}
+      <button class="primary press cv-go" id="cvgo">Générer le CV</button>
+    </section>
+    <div id="cvres"></div>
+    <section class="block"><h3>Profil</h3><div id="cvprofile"><div class="x">Chargement…</div></div></section>
+    <section class="block"><h3>Historique</h3><div id="cvhist"><div class="x">Chargement…</div></div></section>`;
+  const pick = (id, key) => $(`#${id}`).addEventListener("click", (ev) => {
+    const b = ev.target.closest("button"); if (!b) return;
+    $(`#${id}`).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    cvState[key] = b.dataset.v; haptic();
+  });
+  pick("cvlang", "lang"); pick("cvpages", "pages");
+  $("#cvgo").onclick = createCV;
+  if (cvState.current) showVersion(cvState.current);
+  loadCVProfile(); loadCVHistory();
+}
+
+function busy(msg) {
+  cvState.busy = true;
+  $("#cvres").innerHTML = `<section class="block cv-result"><div class="cv-wait"><span class="spin"></span>${esc(msg)}</div></section>`;
+  $("#cvres").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function createCV() {
+  if (cvState.busy) return;
+  const text = $("#cvtext").value.trim();
+  if (!text) { toast("Décris le CV voulu ou colle une offre"); return; }
+  const btn = $("#cvgo"); btn.disabled = true; haptic("medium");
+  busy("Analyse et génération… quelques secondes");
+  try {
+    const v = await api("/api/cv", { method: "POST", body: JSON.stringify({ text, language: cvState.lang, pages: cvState.pages }) });
+    showVersion(v); toast(`${v.tag} prêt`); loadCVHistory();
+  } catch (e) { $("#cvres").innerHTML = `<section class="block"><div class="x">Erreur : ${esc(e.message)}</div></section>`; }
+  cvState.busy = false; btn.disabled = false;
+}
+
+function showVersion(v) {
+  cvState.current = v;
+  const meta = [v.company, v.location, LANG[v.language] || v.language, v.pages ? `${v.pages} page${v.pages > 1 ? "s" : ""}` : ""]
+    .filter(Boolean).join(" · ");
+  const report = (v.report || []).map((r) => r.label === "Note" ? `<li>${esc(r.text)}</li>`
+    : `<li><b>${esc(r.label)}</b> : ${esc(r.text)}</li>`).join("");
+  $("#cvres").innerHTML = `
+    <section class="block cv-result">
+      <div class="cv-head">
+        <div><div class="d-company">${esc(v.tag)}${v.change ? ` · ${esc(v.change)}` : ""}</div>
+          <div class="cv-role">${esc(v.role || "CV")}</div><div class="x">${esc(meta)}</div></div>
+        <span class="tag ${v.ok ? "ok" : "warn"}">${v.ok ? "Contrôles OK" : "À vérifier"}</span>
+      </div>
+      <div class="cv-files">
+        ${v.files.pdf ? `<button class="file press" data-dl="${esc(v.files.pdf)}"><span>📄 Télécharger le PDF</span><small>PDF</small></button>` : ""}
+        ${v.files.docx ? `<button class="file press" data-dl="${esc(v.files.docx)}"><span>📝 Télécharger le DOCX</span><small>Word</small></button>` : ""}
+        <button class="file press" id="cvsend"><span>💬 Recevoir dans le chat</span><small>Telegram</small></button>
+      </div>
+      <div class="row-actions cv-acts">
+        <button class="act ${v.saved ? "on" : ""}" id="cvsave">${ICONS.bookmark}${v.saved ? "Sauvegardée" : "Sauvegarder"}</button>
+        <button class="act" id="cvregen"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Regénérer</button>
+        <button class="act" id="cvlangsw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>${v.language === "en" ? "En français" : "En anglais"}</button>
+      </div>
+      <h3 class="cv-sub">Retouches</h3>
+      ${chipRow("cvquick", [["1 page", "1 page"], ["2 pages", "2 pages"], ["version générique", "Générique"], ["plus personnalisé", "Ciblé"]], "")}
+      <div class="cv-edit">
+        <input id="cvedit" class="cv-input" enterkeyhint="send" placeholder="Ex. mets en avant Nexya, retire Amundi" autocomplete="off">
+        <button class="primary press" id="cvapply">OK</button>
+      </div>
+      ${report ? `<h3 class="cv-sub">Rapport</h3><ul class="cv-report">${report}</ul>` : ""}
+    </section>`;
+  const box = $("#cvres");
+  box.querySelectorAll("[data-dl]").forEach((b) => b.onclick = () => download(b.dataset.dl));
+  $("#cvsend").onclick = async (ev) => {
+    const b = ev.currentTarget; b.disabled = true;
+    try { await api(`/api/cv/${v.id}/send`, { method: "POST", body: "{}" }); haptic("medium"); toast("Envoyé dans le chat"); }
+    catch (e) { toast(`Erreur : ${e.message}`); }
+    b.disabled = false;
+  };
+  $("#cvsave").onclick = async () => {
+    try { const r = await api(`/api/cv/${v.id}/save`, { method: "POST", body: "{}" }); v.saved = r.saved; haptic();
+      toast(r.saved ? "Version sauvegardée ⭐" : "Sauvegarde retirée"); showVersion(v); loadCVHistory(); }
+    catch (e) { toast(`Erreur : ${e.message}`); }
+  };
+  $("#cvregen").onclick = () => runCV(`/api/cv/${v.id}/regenerate`, {}, "Régénération avec ton profil à jour…");
+  $("#cvlangsw").onclick = () => editCV(v.language === "en" ? "en français" : "en anglais");
+  $("#cvquick").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) editCV(b.dataset.v); });
+  const apply = () => { const t = $("#cvedit").value.trim(); if (t) editCV(t); };
+  $("#cvapply").onclick = apply;
+  $("#cvedit").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); apply(); } });
+}
+
+async function runCV(path, body, msg) {
+  if (cvState.busy) return;
+  haptic("medium"); busy(msg);
+  try {
+    const r = await api(path, { method: "POST", body: JSON.stringify(body) });
+    const v = r.version || r;
+    showVersion(v); toast(`${v.tag} prêt`); loadCVHistory();
+    return r;
+  } catch (e) {
+    if (cvState.current) showVersion(cvState.current);
+    toast(`Erreur : ${e.message}`);
+  } finally { cvState.busy = false; }
+}
+
+async function editCV(text) {
+  if (cvState.busy || !cvState.current) return;
+  const v = cvState.current;
+  haptic("medium"); busy(`Nouvelle version : ${text}…`);
+  try {
+    const r = await api(`/api/cv/${v.id}/edit`, { method: "POST", body: JSON.stringify({ text }) });
+    if (r.version) { showVersion(r.version); toast(`${r.version.tag} prêt`); loadCVHistory(); }
+    else { showVersion(v); }
+    if (r.facts && r.facts.length) { toast("Fait proposé : confirme-le dans Profil"); loadCVProfile(); }
+  } catch (e) {
+    showVersion(v);
+    toast(e.message.includes("non comprise") ? "Pas compris. Ex. : « en anglais », « 1 page », « mets en avant Nexya »" : `Erreur : ${e.message}`);
+  } finally { cvState.busy = false; }
+}
+
+async function loadCVProfile() {
+  const box = $("#cvprofile"); if (!box) return;
+  try {
+    const p = await api("/api/cv/profile");
+    const pending = p.pending.map((f) => `<div class="fact" data-id="${f.id}">
+        <div><div class="n">${esc(f.kind)}</div><div>${esc(f.text)}</div>${f.note ? `<div class="x">${esc(f.note)}</div>` : ""}</div>
+        <div class="fact-btns"><button class="mini ok" data-d="ok" aria-label="Confirmer">✓</button>
+          <button class="mini bad" data-d="no" aria-label="Faux">✕</button></div></div>`).join("");
+    box.innerHTML = `
+      ${pending ? `<div class="x" style="margin-bottom:8px">À confirmer : jamais affiché sur un CV avant ✓</div>${pending}`
+        : `<div class="x">Rien à confirmer.</div>`}
+      <div class="cv-edit" style="margin-top:12px">
+        <input id="cvfact" class="cv-input" placeholder="Ajouter un fait : certification IBM, stage…" autocomplete="off">
+        <button class="primary press" id="cvfactgo">+</button>
+      </div>
+      ${p.confirmed.length ? `<details class="desc" style="margin-top:12px"><summary>${p.confirmed.length} fait(s) confirmé(s)</summary>
+        <div>${p.confirmed.map((f) => `• ${esc(f.kind)} : ${esc(f.text)}`).join("\n")}</div></details>` : ""}`;
+    box.querySelectorAll(".fact").forEach((row) => row.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-d]"); if (!b) return;
+      try { await api(`/api/cv/profile/${row.dataset.id}`, { method: "POST", body: JSON.stringify({ decision: b.dataset.d }) });
+        haptic("medium"); toast(b.dataset.d === "ok" ? "Ajouté au profil" : "Retiré"); loadCVProfile(); }
+      catch (e) { toast(`Erreur : ${e.message}`); }
+    }));
+    const add = async () => {
+      const t = $("#cvfact").value.trim(); if (!t) return;
+      try { const r = await api("/api/cv/profile", { method: "POST", body: JSON.stringify({ text: t }) });
+        toast(r.created ? "Proposé : confirme-le avec ✓" : "Déjà dans ton profil"); loadCVProfile(); }
+      catch (e) { toast(`Erreur : ${e.message}`); }
+    };
+    $("#cvfactgo").onclick = add;
+    $("#cvfact").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); add(); } });
+  } catch (e) { box.innerHTML = `<div class="x">Profil indisponible : ${esc(e.message)}</div>`; }
+}
+
+async function loadCVHistory() {
+  const box = $("#cvhist"); if (!box) return;
+  try {
+    const { items } = await api("/api/cv/history");
+    box.innerHTML = items.length ? items.map((it) => `<div class="hist">
+        <button class="file press" data-open="${it.id}"><span>${esc(it.tag)} · ${esc(it.role || "CV")}${it.saved ? " ⭐" : ""}</span>
+          <small>${esc([it.company, it.location].filter(Boolean).join(" · ") || day(it.created))}</small></button>
+        ${it.versions.length > 1 ? `<div class="chips-row vers">${it.versions.map((x) =>
+          `<button data-open="${x.id}" title="${esc(x.change || "version initiale")}">v${x.version}${x.saved ? " ⭐" : ""}</button>`).join("")}</div>` : ""}
+      </div>`).join("") : `<div class="x">Aucun CV pour l'instant.</div>`;
+    box.querySelectorAll("[data-open]").forEach((b) => b.onclick = async () => {
+      try { const v = await api(`/api/cv/${b.dataset.open}`); haptic(); showVersion(v);
+        $("#cvres").scrollIntoView({ behavior: "smooth", block: "start" }); }
+      catch (e) { toast(`Erreur : ${e.message}`); }
+    });
+  } catch (e) { box.innerHTML = `<div class="x">Historique indisponible : ${esc(e.message)}</div>`; }
 }
 
 /* Wiring ------------------------------------------------------------------ */
