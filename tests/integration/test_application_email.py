@@ -300,3 +300,19 @@ def test_opus_is_the_configured_email_model(settings):
     os.environ.pop("SH_EMAIL_PROVIDER", None)
     with pytest.raises(LLMError, match="no ANTHROPIC_API_KEY"):
         ae.provider_from(settings.llm, None)                    # never silently paid without a key
+
+
+def test_durations_in_french_are_not_number_contradictions(env):
+    run, _ = env
+    fr = [GOOD[0], "Je cherche un stage de 3 à 5 mois entre avril et août 2027. " + GOOD[1], *GOOD[2:]]
+    provider = Scripted(draft(fr))
+    _, mail = run("Candidature spontanée à la CCI France UAE (Dubai) pour un stage Business Development", provider)
+    assert mail.model == "scripted-model"
+
+
+def test_technical_applications_do_not_get_the_business_goal(env):
+    run, _ = env
+    provider = Scripted(draft(GOOD))
+    run("Fais-moi un CV pour un stage Robotics Engineer chez une startup à Singapour.", provider)
+    goals = next(l for l in provider.prompts[0].splitlines() if l.startswith("GOALS"))
+    assert "business" not in goals.lower() and "first choice" in provider.prompts[0]

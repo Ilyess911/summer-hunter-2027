@@ -167,6 +167,9 @@ def build_strategy(cv: dict[str, Any], full_content: dict[str, Any], ctx: Applic
         if facts:
             evidence.append({"org": org, "angle": angle, "facts": " ".join(facts)})
     facts, source = organisation_facts(config_dir, ctx)
+    goals = list(v.get("goals") or [])
+    if thread in {"robotics", "industry"}:      # never force a move to business on a technical application
+        goals = [g for g in goals if "business" not in g.lower()]
     styles = list(v.get("opening_styles") or ["Open with the precise request, then justify it."])
     rng = rng or random.Random()
     style = rng.choice(styles)
@@ -176,7 +179,7 @@ def build_strategy(cv: dict[str, Any], full_content: dict[str, Any], ctx: Applic
     return Strategy(situation=situation, thread=thread, story=spec.get("story", ""), evidence=evidence[:3],
                     organisation_facts=facts, organisation_source=source,
                     differentiator=spec.get("differentiator", ""), ask=ASK.get(situation, ASK["spontaneous"]),
-                    goals=list(v.get("goals") or []), words=WORDS.get(situation, WORDS["spontaneous"]),
+                    goals=goals, words=WORDS.get(situation, WORDS["spontaneous"]),
                     opening_style=style, avoid_openings=list(recent_openings or [])[-8:], instructions=instructions,
                     skip=skip)
 
@@ -196,6 +199,8 @@ What a good email does:
 
 Hard rules:
 - Use only CANDIDATE FACTS, his GOALS and the ANGLES given. Never invent results, numbers, tools, responsibilities or titles. Do not turn participation into leadership.
+- Do not state preferences or feelings he has not given (a "first choice", a "dream", a ranking of countries or companies).
+- Keep the story line of this application: on a technical role, do not steer the email toward business unless the GOALS say so.
 - About the organisation, use only ORGANISATION FACTS. If there are none, do not describe its activities, values, products or reputation: speak about the field, the place and his project instead.
 - Never mention: {never}.
 - No greeting line and no signature: they are added separately. No bullet points.
@@ -313,10 +318,14 @@ def check(paragraphs: list[str], subject: str, st: Strategy, ctx: ApplicationCon
     if unknown:
         r.blocking.append(f"numbers not in the facts: {', '.join(sorted(unknown))}")
     # A number keeps the word it qualifies in the facts: '140 registrations' must not become '140 attendees'.
-    for m in re.finditer(r"(?<![A-Za-z0-9])(\d+(?:[.,]\d+)?)\s+(?:\w+\s+){0,1}?([a-zA-Z]{3,})", body):
+    units = {"months", "month", "mois", "weeks", "week", "semaines", "semaine", "years", "year", "ans", "an", "days",
+             "jours", "and", "to", "et", "à"}
+    for m in re.finditer(r"(?<![A-Za-z0-9])(\d+(?:[.,]\d+)?)\s+([A-Za-zÀ-ÿ]{2,})", body):
         num, word = m.group(1), m.group(2).lower()
-        contexts = {w.lower() for w in re.findall(rf"(?<![0-9]){re.escape(num)}\s+(?:\w+\s+)?([a-zA-Z]{{3,}})", allowed_text)}
-        if contexts and word not in contexts and word not in {"months", "month", "weeks", "and", "to"}:
+        if word in units:
+            continue                              # durations and ranges ('3 à 5 mois') carry no claim
+        contexts = {w.lower() for w in re.findall(rf"(?<![0-9]){re.escape(num)}\s+([A-Za-zÀ-ÿ]{{2,}})", allowed_text)}
+        if contexts and word not in contexts:
             r.blocking.append(f"« {num} {word} »: the facts say « {num} {', '.join(sorted(contexts))} »")
     # Participation never becomes leadership: a leadership verb needs the same verb in that organisation's facts.
     lead = re.compile(r"\b(led|lead|leading|managed|manage|managing|headed|directed|ran|supervised|spearheaded|oversaw)\b", re.I)
