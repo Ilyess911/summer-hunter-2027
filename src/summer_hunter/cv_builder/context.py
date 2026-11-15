@@ -106,7 +106,7 @@ def _drop_place(name: str) -> str:
     """'Airbus in Singapore' -> 'Airbus' (the place is not part of the recipient)."""
     from summer_hunter.cv_builder.intent import is_place
 
-    m = re.match(r"^(?P<org>.+?)\s+(?:in|à|en)\s+(?P<place>[A-Z].*)$", name)
+    m = re.match(r"^(?P<org>.+?)\s+(?:in|à|en|au|aux)\s+(?P<place>[A-Z].*)$", name)
     return m.group("org") if m and is_place(m.group("place")) else name
 
 
