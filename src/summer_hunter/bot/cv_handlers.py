@@ -3,6 +3,7 @@
     /cv_profile               overview: verified facts by kind, confirmed additions, facts awaiting confirmation
     /cv_profile all           every verified claim from the approved CV and profile
     /cv_profile add <texte>   propose a new fact ("J'ai obtenu une certification IBM"); stored only after Confirmer
+    /cv_analyze <texte>       lot 2: how a request or posting is understood (role, company, country, language, requirements)
 
 Buttons pf:<id>:ok (confirm), pf:<id>:no (reject), pf:<id>:undo (back to "to confirm").
 """
@@ -24,9 +25,11 @@ log = logging.getLogger(__name__)
 
 COMMANDS = [
     ("cv_profile", "Profil CV permanent : voir, confirmer, ajouter un fait"),
+    ("cv_analyze", "Analyse d'une demande de CV ou d'une offre (sans générer)"),
 ]
 HELP = ("\n\n<b>Profil CV</b> : /cv_profile montre ce qui est vérifié et ce qui attend ta confirmation. "
-        "/cv_profile add &lt;texte&gt; propose un nouveau fait ; rien n'est enregistré sans « Confirmer ».")
+        "/cv_profile add &lt;texte&gt; propose un nouveau fait ; rien n'est enregistré sans « Confirmer ». "
+        "/cv_analyze &lt;offre ou demande&gt; montre comment je comprends la demande.")
 MAX_PENDING_BUTTONS = 12
 ADD_WORDS = {"add", "ajouter", "ajoute", "+"}
 
@@ -60,6 +63,9 @@ class CVBot:
     # Commands -------------------------------------------------------------------------------------
 
     def handle_command(self, cmd: str, args: str) -> bool:
+        if cmd == "cv_analyze":
+            self.analyze(args)
+            return True
         if cmd != "cv_profile":
             return False
         head, _, rest = args.strip().partition(" ")
@@ -130,6 +136,19 @@ class CVBot:
                       "<i>Tant qu'il n'est pas confirmé, il ne sera jamais affiché comme un fait sur un CV.</i>",
                       fact_buttons(f.id))
 
+    def analyze(self, text: str) -> None:
+        from summer_hunter.cv_builder.intent import analyze, context_from
+
+        if not text.strip():
+            self.bot.send("Colle une offre ou décris le CV voulu après la commande, par exemple :\n"
+                          "/cv_analyze CV pour un stage Robotics Engineer chez une startup à Singapour")
+            return
+        with self.bot.session_factory() as session:
+            self._store(session)
+            req = analyze(text, context_from(self.bot.settings, session))
+        log.info("cv request analyzed", extra={"mode": req.mode, "family": req.family, "track": req.track})
+        self.bot.send(describe(req))
+
     # Callbacks ------------------------------------------------------------------------------------
 
     def handle_callback(self, cq: dict, action: str, parts: list[str]) -> bool:
@@ -155,3 +174,44 @@ class CVBot:
         label = {USER_CONFIRMED: "☑️ confirmé", REJECTED: "❌ retiré", INFERRED: "❔ remis à confirmer"}[status]
         self.bot.send(f"#{fact.id} {escape(fact.text)} : {label}.")
         return True
+
+
+MODE_FR = {"offer": "offre fournie", "spontaneous": "candidature spontanée (aucune offre)", "target": "profil cible (aucune offre)"}
+ROLE_SOURCE_FR = {"offer": "titre de l'offre", "stated": "indiqué", "inferred": "déduit, à préciser si besoin"}
+TRACK_FR = {"business": "Business & vente", "product": "Produit, data & tech", "industry": "Industrie & robotique"}
+LEVEL_FR = {"mandatory": "obligatoire", "preferred": "souhaité", "exposure": "mentionné"}
+COVERAGE = [("covered", "✅ Couvert"), ("partial", "🟡 Partiel"), ("to_confirm", "❔ À confirmer dans ton profil"),
+            ("missing", "⛔ Non couvert")]
+
+
+def describe(req) -> str:  # noqa: ANN001 - CVRequest
+    lines = ["🔎 <b>Analyse de la demande</b>",
+             f"Poste : <b>{escape(req.target_role or 'non précisé')}</b> <i>({ROLE_SOURCE_FR.get(req.role_source, '')})</i>",
+             f"Type : {MODE_FR.get(req.mode, req.mode)}",
+             f"Entreprise : {escape(req.company or 'non précisée')}",
+             f"Lieu : {escape(req.location if req.country_code else 'non précisé')}",
+             f"Langue du CV : {'anglais' if req.language == 'en' else 'français'} <i>({escape(req.language_reason)})</i>",
+             f"Format : {req.pages} page{'s' if req.pages > 1 else ''}" + (f", style {escape(req.style)}" if req.style else ""),
+             f"Piste CV : {TRACK_FR.get(req.track, req.track)} <i>(famille {escape(req.family)})</i>"]
+    if req.sector:
+        lines.append("Secteur : " + escape(", ".join(req.sector)))
+    if req.emphasis:
+        lines.append("À mettre en avant : " + escape(" ; ".join(req.emphasis)))
+    if req.mode == "offer":
+        if req.requirements:
+            lines.append("\n<b>Exigences de l'offre</b>")
+            for cov, label in COVERAGE:
+                items = req.by_coverage(cov)
+                if items:
+                    lines.append(f"{label} : " + escape(", ".join(f"{r.name} ({LEVEL_FR[r.level]})" for r in items)))
+        else:
+            lines.append("\nAucune compétence technique du lexique repérée dans l'offre.")
+    elif req.expected_skills:
+        lines.append("\n<b>Généralement attendu pour ce poste</b> <i>(pas une exigence d'entreprise)</i> : "
+                     + escape(", ".join(req.expected_skills)))
+    if req.keywords:
+        lines.append("Mots-clés ATS : " + escape(", ".join(req.keywords)))
+    if req.questions:
+        lines.append("\n<b>Questions</b>")
+        lines += [f"{i}. {escape(q)}" for i, q in enumerate(req.questions, 1)]
+    return "\n".join(lines)
