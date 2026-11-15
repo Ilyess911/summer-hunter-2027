@@ -73,6 +73,10 @@ def main() -> None:
     if args.model:
         llm["emails"] = dict(llm.get("emails") or {}) | {"model": args.model}
     provider = ae.provider_from(llm, live.anthropic_api_key)
+    live_sessions = init_db(make_engine(live.database_url))
+    if provider is not None and provider.name == "anthropic":     # same daily cap; real cost recorded
+        provider = ae.BudgetedProvider(provider, live_sessions, llm, live.timezone)
+    spent_before = provider.spent_today() if isinstance(provider, ae.BudgetedProvider) else 0.0
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
@@ -119,6 +123,10 @@ def main() -> None:
                "## Human review (1-5)", "", "| Criterion | Score | Note |", "|---|---|---|",
                *[f"| {c} |  |  |" for c in RUBRIC]]
         (out / f"{name}.md").write_text("\n".join(doc) + "\n", encoding="utf-8")
+        print(summary[-1], flush=True)
+    if isinstance(provider, ae.BudgetedProvider):
+        cost = provider.spent_today() - spent_before
+        summary.append(f"\nReal cost of this evaluation: {cost:.3f} USD")
         print(summary[-1], flush=True)
     (out / "README.md").write_text("# Application email evaluation\n\n" + "\n".join(summary) + "\n\nOne file per case: "
                                    "before/after, strategy, metrics, rubric to fill.\n", encoding="utf-8")

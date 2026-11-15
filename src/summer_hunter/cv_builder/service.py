@@ -216,6 +216,8 @@ def _email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, la
                 provider = ae.provider_from(settings.llm, settings.anthropic_api_key)
             except Exception:  # noqa: BLE001 - no model configured: deterministic email
                 provider = None
+            if provider is not None and provider.name == "anthropic":      # paid: daily cap + cost of every call
+                provider = ae.BudgetedProvider(provider, sessions, settings.llm, settings.timezone)
         mail = ae.write(row.content or {}, load_content(settings.config_dir), ctx, req.track, req.family, req.situation,
                         settings.config_dir, settings.profile_raw, orgs, actx.own_orgs, provider,
                         source_text=req.source_text if req.mode != "offer" else "",

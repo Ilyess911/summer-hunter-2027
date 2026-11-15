@@ -260,3 +260,43 @@ def test_telegram_application_ready_and_email_buttons(settings, sessions):
     _press(bot, "cvw:1:natural")                  # no model in tests: deterministic email, still delivered
     assert "Email de candidature" in fake.sent[-1]["text"]
     assert bot.cvb.handle_text("Plus naturel") is True
+
+
+def test_paid_provider_has_a_daily_cap_and_records_each_call(settings, sessions):
+    from sqlalchemy import select
+
+    from summer_hunter.database.models import LLMUsage
+
+    llm = {"daily_budget_usd": 0.10, "pricing": {"scripted-model": {"input": 4.0, "output": 20.0}}}
+    paid = ae.BudgetedProvider(Scripted(draft(GOOD)), sessions, llm)
+    paid.inner.name = "anthropic"
+    paid.complete_json("s", "u", {}, 100)                       # 100 in, 100 out
+    with sessions() as s:
+        row = s.execute(select(LLMUsage)).scalar_one()
+        assert row.purpose == "application_email" and abs(row.cost_usd - (100 * 4 + 100 * 20) / 1e6) < 1e-9
+        s.add(LLMUsage(local_date=paid._today(), provider="anthropic", model="x", purpose="analysis", cost_usd=0.2))
+        s.commit()
+    with pytest.raises(LLMError, match="daily AI budget"):
+        paid.complete_json("s", "u", {}, 100)
+
+
+def test_budget_reached_falls_back_to_the_free_email(env, settings, sessions):
+    from summer_hunter.database.models import LLMUsage
+
+    run, _ = env
+    paid = ae.BudgetedProvider(Scripted(draft(GOOD)), sessions, {"daily_budget_usd": 0.01})
+    with sessions() as s:
+        s.add(LLMUsage(local_date=paid._today(), provider="anthropic", model="x", purpose="analysis", cost_usd=0.05))
+        s.commit()
+    _, mail = run(FCCS, paid)
+    assert mail.model == "deterministic" and paid.inner.prompts == []
+
+
+def test_opus_is_the_configured_email_model(settings):
+    import os
+
+    cfg = settings.llm.get("emails") or {}
+    assert (cfg.get("provider"), cfg.get("model")) == ("anthropic", "claude-opus-5-5")
+    os.environ.pop("SH_EMAIL_PROVIDER", None)
+    with pytest.raises(LLMError, match="no ANTHROPIC_API_KEY"):
+        ae.provider_from(settings.llm, None)                    # never silently paid without a key

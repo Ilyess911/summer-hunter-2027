@@ -407,6 +407,56 @@ def signature_html(text: str) -> str:
     return "".join(out)
 
 
+# Budget and cost ---------------------------------------------------------------------------------
+
+class BudgetedProvider(LLMProvider):
+    """Wraps a paid provider: refuses a call once today's spend (Europe/Paris) reaches the daily cap, and records
+    every call with its real cost in llm_usage (purpose 'application_email')."""
+
+    def __init__(self, inner: LLMProvider, sessions, llm_cfg: dict[str, Any], timezone: str = "Europe/Paris") -> None:  # noqa: ANN001
+        self.inner, self.sessions, self.cfg, self.tz = inner, sessions, llm_cfg, timezone
+        self.name, self.model = inner.name, inner.model
+
+    def _today(self) -> str:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo(self.tz)).date().isoformat()
+
+    def cost(self, tokens_in: int, tokens_out: int) -> float:
+        price = (self.cfg.get("pricing") or {}).get(self.model) or self.cfg.get("default_pricing") or {"input": 4.0, "output": 20.0}
+        return tokens_in / 1e6 * float(price["input"]) + tokens_out / 1e6 * float(price["output"])
+
+    def spent_today(self) -> float:
+        from sqlalchemy import func, select
+
+        from summer_hunter.database.models import LLMUsage
+
+        with self.sessions() as s:
+            return float(s.execute(select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0))
+                                   .where(LLMUsage.local_date == self._today())).scalar() or 0.0)
+
+    def complete_json(self, system: str, user: str, schema: dict[str, Any], max_tokens: int):  # noqa: ANN201
+        from summer_hunter.database.models import LLMUsage
+
+        cap = float(self.cfg.get("daily_budget_usd", 0.5))
+        if self.spent_today() >= cap:
+            raise LLMError(f"daily AI budget reached ({cap:.2f} USD)")
+        outcome, resp = "ok", None
+        try:
+            resp = self.inner.complete_json(system, user, schema, max_tokens)
+            return resp
+        except LLMError:
+            outcome = "error"
+            raise
+        finally:
+            with self.sessions() as s:
+                s.add(LLMUsage(local_date=self._today(), provider=self.name, model=self.model, purpose="application_email",
+                               input_tokens=resp.input_tokens if resp else 0, output_tokens=resp.output_tokens if resp else 0,
+                               cost_usd=self.cost(resp.input_tokens, resp.output_tokens) if resp else 0.0, outcome=outcome))
+                s.commit()
+
+
 # Main ---------------------------------------------------------------------------------------------
 
 def provider_from(llm_cfg: dict[str, Any], anthropic_key: str | None = None) -> LLMProvider | None:
@@ -423,7 +473,8 @@ def provider_from(llm_cfg: dict[str, Any], anthropic_key: str | None = None) -> 
 
         if not anthropic_key:
             raise LLMError("emails.provider is anthropic but no ANTHROPIC_API_KEY is set")
-        return AnthropicProvider(anthropic_key, c.get("model", "claude-sonnet-5-5"), c.get("effort", "low"), True)
+        return AnthropicProvider(anthropic_key, c.get("model", "claude-opus-5-5"), c.get("effort", "medium"), True,
+                                 timeout=float(c.get("timeout", 180)))
     if choice != "ollama":
         raise LLMError(f"unknown email provider {choice}")
     return OllamaProvider(c.get("model", "qwen2.5:14b"), c.get("url", "http://127.0.0.1:11434"),

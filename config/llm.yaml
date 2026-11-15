@@ -34,9 +34,12 @@ letters:
 # Local and free by default. "anthropic" (Claude) writes noticeably better but is PAID (about 0.02-0.05 USD
 # per email): it is used only if set here explicitly, never by default.
 emails:
-  provider: ollama            # ollama | anthropic | none (deterministic email only)
-  model: qwen2.5:14b          # with anthropic: claude-sonnet-5-5 (or claude-opus-5-5)
+  # Claude Opus 5.5 enabled by the candidate on 16 Nov 2026 ("go Claude Opus pour les emails"); every call is
+  # recorded in llm_usage and refused once daily_budget_usd is reached (the free deterministic email takes over).
+  provider: anthropic         # ollama | anthropic | none (deterministic email only)
+  model: claude-opus-5-5      # local alternative: provider ollama + model qwen2.5:14b
+  effort: medium
   url: http://127.0.0.1:11434
   temperature: 0.6
-  timeout: 420
+  timeout: 180
 
