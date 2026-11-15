@@ -529,10 +529,43 @@ class ProfileFact(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class CVVersion(Base):
+    """One generated CV (AI CV Builder). Versions are append-only: an edit creates a new row and new files.
+
+    `lineage_id` is the id of the first version (v1) of a CV; `parent_id` the version an edit started from.
+    `request` is the analyzed request (CVRequest.to_dict), `content` the exact CV printed, `profile` the
+    profile used (confirmed fact ids and texts, hash of the approved YAML files).
+    """
+    __tablename__ = "cv_versions"
+    __table_args__ = (UniqueConstraint("lineage_id", "version"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lineage_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("cv_versions.id"))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    target_role: Mapped[str | None] = mapped_column(String(200))
+    company: Mapped[str | None] = mapped_column(String(200))
+    country_code: Mapped[str | None] = mapped_column(String(2))
+    language: Mapped[str] = mapped_column(String(5), default="en")
+    pages: Mapped[int | None] = mapped_column(Integer)
+    style: Mapped[str] = mapped_column(String(30), default="ats_classic")
+    change: Mapped[str | None] = mapped_column(String(300))          # what this version changed (edit request)
+    source_text: Mapped[str] = mapped_column(Text)
+    request: Mapped[dict] = mapped_column(JSON, default=dict)
+    content: Mapped[dict] = mapped_column(JSON, default=dict)
+    profile: Mapped[dict] = mapped_column(JSON, default=dict)
+    checks: Mapped[list] = mapped_column(JSON, default=list)
+    stem: Mapped[str] = mapped_column(String(200))
+    pdf_path: Mapped[str | None] = mapped_column(String(500))
+    docx_path: Mapped[str | None] = mapped_column(String(500))
+    tex_path: Mapped[str | None] = mapped_column(String(500))
+    saved: Mapped[bool] = mapped_column(Boolean, default=False)       # pinned by the candidate ("Save Version")
+
+
 class KeyValue(Base):
     __tablename__ = "kv_state"
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7

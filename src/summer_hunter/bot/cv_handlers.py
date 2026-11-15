@@ -4,6 +4,7 @@
     /cv_profile all           every verified claim from the approved CV and profile
     /cv_profile add <texte>   propose a new fact ("J'ai obtenu une certification IBM"); stored only after Confirmer
     /cv <texte>               lot 3: generate the tailored CV (PDF + DOCX) with an optimization report
+    /cv_history [n]           lot 4: generated CVs (latest version of each); n = versions of CV-000n
     /cv_analyze <texte>       lot 2: how a request or posting is understood (role, company, country, language, requirements)
 
 Buttons pf:<id>:ok (confirm), pf:<id>:no (reject), pf:<id>:undo (back to "to confirm").
@@ -14,11 +15,12 @@ from __future__ import annotations
 import logging
 import threading
 from collections import Counter
-from datetime import datetime
 from html import escape
 from typing import TYPE_CHECKING
 
 from summer_hunter.cv_builder.profile import (INFERRED, KIND_FR, MISSING, REJECTED, USER_CONFIRMED, ProfileStore)
+from summer_hunter.cv_builder.versions import label
+from summer_hunter.engine.geo import country_name
 from summer_hunter.engine import knowledge
 
 if TYPE_CHECKING:
@@ -29,6 +31,7 @@ log = logging.getLogger(__name__)
 COMMANDS = [
     ("cv_profile", "Profil CV permanent : voir, confirmer, ajouter un fait"),
     ("cv", "Créer un CV adapté (PDF + DOCX) : /cv <offre ou demande>"),
+    ("cv_history", "CV générés et leurs versions"),
     ("cv_analyze", "Analyse d'une demande de CV ou d'une offre (sans générer)"),
 ]
 HELP = ("\n\n<b>Profil CV</b> : /cv_profile montre ce qui est vérifié et ce qui attend ta confirmation. "
@@ -48,6 +51,7 @@ class CVBot:
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self._seeded = False
+        self._lock = threading.Lock()
 
     def _store(self, session) -> ProfileStore:  # noqa: ANN001
         store = ProfileStore(session)
@@ -73,6 +77,9 @@ class CVBot:
             return True
         if cmd == "cv":
             self.generate(args)
+            return True
+        if cmd == "cv_history":
+            self.history(args)
             return True
         if cmd != "cv_profile":
             return False
@@ -155,30 +162,72 @@ class CVBot:
         else:
             self._generate(text)
 
+    def versions(self, session):  # noqa: ANN001, ANN201
+        from summer_hunter.cv_builder.versions import VersionStore
+
+        return VersionStore(session, self.bot.settings.data_dir, self.bot.settings.config_dir)
+
     def _generate(self, text: str) -> None:
-        from summer_hunter.cv_builder.document import build
         from summer_hunter.cv_builder.intent import analyze, context_from
 
-        try:
-            with self.bot.session_factory() as session:
-                store = self._store(session)
-                req = analyze(text, context_from(self.bot.settings, session))
-                confirmed = store.confirmed()
-            out_dir = self.bot.settings.data_dir / "cv_builder" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-            res = build(self.bot.settings.config_dir, out_dir, req, confirmed)
-        except Exception:  # noqa: BLE001 - a failed build must answer, never crash the bot
-            log.exception("cv build failed")
-            self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
-            return
-        log.info("cv built", extra={"mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
-        self.bot.send(summary_card(req, res))
-        for path in (res.pdf_path, res.docx_path):
-            if path:
-                try:
-                    self.bot.telegram.send_document(self.bot.chat_id, path, path.stem)
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("sendDocument failed", extra={"error": str(exc)})
+        with self._lock:              # one build at a time: version numbers and files stay consistent
+            try:
+                with self.bot.session_factory() as session:
+                    store = self._store(session)
+                    req = analyze(text, context_from(self.bot.settings, session))
+                    row, res = self.versions(session).create(req, store.confirmed())
+                    session.commit()
+                    tag = label(row)
+            except Exception:  # noqa: BLE001 - a failed build must answer, never crash the bot
+                log.exception("cv build failed")
+                self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
+                return
+        log.info("cv built", extra={"cv": tag, "mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
+        self.deliver(req, res, tag)
+
+    def deliver(self, req, res, tag: str) -> None:  # noqa: ANN001
+        self.bot.send(summary_card(req, res, tag))
+        self._send_files([p for p in (res.pdf_path, res.docx_path) if p])
         self.bot.send(optimization_report(req, res))
+
+    def _send_files(self, paths) -> None:  # noqa: ANN001
+        for path in paths:
+            try:
+                self.bot.telegram.send_document(self.bot.chat_id, path, path.stem)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("sendDocument failed", extra={"error": str(exc)})
+
+    def history(self, args: str) -> None:
+        arg = args.strip().upper().removeprefix("CV-").lstrip("0")
+        with self.bot.session_factory() as session:
+            vs = self.versions(session)
+            if arg.isdigit():
+                self._lineage(vs, int(arg))
+                return
+            rows = vs.history(10)
+        if not rows:
+            self.bot.send("Aucun CV généré pour l'instant. Essaie : /cv stage Tech Sales à Dublin")
+            return
+        lines = ["🗂 <b>CV générés</b> (dernière version de chacun)"]
+        lines += [f"<b>{label(r)}</b> · {escape(r.target_role or '?')}" + (f" @ {escape(r.company)}" if r.company else "")
+                  + (f" · {escape(country_name(r.country_code))}" if r.country_code else "")
+                  + f" · {r.language} · {r.created_at:%d/%m %H:%M}" + (" ⭐" if r.saved else "") for r in rows]
+        buttons = [[{"text": f"📂 CV-{r.lineage_id:04d}", "callback_data": f"cvh:{r.lineage_id}"} for r in rows[i:i + 3]]
+                   for i in range(0, len(rows), 3)]
+        self.bot.send("\n".join(lines), buttons)
+
+    def _lineage(self, vs, lineage_id: int) -> None:  # noqa: ANN001
+        rows = vs.lineage(lineage_id)
+        if not rows:
+            self.bot.send(f"CV-{lineage_id:04d} introuvable.")
+            return
+        lines = [f"🗂 <b>CV-{lineage_id:04d}</b> · {escape(rows[0].target_role or '?')}"]
+        for r in rows:
+            lines.append(f"v{r.version} · {r.created_at:%d/%m %H:%M} · {r.language} · {r.pages or '?'} p."
+                         + (f" · <i>{escape(r.change)}</i>" if r.change else " · version initiale") + (" ⭐" if r.saved else ""))
+        buttons = [[{"text": f"📄 v{r.version}", "callback_data": f"cvf:{r.id}"} for r in rows[i:i + 4]]
+                   for i in range(0, len(rows), 4)]
+        self.bot.send("\n".join(lines), buttons)
 
     def analyze(self, text: str) -> None:
         from summer_hunter.cv_builder.intent import analyze, context_from
@@ -193,9 +242,30 @@ class CVBot:
         log.info("cv request analyzed", extra={"mode": req.mode, "family": req.family, "track": req.track})
         self.bot.send(describe(req))
 
+    def _version_callback(self, cq: dict, action: str, ident: int) -> bool:
+        self.bot.telegram.answer_callback(cq["id"])
+        with self.bot.session_factory() as session:
+            vs = self.versions(session)
+            if action == "cvh":
+                self._lineage(vs, ident)
+                return True
+            row = vs.get(ident)
+            files = vs.files(row) if row else []
+            tag = label(row) if row else ""
+        if not row:
+            self.bot.send("Version introuvable.")
+        elif not files:
+            self.bot.send(f"{tag} : fichiers absents du disque.")
+        else:
+            self.bot.send(f"📄 {tag}")
+            self._send_files(files)
+        return True
+
     # Callbacks ------------------------------------------------------------------------------------
 
     def handle_callback(self, cq: dict, action: str, parts: list[str]) -> bool:
+        if action in {"cvh", "cvf"}:
+            return self._version_callback(cq, action, int(parts[1]))
         if action != "pf" or len(parts) != 3 or parts[2] not in {"ok", "no", "undo"}:
             return False
         status = {"ok": USER_CONFIRMED, "no": REJECTED, "undo": INFERRED}[parts[2]]
@@ -261,8 +331,8 @@ def describe(req) -> str:  # noqa: ANN001 - CVRequest
     return "\n".join(lines)
 
 
-def summary_card(req, res) -> str:  # noqa: ANN001
-    head = "✅ <b>CV GÉNÉRÉ</b>" if res.ok else "⚠️ <b>CV GÉNÉRÉ, À VÉRIFIER</b>"
+def summary_card(req, res, tag: str = "") -> str:  # noqa: ANN001
+    head = ("✅ <b>CV GÉNÉRÉ</b>" if res.ok else "⚠️ <b>CV GÉNÉRÉ, À VÉRIFIER</b>") + (f" · {escape(tag)}" if tag else "")
     return "\n".join([head, "",
                       f"Poste : {escape(req.target_role or 'non précisé')}",
                       f"Entreprise : {escape(req.company or 'non précisée')}",

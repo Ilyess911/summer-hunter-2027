@@ -153,6 +153,14 @@ class CVRequest:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CVRequest:
+        known = {f for f in cls.__dataclass_fields__}
+        fields = {k: v for k, v in data.items() if k in known}
+        fields["requirements"] = [Requirement(**r) for r in data.get("requirements", [])]
+        fields.setdefault("role_source", "stated")
+        return cls(**fields)
+
 
 @dataclass
 class AnalyzerContext:
