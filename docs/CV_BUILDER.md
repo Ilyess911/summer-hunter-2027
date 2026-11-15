@@ -47,18 +47,29 @@ API (`web/cv_api.py`, authentification Telegram initData sur `/api/`, liens sign
 Le bot et la Mini App sont deux processus : `cv_builder/service.py` porte la logique commune et sérialise
 les générations par un verrou de fichier (`data/cv_builder/.build.lock`).
 
-## Mail de candidature
+## Email de candidature (moteur V3)
 
-Bouton « ✉️ Mail de candidature » sous chaque CV (bot) et « Générer le mail de candidature » dans
-l'onglet CV. Le mail est rédigé, jamais envoyé : dans la Mini App il est copié directement dans le
-presse-papiers (objet + corps) et affiché avec Recopier / autre langue ; dans le bot il arrive en bloc à
-toucher pour copier, avec un bouton qui copie l'objet.
+Écrit automatiquement après chaque CV (bot), ou à la demande (bouton « Email », onglet CV). Jamais envoyé.
 
-Rédaction déterministe et instantanée (`cv_builder/email.py`, aucun LLM) : phrases de liaison fixes,
-faits pris dans la version du CV. En anglais, il cite les puces vérifiées du CV telles quelles ; en
-français, il ne les traduit jamais et nomme organisations, projets et compétences. Formulation française
-neutre. « Spontaneous application / Candidature spontanée » sans offre, « Application / Candidature » avec.
-API : `POST /api/cv/{id}/email` (`language` optionnel).
+1. **Stratégie** (code) : situation (spontanée, offre, recruteur, dirigeant, mise en relation, relance), fil
+   conducteur du parcours choisi selon le poste (`config/application_voice.yaml` : business, international,
+   industrie, robotique, produit, stratégie), expériences et angle, faits vérifiés sur l'organisation
+   (`config/organisations.yaml`, sinon interdiction de la décrire), différenciation, action attendue.
+2. **Rédaction** : un seul appel structuré au modèle (local par défaut, `llm.yaml` → `emails`), qui répond
+   d'abord aux 5 questions (pourquoi l'organisation, le poste, le parcours, la différence, l'action), puis écrit.
+   Salutation et signature ajoutées par le code.
+3. **Contrôles** : destinataire, chiffres inventés ou chiffre associé à un autre mot (« 140 attendees » contre
+   « 140 registrations »), rôle de direction non prouvé, outils, années, sujets interdits (ESSEC, ESCP, AST…),
+   clichés, copie du CV, liste de compétences, formulations de l'email de référence, accroche déjà utilisée,
+   longueur, description non sourcée de l'organisation, idée répétée.
+4. **Une révision** ciblée si un contrôle échoue ; si un problème bloquant reste, l'email déterministe le remplace.
+5. **Révisions à la demande** : Plus naturel, Plus convaincant, Moins formel, Plus personnel, Revois l'accroche,
+   Change la conclusion, Explique mieux ma motivation, « Ne parle pas de X » (boutons, texte libre, puces Mini App).
+
+L'email FCCS de référence sert de modèle de raisonnement : son texte n'est jamais montré au modèle et ses
+formulations sont détectées, pour qu'il ne devienne pas un gabarit. Signature générée depuis les données
+vérifiées, en texte et en HTML. Évaluation : `scripts/eval_emails.py` (cas A à J, avant/après, grille de
+relecture) → `docs/email_examples/`.
 
 ## Chaîne
 
