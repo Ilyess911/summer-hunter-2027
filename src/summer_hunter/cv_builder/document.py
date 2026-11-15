@@ -142,6 +142,7 @@ def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tu
                                                        "bullets": [{"text": _sentence(detail or name)}], "confirmed_fact": True})
     company = "" if req.personalization == "light" else (req.company or "")     # light: no targeted sentence
     cv = cvmod.tailor(content, req.target_role or "", _job_text(req), req.family, company, track=req.track)
+    cv["recipient"] = company or None          # the only organisation the CV addresses (checked before delivery)
     keys = _tokens(f"{req.target_role or ''} {_job_text(req)}")
     _place_confirmed(cv, confirmed, keys, notes)
     _apply_emphasis(cv, content, req, notes)
@@ -185,7 +186,7 @@ def _place_confirmed(cv: dict[str, Any], confirmed: list[Any], keys: set[str], n
 
 def _apply_emphasis(cv: dict[str, Any], content: dict[str, Any], req: CVRequest, notes: list[str]) -> None:
     """'Mets en avant X': bring the matching verified project or experience first; never write new text."""
-    for what in req.emphasis:
+    for what in reversed(req.emphasis):      # each match moves to the front: the first asked ends up first
         want = _tokens(what) - _GENERIC
         if not want:
             continue

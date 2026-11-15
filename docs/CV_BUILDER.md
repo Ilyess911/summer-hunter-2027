@@ -79,6 +79,30 @@ demande ─▶ intent.analyze ─▶ prefs.apply ─▶ document.compose ─▶ 
 | `cv_builder/upload.py` | Lecture d'un CV importé, lignes nouvelles seulement |
 | `bot/cv_handlers.py` | Commandes, conversation, boutons |
 
+## Destinataire : ApplicationContext
+
+Incident du 15 nov. 2026 : une demande spontanée de 3 ko pour la French Chamber of Commerce in Singapore a
+produit un CV et un mail pour Airbus. Cause : tout texte de plus de 600 caractères était lu comme une offre,
+la formule « candidature spontanée à la … » n'était pas reconnue, et le premier nom d'entreprise connu du
+texte (Airbus, dans la liste de tes propres expériences) devenait la cible.
+
+Désormais :
+
+- `cv_builder/context.py` : `ApplicationContext` (target_company, aliases, target_role, application_type,
+  target_country, availability, recipient, language) est l'unique description du destinataire. C'est une
+  vue de la demande enregistrée avec la version : le CV et le mail la lisent tous les deux.
+- La cible vient seulement de la demande en cours, d'une formule de destinataire (« candidature (spontanée)
+  à / chez / auprès de X », « je postule chez X », « CV pour X », « chez X » hors contexte passé). Un nom
+  simplement cité n'est jamais une cible ; tes employeurs, écoles et projets non plus, sauf si la demande
+  les nomme comme destinataires. Pour une offre : ligne « Entreprise : », en-tête hors lignes partenaires /
+  outils, puis « About X / Join X ». Plusieurs candidats : aucune cible, une question.
+- Une longue demande écrite par toi n'est plus prise pour une offre.
+- Un nouveau message qui vise une autre entreprise crée un nouveau CV, jamais une version du précédent.
+- Contrôles bloquants avant tout enregistrement ou envoi (`validate_cv`, `validate_email`) : le destinataire
+  imprimé sur le CV et chaque emplacement de destinataire du mail (salutation, ouverture, clôture) doivent
+  être exactement la cible ou son sigle ; un emplacement « expérience » ne peut citer que ton parcours. En cas
+  de doute, ils bloquent. Un CV bloqué n'est jamais enregistré.
+
 ## Règles d'intégrité
 
 - Statuts : VERIFIED (CV approuvé, profil), USER_CONFIRMED (bouton Confirmer), INFERRED (à confirmer,

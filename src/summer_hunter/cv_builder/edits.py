@@ -97,3 +97,29 @@ def parse(text: str) -> Edit:
             e.overrides["target_role"] = role
             e.understood.append(f"poste visé : {role}")
     return e
+
+
+_NEW_REQUEST = re.compile(r"\b(cv|curriculum|resume|candidature|application|postuler|je postule)\b", re.I)
+_EDIT_START = re.compile(r"^\s*(mets?|mettre|retire|enl[eè]ve|supprime|change|ajoute|traduis|plus|moins|insiste|valorise|"
+                         r"version|en (?:anglais|fran[cç]ais)|style|une? page|\d page|pour un poste|pour un stage)", re.I)
+_SAME_FOR = re.compile(r"^\s*(?i:(?:re)?fais[- ]le\s+(?:pour|chez|for|at))\s+(?P<name>[A-Z][\w&.'’-]*(?:\s+[A-Z][\w&.'’-]*)*)")
+
+
+def is_new_request(text: str, current_company: str | None) -> bool:
+    """Another application (another CV or recipient), as opposed to an edit of the active CV.
+
+    Edit wording wins ('mets en avant mon projet pour Airbus' stays an edit). A new recipient counts only
+    when written as one ('candidature chez X', 'CV pour X', 'fais-le pour X'), never a name merely mentioned.
+    """
+    from summer_hunter.cv_builder.intent import explicit_target
+    from summer_hunter.utils.text import normalize_for_match
+
+    t = " ".join((text or "").split())
+    if _SAME_FOR.match(t):
+        return True
+    if _EDIT_START.match(t):
+        return False
+    if _NEW_REQUEST.search(t):
+        return True
+    name, _ = explicit_target(t)
+    return bool(name) and normalize_for_match(name) != normalize_for_match(current_company or "")

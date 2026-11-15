@@ -1,13 +1,15 @@
-"""Cover email for a CV: drafted from verified CV content only, never sent."""
+"""Cover email for a CV: built from the CV's ApplicationContext, verified content only, never sent."""
 
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 import pytest
 
+from summer_hunter.cv_builder.context import from_request, validate_email
 from summer_hunter.cv_builder.document import compose as compose_cv
-from summer_hunter.cv_builder.email import _clause, compose
+from summer_hunter.cv_builder.email import _clause, _de, compose
 from summer_hunter.cv_builder.intent import analyze, context_from
 from summer_hunter.web.cv import load_content
 from tests.integration.test_cv_document import needs_tex
@@ -17,33 +19,41 @@ from tests.integration.test_cv_profile import _bot, _press
 @pytest.fixture
 def make(settings, sessions):
     with sessions() as s:
-        ctx = context_from(settings, s)
+        actx = context_from(settings, s)
     content = load_content(settings.config_dir)
+    orgs = sorted(set(actx.companies) | set(actx.own_orgs))
 
     def _make(text, language=None):  # noqa: ANN001, ANN202
-        req = analyze(text, ctx)
+        req = analyze(text, actx)
+        if language:
+            req = replace(req, language=language)
         cv, _ = compose_cv(content, req, [])
         cv.pop("_content", None)
-        return compose(cv, req, settings.profile_raw, language), cv
+        ctx = from_request(req, settings.profile_raw)
+        mail = compose(cv, ctx, req.track)
+        assert validate_email(mail.parts, ctx, orgs, actx.own_orgs) == []
+        return mail, cv
     return _make
 
 
 def test_english_spontaneous_email_quotes_only_cv_bullets(make):
     mail, cv = make("CV pour AWS Singapore")
     assert mail.subject.startswith("Spontaneous application – Technical Sales / Sales Engineering internship (")
-    assert "Dear Amazon Web Services team," in mail.body and "in Singapore" in mail.body
+    assert mail.body.startswith("Dear Amazon Web Services team,") and "in Singapore" in mail.body
     bullets = {b["text"].rstrip(".").lower() for e in cv["experiences"] + cv["projects"] for b in e["bullets"]}
-    quoted = re.findall(r"(?:At [^,]+, I|I also) ([^.]+)\.", mail.body)
-    assert quoted and all(q.lower() in bullets for q in quoted)        # nothing paraphrased or invented
-    assert cv["header"]["email"] in mail.body and "Kind regards," in mail.body
+    quoted = re.findall(r"At [^,]+, I ([^.]+)\.", mail.body)
+    assert quoted and all(q.lower() in bullets for q in quoted)        # verbatim, nothing invented
+    assert "no internship advertised" in mail.body and "Best regards," in mail.body
+    assert "Final-year Engineering Student – ESILV" in mail.body and cv["header"]["email"] in mail.body
 
 
 def test_french_email_is_neutral_and_never_translates_bullets(make):
     mail, cv = make("CV en français pour un stage maintenance aéronautique chez Safran au Maroc")
     assert mail.language == "fr" and mail.subject.startswith("Candidature spontanée – Stage en maintenance aéronautique (")
-    assert "au sein de Safran au Maroc" in mail.body and "Madame, Monsieur," in mail.body
+    assert "au sein de Safran au Maroc" in mail.body and mail.body.startswith("Madame, Monsieur,")
     assert not any(b["text"] in mail.body for e in cv["experiences"] for b in e["bullets"])
-    assert not re.search(r"\b(ravi|heureux|motivé)\b", mail.body)          # gender-neutral wording
+    assert not re.search(r"\b(ravi|heureux|motivé|intéressé)\b", mail.body)
+    assert "Élève ingénieur en dernière année" in mail.body
 
 
 def test_offer_email_is_not_called_spontaneous(make):
@@ -52,9 +62,11 @@ def test_offer_email_is_not_called_spontaneous(make):
     assert mail.subject.startswith("Application – Solutions Engineer internship") and "spontaneously" not in mail.body
 
 
-def test_language_override_and_prepositions(make):
-    assert make("CV pour AWS Singapore", "fr")[0].body.count("à Singapour") == 1
-    assert "aux États-Unis" in make("CV pour un stage Tech Sales chez Stripe à New York", "fr")[0].body
+def test_french_articles_and_prepositions(make):
+    assert "à Singapour" in make("CV pour AWS Singapore", "fr")[0].body
+    assert "au sein d'Amazon Web Services" in make("CV pour AWS Singapore", "fr")[0].body
+    assert _de("French Chamber of Commerce in Singapore") == "de la French Chamber of Commerce in Singapore"
+    assert _de("Salesforce") == "de Salesforce"
 
 
 def test_clause_only_takes_verbs():
@@ -73,7 +85,7 @@ def test_bot_email_button_never_sends_anything(settings, sessions):
     kb = msg["reply_markup"]["inline_keyboard"]
     assert kb[0][0]["copy_text"]["text"].startswith("Spontaneous application") and kb[1][0]["callback_data"] == "cvm:1:fr"
     _press(bot, "cvm:1:fr")
-    assert "Madame, Monsieur" in fake.sent[-1]["text"] and len(fake.docs) == docs      # no file, no email sent
+    assert "Madame, Monsieur" in fake.sent[-1]["text"] and len(fake.docs) == docs
 
 
 @needs_tex

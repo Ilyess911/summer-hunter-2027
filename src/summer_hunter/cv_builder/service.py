@@ -37,6 +37,20 @@ class Built:
     res: Rendered
 
 
+def _guard(settings: Settings, session: Session):  # noqa: ANN202
+    """Blocking check run on every CV before it is recorded: the target line addresses the target only."""
+    from summer_hunter.cv_builder.context import ContextViolation, from_request, validate_cv
+
+    actx = context_from(settings, session)
+    orgs = sorted(set(actx.companies) | set(actx.own_orgs))
+
+    def check(req: CVRequest, cv: dict[str, Any]) -> None:
+        problems = validate_cv(cv, from_request(req, settings.profile_raw), orgs, actx.own_orgs)
+        if problems:
+            raise ContextViolation(problems)
+    return check
+
+
 @contextmanager
 def build_lock(data_dir: Path) -> Iterator[None]:
     path = data_dir / "cv_builder" / ".build.lock"
@@ -68,7 +82,8 @@ def generate(settings: Settings, sessions: sessionmaker[Session], text: str,
             if "language" in clean:
                 clean["language_reason"] = "choisi dans l'app"
             req = replace(req, **clean)
-        row, res = VersionStore(session, settings.data_dir, settings.config_dir).create(req, store.confirmed())
+        row, res = VersionStore(session, settings.data_dir, settings.config_dir).create(
+            req, store.confirmed(), validator=_guard(settings, session))
         session.commit()
         return Built(row.id, label(row), req, res)
 
@@ -91,7 +106,8 @@ def derive(settings: Settings, sessions: sessionmaker[Session], vid: int, change
                                   else "business")
         for attempt in (1, 2):
             try:
-                row, res = vs.derive(parent, _store(session).confirmed(), change, **overrides)
+                row, res = vs.derive(parent, _store(session).confirmed(), change, validator=_guard(settings, session),
+                                     **overrides)
                 session.commit()
                 break
             except IntegrityError:          # the other process took this version number first
@@ -145,7 +161,11 @@ def payload(row: CVVersion) -> dict[str, Any]:
 
 
 def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, language: str | None = None):  # noqa: ANN201
-    """Cover email for a CV version (drafted only: nothing is ever sent). None if the version is unknown."""
+    """Cover email for a CV version, from the same ApplicationContext as the CV. Drafted only, never sent.
+
+    None if the version is unknown; raises ContextViolation if the email would address anyone but the target.
+    """
+    from summer_hunter.cv_builder.context import ContextViolation, from_request, validate_email
     from summer_hunter.cv_builder.email import compose
 
     with sessions() as session:
@@ -153,4 +173,12 @@ def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, lan
         if row is None:
             return None
         req = CVRequest.from_dict(row.request or {})
-        return compose(row.content or {}, req, settings.profile_raw, language if language in {"en", "fr"} else None)
+        if language in {"en", "fr"}:
+            req = replace(req, language=language)
+        actx = context_from(settings, session)
+    ctx = from_request(req, settings.profile_raw)
+    mail = compose(row.content or {}, ctx, req.track)
+    problems = validate_email(mail.parts, ctx, sorted(set(actx.companies) | set(actx.own_orgs)), actx.own_orgs)
+    if problems:
+        raise ContextViolation(problems)
+    return mail

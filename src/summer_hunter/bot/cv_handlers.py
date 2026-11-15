@@ -27,6 +27,7 @@ from pathlib import Path
 from html import escape
 from typing import TYPE_CHECKING
 
+from summer_hunter.cv_builder.context import ContextViolation
 from summer_hunter.cv_builder.profile import (INFERRED, KIND_FR, MISSING, REJECTED, USER_CONFIRMED, ProfileStore)
 from summer_hunter.cv_builder.versions import label
 from summer_hunter.engine.geo import country_name
@@ -272,11 +273,20 @@ class CVBot:
         if active and len(text) < 400 and not first_url(text):
             from summer_hunter.cv_builder import edits
 
+            if edits.is_new_request(text, self._active_company(active)):
+                self.bot.send("⏳ Nouvelle candidature, analyse en cours…")   # never an edit of the previous CV
+                self._collect(text, new_batch=True)
+                return True
             e = edits.parse(text)
             if not e.empty:
                 self.edit(active, text, e)
                 return True
         return False
+
+    def _active_company(self, vid: int) -> str | None:
+        with self.bot.session_factory() as session:
+            row = self.versions(session).get(vid)
+            return row.company if row else None
 
     def _active(self) -> int | None:
         from summer_hunter.database.repository import Repository
@@ -316,6 +326,10 @@ class CVBot:
         with self._lock:
             try:
                 built = service.derive(self.bot.settings, self.bot.session_factory, vid, change, overrides)
+            except ContextViolation as exc:
+                log.warning("cv blocked", extra={"problems": len(exc.problems)})
+                self.bot.send("⛔ <b>Version bloquée</b> : " + escape("; ".join(exc.problems)))
+                return
             except Exception as exc:  # noqa: BLE001
                 log.error("cv edit failed", extra=safe_error(exc))
                 self.bot.send("❌ Modification impossible (erreur interne, voir les logs).")
@@ -339,6 +353,10 @@ class CVBot:
                 with self.bot.session_factory() as session:
                     self._store(session)
                 built = service.generate(self.bot.settings, self.bot.session_factory, text)
+            except ContextViolation as exc:
+                log.warning("cv blocked", extra={"problems": len(exc.problems)})
+                self.bot.send("⛔ <b>CV bloqué avant envoi</b> : " + escape("; ".join(exc.problems)))
+                return
             except Exception as exc:  # noqa: BLE001 - a failed build must answer, never crash the bot
                 log.error("cv build failed", extra=safe_error(exc))
                 self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
@@ -561,7 +579,12 @@ class CVBot:
         """Draft the cover email in the chat, ready to copy. Never sent to anyone."""
         from summer_hunter.cv_builder.service import email_for
 
-        mail = email_for(self.bot.settings, self.bot.session_factory, vid, language)
+        try:
+            mail = email_for(self.bot.settings, self.bot.session_factory, vid, language)
+        except ContextViolation as exc:
+            self.bot.telegram.answer_callback(cq["id"], "Mail bloqué")
+            self.bot.send("⛔ <b>Mail bloqué</b> : " + escape("; ".join(exc.problems)))
+            return True
         if mail is None:
             self.bot.telegram.answer_callback(cq["id"], "Version introuvable")
             return True

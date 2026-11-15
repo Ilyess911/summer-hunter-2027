@@ -68,7 +68,7 @@ class VersionStore:
     # Writes --------------------------------------------------------------------------------------------
 
     def create(self, req: CVRequest, confirmed: list[Any], parent: CVVersion | None = None,
-               change: str | None = None) -> tuple[CVVersion, Rendered]:
+               change: str | None = None, validator=None) -> tuple[CVVersion, Rendered]:  # noqa: ANN001
         """Build and record a new version. v1 of a new CV without `parent`, next version of its CV with one."""
         if parent is not None:
             lineage_id = parent.lineage_id or parent.id
@@ -80,6 +80,8 @@ class VersionStore:
         # so holding the lock here would block the bot's own writes (offsets, buttons) meanwhile.
         staging = self.root / "_staging" / f"{time.time_ns()}"
         res = build(self.config_dir, staging, req, confirmed, version=version)
+        if validator is not None:
+            validator(req, res.cv)          # raises before anything is recorded or delivered
         row = CVVersion(lineage_id=lineage_id, parent_id=parent.id if parent else None, version=version,
                         source_text=req.source_text[:20000], stem=res.stem, change=(change or "")[:300] or None,
                         target_role=req.target_role, company=req.company, country_code=req.country_code,
@@ -110,7 +112,8 @@ class VersionStore:
         self.s.flush()
         return row, res
 
-    def derive(self, parent: CVVersion, confirmed: list[Any], change: str, **overrides: Any) -> tuple[CVVersion, Rendered]:
+    def derive(self, parent: CVVersion, confirmed: list[Any], change: str, validator=None,  # noqa: ANN001
+               **overrides: Any) -> tuple[CVVersion, Rendered]:
         """Next version of `parent`'s CV with some request fields changed (language, pages, emphasis…)."""
         unknown = set(overrides) - EDITABLE
         if unknown:
@@ -123,7 +126,7 @@ class VersionStore:
         if "language" in overrides:
             overrides.setdefault("language_reason", "modification demandée")
         req = replace(req, **overrides)
-        return self.create(req, confirmed, parent=parent, change=change)
+        return self.create(req, confirmed, parent=parent, change=change, validator=validator)
 
     def set_saved(self, version_id: int, saved: bool = True) -> CVVersion | None:
         row = self.get(version_id)

@@ -13,6 +13,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
 from summer_hunter.cv_builder import edits, service
+from summer_hunter.cv_builder.context import ContextViolation
 from summer_hunter.cv_builder.profile import INFERRED, KIND_FR, REJECTED, USER_CONFIRMED, ProfileStore
 from summer_hunter.cv_builder.versions import VersionStore
 from summer_hunter.utils.settings import Settings
@@ -66,6 +67,8 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
                      "pages": int(data["pages"]) if str(data.get("pages")) in {"1", "2"} else None}
         try:
             built = await asyncio.to_thread(service.generate, settings, sessions, text, overrides)
+        except ContextViolation as exc:
+            return _err("Bloqué avant envoi : " + "; ".join(exc.problems), 409)
         except Exception as exc:  # noqa: BLE001
             log.error("miniapp cv build failed", extra={"error": type(exc).__name__})
             return _err("Génération impossible (erreur interne).", 500)
@@ -91,6 +94,8 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
             return JSONResponse({"error": "Modification non comprise.", "examples": EXAMPLES}, status_code=422)
         try:
             built = await asyncio.to_thread(service.derive, settings, sessions, vid_of(request), text, e.overrides)
+        except ContextViolation as exc:
+            return _err("Bloqué avant envoi : " + "; ".join(exc.problems), 409)
         except Exception as exc:  # noqa: BLE001
             log.error("miniapp cv edit failed", extra={"error": type(exc).__name__})
             return _err("Modification impossible (erreur interne).", 500)
@@ -102,6 +107,8 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
         try:
             built = await asyncio.to_thread(service.derive, settings, sessions, vid_of(request),
                                             "régénération (profil à jour)", {})
+        except ContextViolation as exc:
+            return _err("Bloqué avant envoi : " + "; ".join(exc.problems), 409)
         except Exception as exc:  # noqa: BLE001
             log.error("miniapp cv regenerate failed", extra={"error": type(exc).__name__})
             return _err("Régénération impossible (erreur interne).", 500)
@@ -111,7 +118,10 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
 
     async def email(request: Request) -> Response:
         language = (await body(request)).get("language")
-        mail = service.email_for(settings, sessions, vid_of(request), language)
+        try:
+            mail = service.email_for(settings, sessions, vid_of(request), language)
+        except ContextViolation as exc:
+            return _err("Mail bloqué : " + "; ".join(exc.problems), 409)
         if mail is None:
             return _err("Version introuvable.", 404)
         log.info("miniapp cv email drafted", extra={"language": mail.language})
