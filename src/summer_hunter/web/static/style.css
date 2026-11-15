@@ -266,6 +266,12 @@ textarea.cv-input { min-height: 104px; line-height: 1.45; }
 .mini { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--edge); background: var(--glass); font-weight: 800; cursor: pointer; }
 .mini.ok { color: var(--good); } .mini.bad { color: var(--bad); }
 .mini:active { transform: scale(0.94); }
+.mail { margin-top: 10px; border: 1px solid var(--edge); border-radius: var(--r); padding: 12px; background: var(--glass); }
+.mail-subject { font-weight: 650; font-size: 14px; line-height: 1.35; }
+.mail-body { white-space: pre-wrap; font: inherit; font-size: 13.5px; line-height: 1.5; margin: 10px 0 0; color: var(--text);
+  max-height: 320px; overflow: auto; overscroll-behavior: contain; user-select: text; -webkit-user-select: text; }
+.mail-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.mail-btns .primary { padding: 12px; }
 .hist + .hist { margin-top: 8px; }
 .hist .vers { margin-top: 6px; }
 @media (prefers-reduced-motion: no-preference) { .spin { animation: turn 0.8s linear infinite; } }

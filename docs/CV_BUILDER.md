@@ -47,6 +47,19 @@ API (`web/cv_api.py`, authentification Telegram initData sur `/api/`, liens sign
 Le bot et la Mini App sont deux processus : `cv_builder/service.py` porte la logique commune et sérialise
 les générations par un verrou de fichier (`data/cv_builder/.build.lock`).
 
+## Mail de candidature
+
+Bouton « ✉️ Mail de candidature » sous chaque CV (bot) et « Générer le mail de candidature » dans
+l'onglet CV. Le mail est rédigé, jamais envoyé : dans la Mini App il est copié directement dans le
+presse-papiers (objet + corps) et affiché avec Recopier / autre langue ; dans le bot il arrive en bloc à
+toucher pour copier, avec un bouton qui copie l'objet.
+
+Rédaction déterministe et instantanée (`cv_builder/email.py`, aucun LLM) : phrases de liaison fixes,
+faits pris dans la version du CV. En anglais, il cite les puces vérifiées du CV telles quelles ; en
+français, il ne les traduit jamais et nomme organisations, projets et compétences. Formulation française
+neutre. « Spontaneous application / Candidature spontanée » sans offre, « Application / Candidature » avec.
+API : `POST /api/cv/{id}/email` (`language` optionnel).
+
 ## Chaîne
 
 ```

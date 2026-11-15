@@ -142,3 +142,15 @@ def payload(row: CVVersion) -> dict[str, Any]:
             "report": [{"label": a, "text": b} for a, b in report_items(req, row.content or {}, row.checks or [], row.notes or [])],
             "has_pdf": bool(row.pdf_path and Path(row.pdf_path).exists()),
             "has_docx": bool(row.docx_path and Path(row.docx_path).exists())}
+
+
+def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, language: str | None = None):  # noqa: ANN201
+    """Cover email for a CV version (drafted only: nothing is ever sent). None if the version is unknown."""
+    from summer_hunter.cv_builder.email import compose
+
+    with sessions() as session:
+        row = VersionStore(session, settings.data_dir, settings.config_dir).get(vid)
+        if row is None:
+            return None
+        req = CVRequest.from_dict(row.request or {})
+        return compose(row.content or {}, req, settings.profile_raw, language if language in {"en", "fr"} else None)

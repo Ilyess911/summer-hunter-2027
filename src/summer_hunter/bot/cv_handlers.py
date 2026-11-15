@@ -63,7 +63,8 @@ def version_buttons(vid: int, saved: bool = False) -> list[list[dict[str, str]]]
     return [[{"text": "🔁 Regénérer", "callback_data": f"cvr:{vid}"}, {"text": "✏️ Modifier", "callback_data": f"cve:{vid}"}],
             [{"text": "🎨 Style", "callback_data": f"cvs:{vid}"}, {"text": "🌐 Langue", "callback_data": f"cvl:{vid}"}],
             [{"text": "📄 PDF", "callback_data": f"cvp:{vid}"}, {"text": "📝 DOCX", "callback_data": f"cvd:{vid}"},
-             {"text": "⭐ Sauvegardée" if saved else "⭐ Sauvegarder", "callback_data": f"cvk:{vid}"}]]
+             {"text": "⭐ Sauvegardée" if saved else "⭐ Sauvegarder", "callback_data": f"cvk:{vid}"}],
+            [{"text": "✉️ Mail de candidature", "callback_data": f"cvm:{vid}"}]]
 
 
 def fact_buttons(fact_id: int) -> list[list[dict[str, str]]]:
@@ -556,6 +557,24 @@ class CVBot:
                 self.bot.send("🎨 Styles disponibles. Modern Professional et Consulting / Business arrivent plus tard.", buttons)
         return True
 
+    def _email(self, cq: dict, vid: int, language: str | None) -> bool:
+        """Draft the cover email in the chat, ready to copy. Never sent to anyone."""
+        from summer_hunter.cv_builder.service import email_for
+
+        mail = email_for(self.bot.settings, self.bot.session_factory, vid, language)
+        if mail is None:
+            self.bot.telegram.answer_callback(cq["id"], "Version introuvable")
+            return True
+        self.bot.telegram.answer_callback(cq["id"], "Mail prêt, à copier")
+        other = "en" if mail.language == "fr" else "fr"
+        buttons = [[{"text": "📋 Copier l'objet", "copy_text": {"text": mail.subject[:256]}}],
+                   [{"text": "🇬🇧 Version anglaise" if other == "en" else "🇫🇷 Version française",
+                     "callback_data": f"cvm:{vid}:{other}"}]]
+        self.bot.send("✉️ <b>Mail de candidature</b> · rien n'est envoyé : touche le bloc pour copier le texte.\n\n"
+                      f"<b>Objet</b> : <code>{escape(mail.subject)}</code>\n\n<pre>{escape(mail.body)}</pre>", buttons)
+        log.info("cv email drafted", extra={"language": mail.language})
+        return True
+
     def _regenerate(self, vid: int, background: bool = True) -> None:
         """Same request, current profile (e.g. after confirming a fact): a new version, nothing else changes."""
         self.bot.send("🔁 Régénération avec ton profil à jour…")
@@ -570,6 +589,8 @@ class CVBot:
     def handle_callback(self, cq: dict, action: str, parts: list[str]) -> bool:
         if action in {"cvh", "cvf"}:
             return self._version_callback(cq, action, int(parts[1]))
+        if action == "cvm":
+            return self._email(cq, int(parts[1]), parts[2] if len(parts) > 2 else None)
         if action in {"cvr", "cve", "cvs", "cvl", "cvp", "cvd", "cvk"}:
             return self._cv_button(cq, action, int(parts[1]), parts[2] if len(parts) > 2 else None)
         if action == "cvo" and len(parts) == 3:

@@ -109,6 +109,14 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
             return _err("Version introuvable.", 404)
         return JSONResponse(version_json(built.version_id))
 
+    async def email(request: Request) -> Response:
+        language = (await body(request)).get("language")
+        mail = service.email_for(settings, sessions, vid_of(request), language)
+        if mail is None:
+            return _err("Version introuvable.", 404)
+        log.info("miniapp cv email drafted", extra={"language": mail.language})
+        return JSONResponse({"subject": mail.subject, "body": mail.body, "text": mail.text, "language": mail.language})
+
     async def get_version(request: Request) -> Response:
         data = version_json(vid_of(request))
         return JSONResponse(data) if data else _err("Version introuvable.", 404)
@@ -210,5 +218,6 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
         Route("/api/cv/{vid:int}/regenerate", regenerate, methods=["POST"]),
         Route("/api/cv/{vid:int}/save", save, methods=["POST"]),
         Route("/api/cv/{vid:int}/send", send, methods=["POST"]),
+        Route("/api/cv/{vid:int}/email", email, methods=["POST"]),
         Route("/files/cvb/{vid:int}/{kind:str}", download),
     ]

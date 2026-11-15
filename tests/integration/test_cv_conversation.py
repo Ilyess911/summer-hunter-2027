@@ -99,7 +99,7 @@ def test_full_conversation(settings, sessions):
     report = fake.sent[-1]
     assert "Rapport d'optimisation" in report["text"]
     datas = [b["callback_data"] for row in report["reply_markup"]["inline_keyboard"] for b in row]
-    assert datas == ["cvr:1", "cve:1", "cvs:1", "cvl:1", "cvp:1", "cvd:1", "cvk:1"]
+    assert datas == ["cvr:1", "cve:1", "cvs:1", "cvl:1", "cvp:1", "cvd:1", "cvk:1", "cvm:1"]
 
     bot.cvb.edit(1, "Fais-le en français et sur 2 pages", background=False)
     assert "CV-0001 v2" in "\n".join(m["text"] for m in fake.sent)

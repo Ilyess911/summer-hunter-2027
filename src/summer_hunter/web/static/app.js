@@ -363,7 +363,9 @@ function showVersion(v) {
         ${v.files.pdf ? `<button class="file press" data-dl="${esc(v.files.pdf)}"><span>📄 Télécharger le PDF</span><small>PDF</small></button>` : ""}
         ${v.files.docx ? `<button class="file press" data-dl="${esc(v.files.docx)}"><span>📝 Télécharger le DOCX</span><small>Word</small></button>` : ""}
         <button class="file press" id="cvsend"><span>💬 Recevoir dans le chat</span><small>Telegram</small></button>
+        <button class="file press" id="cvmail"><span>✉️ Générer le mail de candidature</span><small>copié, jamais envoyé</small></button>
       </div>
+      <div id="cvmailbox"></div>
       <div class="row-actions cv-acts">
         <button class="act ${v.saved ? "on" : ""}" id="cvsave">${ICONS.bookmark}${v.saved ? "Sauvegardée" : "Sauvegarder"}</button>
         <button class="act" id="cvregen"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Regénérer</button>
@@ -391,11 +393,58 @@ function showVersion(v) {
     catch (e) { toast(`Erreur : ${e.message}`); }
   };
   $("#cvregen").onclick = () => runCV(`/api/cv/${v.id}/regenerate`, {}, "Régénération avec ton profil à jour…");
+  $("#cvmail").onclick = () => mailCV(v, null);
   $("#cvlangsw").onclick = () => editCV(v.language === "en" ? "en français" : "en anglais");
   $("#cvquick").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) editCV(b.dataset.v); });
   const apply = () => { const t = $("#cvedit").value.trim(); if (t) editCV(t); };
   $("#cvapply").onclick = apply;
   $("#cvedit").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); apply(); } });
+}
+
+/* Cover email: drafted from the CV, copied to the clipboard, never sent. The clipboard write starts inside
+   the tap (ClipboardItem with a pending blob) so WebKit's user-gesture rule still allows it after the fetch. */
+function legacyCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  let ok = false; try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+  ta.remove(); return ok;
+}
+
+async function copyText(textPromise) {
+  try {
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": textPromise.then((t) => new Blob([t], { type: "text/plain" })) })]);
+      return true;
+    }
+  } catch (_) { /* fall through */ }
+  const text = await textPromise;
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* fall through */ }
+  return legacyCopy(text);
+}
+
+async function mailCV(v, language) {
+  const box = $("#cvmailbox");
+  const req = api(`/api/cv/${v.id}/email`, { method: "POST", body: JSON.stringify({ language }) });
+  const copied = copyText(req.then((m) => m.text));
+  box.innerHTML = `<div class="cv-wait"><span class="spin"></span>Rédaction du mail…</div>`;
+  let m;
+  try { m = await req; } catch (e) { box.innerHTML = ""; toast(`Erreur : ${e.message}`); return; }
+  const ok = await copied.catch(() => false);
+  haptic("medium");
+  toast(ok ? "Mail copié · rien n'est envoyé" : "Copie bloquée : touche « Copier »");
+  const other = m.language === "fr" ? "en" : "fr";
+  box.innerHTML = `
+    <div class="mail">
+      <div class="mail-subject"><span class="x">${m.language === "fr" ? "Objet :" : "Subject:"}</span> ${esc(m.subject)}</div>
+      <pre class="mail-body">${esc(m.body)}</pre>
+      <div class="mail-btns">
+        <button class="primary press" id="mailcopy">${ok ? "Recopier" : "Copier"}</button>
+        <button class="primary ghost press" id="mailother">${other === "en" ? "En anglais" : "En français"}</button>
+      </div>
+    </div>`;
+  $("#mailcopy").onclick = async () => { const done = await copyText(Promise.resolve(m.text)); haptic(); toast(done ? "Copié" : "Copie impossible : sélectionne le texte"); };
+  $("#mailother").onclick = () => mailCV(v, other);
 }
 
 async function runCV(path, body, msg) {
