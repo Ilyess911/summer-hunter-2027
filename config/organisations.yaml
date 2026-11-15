@@ -1,10 +1,273 @@
 # What the application emails may say about an organisation. Only facts with a source belong here.
 # Without an entry, the email never describes the organisation's activities (name, sector and place only).
 organisations:
-  - name: French Chamber of Commerce in Singapore
-    aliases: [FCCS]
-    source: "candidate's briefs, 15-16 Nov 2026"
-    facts:
-      - "supports the development of French businesses in Singapore, including companies entering the Singapore market"
-      - "works on business development, partnerships and services for companies"
-      - "connects French and Singaporean companies and professionals (the Franco-Singaporean business community)"
+- name: French Chamber of Commerce in Singapore
+  aliases:
+  - FCCS
+  - Chambre de Commerce Française de Singapour
+  source: 'official websites, researched 15-16 Nov 2026: https://www.fccsingapore.com/, https://www.fccsingapore.com/our-chamber.html, https://www.fccsingapore.com/recruitment/candidate.html, https://www.fccsingapore.com/services/commercial-development-2.html'
+  facts:
+  - supports the development of French businesses in Singapore, including companies entering the Singapore market
+  - works on business development, partnerships and services for companies
+  - connects French and Singaporean companies and professionals (the Franco-Singaporean business community)
+  - Established in 1979; describes itself as a private association promoting trade relations between Singapore and France, with over 650 company and individual members.
+  - States it is the exclusive Team France Export representative in Singapore and reports supporting over 155 companies in 2025.
+  - 'Commercial development offer: market studies, go-to-market tests, business matching with targeted partners or prospects, learning expeditions, French Pavilions at regional tradeshows, market insights.'
+  - Business set-up, business centre and business support services, translation and VAT refund services.
+  - Assists companies and individuals with work and family pass applications for foreigners (EP, S Pass etc.).
+  - Recruitment department holding a Ministry of Manpower Employment Agency licence since 2004; publishes permanent, contract and internship openings for clients and runs a CV database.
+- name: CCI France UAE
+  aliases:
+  - CCI France UAE
+  - Chambre de Commerce Française pour les Emirats Arabes Unis
+  - Emirats Arabes Unis
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifranceuae.com/, https://www.ccifranceuae.com/la-chambre/qui-sommes-nous.html, https://www.ccifranceuae.com/recrutement-et-formation/candidat.html,
+    https://www.ccifranceuae.com/services-aux-entreprises/centres-daffaires-vie.html'
+  facts:
+  - Private local-law organisation with over 550 member companies, 15 elected board members and a permanent team of 15.
+  - 'Missions: strengthen French-Emirati relations with local authorities, support French companies'' set-up projects, animate the business community through events and services.'
+  - 'Prospection service: target market analysis, competitor benchmark, partner search (agents, distributors, importers, clients) and personalised business meeting programmes of at least two days.'
+  - 'Business services also listed: commercial follow-up, market study, domiciliation and hosting, personalised VIP programme, company and school delegations.'
+  - Turnkey VIE hosting offer in Dubai and Abu Dhabi with offices, coaching and a visa package (application, management, sponsorship).
+  - 'Recruitment and training: candidate CV base, Boost''Emploi workshops, FlexiPool, talent recruitment for companies; states over 100 job offers per year.'
+- name: French Chamber of Commerce and Industry in Hong Kong
+  aliases:
+  - FCCIHK
+  source: 'official websites, researched 15-16 Nov 2026: https://www.fccihk.com/our-chamber/about-us.html, https://www.fccihk.com/publications-news/news/n/news/business-france-hong-kong-awards-the-fccihk-the-public-service-contract-for-export-support-services.html,
+    https://www.fccihk.com/recruitment/training.html, https://www.fccihk.com/services.html'
+  facts:
+  - Over 700 members per the 2024-25 annual report; governed by 40 Councillors elected by members; supports French SMEs expanding in Hong Kong and advocates with the HKSAR Government.
+  - 'Market prospection: tailor-made business missions, trade fair support, bespoke seminars and Greater Bay Area learning expeditions (LeBooster business services).'
+  - Company setup, bank account opening, domiciliation, certified translations and a Business Centre in Central.
+  - Visa services handled by the chamber's team, and a recruitment agency with a candidate database, including intern and VIE hiring support.
+  - Handles the visa application process for VIEs in Hong Kong and can sponsor a VIE visa; members can post internship offers on its platform for free.
+  - Business France Hong Kong awarded it a two-year public service contract for export support services, signed 9 January 2023.
+- name: French-American Chamber of Commerce New York
+  aliases:
+  - FACC-NY
+  - French American Chamber of Commerce - New York
+  - FACCNY
+  source: 'official websites, researched 15-16 Nov 2026: https://www.faccnyc.org/, https://www.faccnyc.org/about, https://www.faccnyc.org/about-visa, https://www.faccnyc.org/american-outbound'
+  facts:
+  - At the heart of the French-American business community since 1896; mission to support members, create events, foster leaders and promote France-US understanding.
+  - 'Business services for U.S. market entry and expansion: Manhattan virtual office/domiciliation, market validation meetings with potential customers, distributors or partners, and a U.S. Landing Package
+    of introductions to banks, law firms and tax experts.'
+  - Learning expeditions/business treks for universities, corporate teams and trade delegations, and custom event management.
+  - US Department of State accredited J-1 visa sponsor for Interns and Trainees since 1983 (International Career Development Programs).
+  - American Outbound programme helps eligible U.S. citizens aged 18-35 obtain a jeune professionnel visa to work in France.
+  - Membership, committees, member directory and events, including partnership and sponsorship.
+- name: Chambre de Commerce et d'Industrie Française au Canada
+  aliases:
+  - CCIFC
+  - CCI France Canada
+  - Montréal
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifcmtl.ca/, https://www.ccifcmtl.ca/emploi/vie-stage-decouvrez-nos-ecoles-partenaires.html, https://www.ccifcmtl.ca/la-chambre.html,
+    https://www.ccifcmtl.ca/services.html'
+  facts:
+  - Brings together about 400 French and Canadian companies and supports companies setting up in Canada and in France.
+  - Services include setting up (S'implanter), discover and prospect, business centre and V.I.E hosting, immigration information, and recruitment support.
+  - Le TransAtlantique accelerator programme to grow companies on both sides of the Atlantic, fifth cohort run with Centech.
+  - Immigration FAQ prepared with the immigration law firm Immétis, covering work permits and studying or doing an internship in Canada.
+  - 'Recruitment: job board, CVthèque for interns and young graduates, partner schools, Stage Coop programme promoted to employers.'
+  - Member directory, member privileges and events (networking, panels, breakfasts).
+- name: Chambre de Commerce et d'Industrie française du Japon
+  aliases:
+  - CCIFJ
+  - CCI France Japon
+  - French Chamber of Commerce and Industry in Japan
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifj.or.jp/la-chambre/equipe.html, https://www.ccifj.or.jp/la-chambre/nos-services.html, https://www.ccifj.or.jp/services-aux-entreprises/implantation-et-business-center.html,
+    https://www.ccifj.or.jp/services-aux-entreprises/missions-sectorielles-2026.html'
+  facts:
+  - Describes itself as the first European chamber in Japan, with more than 650 member companies and 1,500 decision-makers, and about a hundred events a year.
+  - 'Offers commercial support services: market studies, help with setting up in Japan, and office domiciliation.'
+  - Runs business centres in Tokyo, Osaka and Nagoya (temporary offices, virtual domiciliation, desks, meeting rooms) plus a 'Business Starter' company-setup package.
+  - Hosts V.I.E for French companies (recruitment and visa procedures) and offers an Employer of Record service (payroll, visa sponsorship) for local hires.
+  - 'Organises 2026 sector missions to Japan: Mobility, Energy, Sport & Asian Games, Healthcare, Space, Semiconductors.'
+  - Has a dedicated business development team (Managing Director Développement des affaires, corporate services consultants, BtoB director, project managers) reachable at business@ccifj.or.jp.
+- name: French American Chamber of Commerce California
+  aliases:
+  - FACC California
+  source: 'official websites, researched 15-16 Nov 2026: https://www.facccalifornia.com/, https://www.facccalifornia.com/corporate-services/business-development.html, https://www.facccalifornia.com/corporate-services/vie-hosting.html,
+    https://www.facccalifornia.com/j-1-visa.html'
+  facts:
+  - States its mission is to help companies 'successfully enter, grow, and scale in California', representing over 250 multinationals and SMEs and a 6,000+ contact network.
+  - 'Offers a business development service: US market viability assessment, search for distribution partners (agents, distributors, importers), customer lead generation, trade-show representation and tailor-made
+    B2B meeting programmes with a mission report.'
+  - Corporate services include domiciliation, a business center in SF, Strategic B2B Meetings, Business Bootcamp, Micro-entrepreneur Academy, French VAT refund, recruitment and event planning.
+  - Hosts V.I.E in its San Francisco coworking space with on-site supervision, network introductions and monthly reporting to the hosting company.
+  - Acts as local contact for the FACC network's J-1 intern/trainee visa programme (sponsor FACC-NYC issues the DS-2019).
+  - Runs learning expeditions (Silicon Valley/LA/Napa, VivaTech 2026, CES 2027), sectorial committees and business clubs.
+- name: French Chamber of Commerce in Great Britain
+  aliases:
+  - 'Registered company: CHAMBRE DE COMMERCE FRANCAISE DE GRANDE-BRETAGNE LIMITED'
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccfgb.co.uk/advocacy.html, https://www.ccfgb.co.uk/events-clubs/nexgen.html, https://www.ccfgb.co.uk/services/accountancy-payroll-vat-and-tax-management.html,
+    https://www.ccfgb.co.uk/services/business-promotion.html'
+  facts:
+  - Provides bilingual accountancy, payroll (hiring UK staff without a UK entity), VAT recovery and UK tax management for French-owned businesses.
+  - Physical Desk service gives a London business address, mail forwarding, optional phone line and setup guidance (legal structure, tax, banking, recruitment) to test the UK market before incorporating.
+  - Runs a member recruitment platform (free job and internship postings, CV Library) with partners French Resources and Mind Partners.
+  - 'Advocacy work: Policy Platform on defence, energy and tech/AI, Advocacy Breakfasts, Ambassadors'' Briefings, and the UK-France Business Forum co-run with the Franco-British CCI in Paris.'
+  - Organises the Franco-British Business Conference (2nd edition 10 June 2026) and the Gala & Business Awards (26 Nov 2026, Guildhall).
+  - Sells business promotion (website, newsletter to ~5,500 contacts, social media advertising) to members and non-members.
+- name: Chambre de Commerce et d'Industrie Franco-Coréenne
+  aliases:
+  - FKCCI
+  - CCI France Corée du Sud
+  source: 'official websites, researched 15-16 Nov 2026: https://www.fkcci.com/emploi/recruitment.html, https://www.fkcci.com/la-chambre/equipe.html, https://www.fkcci.com/la-chambre/mission-et-valeurs.html,
+    https://www.fkcci.com/services/etudier-le-marche.html'
+  facts:
+  - Founded in 1986 with more than 475 French and Korean members; mission to promote bilateral trade, investment and business relations between France and Korea.
+  - 'Market prospecting services: trade missions to find Korean suppliers, importers, distributors or agents, shared part-time project manager (CPTP) and qualified contact lists.'
+  - 'Market study services: tailored market studies, Start''Export product testing with Korean partners, solvency studies and learning expeditions.'
+  - 'Corporate services: corporate visa support, local entity creation, portage salarial and a furnished business center in Gangnam.'
+  - 'Recruitment services: candidate database for member recruiters and free job and internship postings for members.'
+  - Has a Business Development team including a Head of Business Development, a Partnerships & Key Accounts manager and a Market Entry manager.
+- name: French-Australian Chamber of Commerce and Industry
+  aliases:
+  - FACCI
+  source: 'official websites, researched 15-16 Nov 2026: https://www.facci.com.au/, https://www.facci.com.au/our-chamber/organisational-structure/operational-team.html, https://www.facci.com.au/our-chamber/our-mission.html,
+    https://www.facci.com.au/services/business-development.html'
+  facts:
+  - Independent not-for-profit chamber founded in 1899 with over 500 company members, head office in Sydney and chapters in Melbourne, Brisbane, Perth and Adelaide.
+  - 'Market entry services: market fit studies, targeted introductions to partners/distributors/prospects from a 500-member, 15,000-contact network, desk rental, domiciliation, visa support and recruitment.'
+  - Business development support through targeted introductions to partners, distributors and prospects and industry committees.
+  - Hosts V.I.E in Sydney, Melbourne, Brisbane and Adelaide offices, acting as mandatory referent; Business France manages visa and HR compliance.
+  - 'Other services: coworking rental, NAATI translation and interpreting, French VAT refund, advertising and recruitment.'
+  - Each chapter has an Events & Partnerships Officer or Head of Chapter in an 11-person permanent team.
+- name: CCI France Malaysia
+  aliases:
+  - CCIFM / MFCCI
+  - Malaysian-French Chamber of Commerce and Industry
+  - CCI France Malaisie
+  - MFCCI
+  source: 'official websites, researched 15-16 Nov 2026: https://www.mfcci.com/our-chamber/role-and-mission.html, https://www.mfcci.com/services/business-assistance/human-resources-employment.html, https://www.mfcci.com/services/market-approach-commercial-representation.html'
+  facts:
+  - Helps French companies develop in Malaysia and supports their establishment, with the stated purpose to 'develop relations between its members and the Malaysian business community'; over 300 member
+    companies.
+  - 'Commercial Assistance: market studies, price surveys, custom market research, credit reports and help with a business development and implementation strategy for the Malaysian market.'
+  - Partner search through e-Mission (B2B matchmaking by video-conference) and Business Matching prospective missions identifying Malaysian agents, distributors, suppliers and industrial partners.
+  - Commercial representation ('Company Pool Manager') for firms not ready to hire a full-time employee in Malaysia, plus verification of Malaysian companies before transactions.
+  - Company set-up, business assistance (administrative, tax, legal, HR), visas and work permits, Promosalons trade-fair promotion, CCIFM Club Export and an HRDC-registered training centre.
+  - HR support department does candidate matching for companies (job offers via hrsupport(@)mfcci.com) and keeps job-seeker resumes for up to 3 months.
+- name: CCI France Vietnam
+  aliases:
+  - CCIFV
+  - Chambre de Commerce et d'Industrie France Vietnam
+  - French Chamber of Commerce and Industry in Vietnam
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifv.org/emploi-formation.html, https://www.ccifv.org/la-chambre/qui-sommes-nous.html, https://www.ccifv.org/services.html, https://www.ccifv.org/services/accelerateur.html'
+  facts:
+  - Supports French companies at each stage of their Vietnam operations and promotes trade and capital flows between France and Vietnam; over 250 member companies.
+  - Commercial support ('Appui commercial') covering market approach, prospecting, implantation, legal-structure creation, economic intelligence, and a reverse service for Vietnamese companies going to
+    France.
+  - 'LeBooster: two fully equipped business centres in Hanoi and Ho Chi Minh City for companies setting up in Vietnam.'
+  - Recruitment and training service ('Emploi et Formation') with a job board, employer space, candidate space and CV database.
+  - Business accelerator programme for entrepreneurs with coaching and investor pitching (run within FrenchTech Summit 2025).
+  - Club Export and seven sector committees, plus the CONNECT magazine.
+- name: Indo-French Chamber of Commerce and Industry
+  aliases:
+  - IFCCI
+  - CCI France Inde
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ifcci.org.in/about-us.html, https://www.ifcci.org.in/business-services.html, https://www.ifcci.org.in/business-support-services/business-centres.html,
+    https://www.ifcci.org.in/business-support-services/pages/france-to-india/business-development-support.html'
+  facts:
+  - Creates business and networking opportunities between Indian and French companies; over 800 company members.
+  - Business Support Services for both France-to-India and India-to-France market entry.
+  - 'Staff Outsourcing: IFCCI ''acts as a temporary local structure'' for a company in India, recruiting and administering an Indian representative.'
+  - Part-time business development representation and trade fair representation on behalf of companies.
+  - Plug-and-play business centres in Mumbai, Delhi, Chennai and Bangalore, with services for companies employing a V.I.E, expatriate or local employee.
+  - HR & Recruitment services for candidates and employers, plus learning & development.
+- name: France Canada Chamber of Commerce
+  aliases:
+  - FCCCO
+  - CCI France Toronto
+  - France Canada Chamber of Commerce Ontario
+  - ON, MB
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifrance-international.org/notre-reseau/les-cci-fi/amerique-du-nord/exporter-s-implanter-canada-toronto.html, https://www.fccco.org/business-expansion,
+    https://www.fccco.org/copy-of-recruiting-services, https://www.fccco.org/jobportal'
+  facts:
+  - Supports bilateral trade between France and Canada and helps French companies grow across Ontario and Manitoba; 70 members and 4 staff per the CCI FI directory.
+  - 'Business Expansion: market intelligence/research reports on regulations, distribution channels, key players and contacts, opportunity identification and partnership facilitation for market entry.'
+  - 'Services listed: Business Expansion, Setting up New Business (SMEs), Recruiting Services, Leadership solutions, Immigration Services, VIE Hosting Services and Wage Portage Services.'
+  - Directory lists market diagnostics, market studies, prospecting missions, trade show participation, LeBooster business centre, V.I.E packs, subsidiary creation and outsourced HR.
+  - Immigration services include International Mobility Program, Temporary Foreign Worker Program and Open Work Permit support.
+  - Job Portal for French talent and member job offers; offers internships on white papers, reports and event planning.
+- name: French American Chamber of Commerce New England
+  aliases:
+  - FACCNE
+  - French-American Chamber of Commerce New England
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifrance-international.org/notre-reseau/les-cci-fi/amerique-du-nord/exporter-s-implanter-usa-boston.html, https://www.faccne.org/our-chamber.html,
+    https://www.faccne.org/services.html, https://www.faccne.org/services/j1-visa-vie-exchange-visitor-program.html'
+  facts:
+  - Chamber of about 400 members and 5 staff, founded 1985, bridging New England and France.
+  - 'Directory lists services: key contacts, learning expeditions, interpreting/translation, V.I.E packs, recruitment, subsidiary creation, set-up days, turnkey events, mentoring.'
+  - Learning Expeditions / Trade Missions and VAT Refund services.
+  - J-1 Exchange Visitor Program and VIE support via FACC-NYC, a U.S. Department of State designated sponsor, for 'full-time, paid, practical training programs'.
+  - 'Member job board: members post job offers and resumes; non-members contact services(@)faccne.org.'
+  - 'Business forums: FABS (life sciences), FWBN (women in business), HR & Leadership Development, FACC''FIN, FACC''EDU; events and FAB Awards.'
+- name: CCI France Thaïlande
+  aliases:
+  - FTCC
+  - Franco-Thai Chamber of Commerce
+  - Chambre de Commerce Franco-Thaïe
+  source: 'official websites, researched 15-16 Nov 2026: https://www.francothaicc.com/business-services/business-advisory.html, https://www.francothaicc.com/emploi/candidat.html'
+  facts:
+  - Business Advisory service offers market research and business intelligence (market size, competitive landscape, distribution channels, regulations) for companies looking at Thailand.
+  - Business Advisory also covers business prospecting and partner identification (distributors, importers, suppliers), contact qualification and meeting arrangement.
+  - Organises business matchmaking programmes for visiting companies (meeting scheduling, local coordination, follow-up).
+  - Provides business establishment support with introductions to incorporation, legal and tax partners, plus office space via the LeBooster Bangkok business centre.
+  - Offers V.I.E. Hosting to support French companies establishing and managing V.I.E. assignments in Thailand.
+  - Runs a recruitment service with a CV database for candidates and pre-selection services for employers, plus a job board of member offers.
+- name: Chambre de Commerce et d'Industrie France-Taiwan
+  aliases:
+  - CCIFT
+  - CCI France Taiwan
+  - French Chamber of Commerce Taiwan
+  - France Taiwan Chamber of Commerce and Industry
+  - French Chamber Taiwan
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccift.org.tw/our-chamber/mission-and-values.html, https://www.ccift.org.tw/services/business-center.html, https://www.ccift.org.tw/services/business-services.html'
+  facts:
+  - 'Mission: represent the French business community in Taiwan, help French companies export to or set up in Taiwan, and help Taiwanese companies expand into France.'
+  - 'Prospecting services: tailor-made prospect identification and qualification (from NTD 41,000), Top 25 importers list (from NTD 25,000) and a market-approach test of the offer (from NTD 29,000).'
+  - '''Meet decision-makers'' programme of 3 to 4 business meetings per day (NTD 15,000 per day).'
+  - Company set-up support for representative offices, Taiwan limited companies and subsidiaries/branches, plus payroll management.
+  - Work permit application assistance for companies (from NTD 29,000), with ARC and National Health Insurance assistance as add-on.
+  - Runs the LeBooster business centre (private offices, desks, virtual office, V.I.E. hosting).
+- name: CCI France Qatar
+  aliases:
+  - CCIFQ
+  - Maison de la France
+  - Maison de la France - CCI France Qatar
+  - Chambre de commerce et d'industrie France-Qatar
+  source: 'official websites, researched 15-16 Nov 2026: https://www.ccifq.com/la-chambre.html, https://www.ccifq.com/services.html, https://www.zawya.com/en/press-release/companies-news/qfc-and-cci-france-qatar-sign-mou-to-strengthen-franceqatar-business-and-investment-ties-404346'
+  facts:
+  - 'Mission: promote bilateral trade, investment and business relations between France and Qatar; has animated the business community in Qatar since 2018.'
+  - Provides set-up advice (conseils à l'implantation) on company structures for firms developing in Qatar.
+  - Offers cultural training for newcomers and new employees, VAT recovery on business trips to France, and a list of Qatari tender websites.
+  - Employment service helps companies recruit and expatriate spouses enter the Qatari job market (Boost'Emploi workshops, job offers, CV submission).
+  - Signed an MoU with the Qatar Financial Centre to co-organise events, business forums, roundtables and delegation activities in Qatar and France (July 2026).
+  - Runs events, sponsorship opportunities and Business Awards 2026.
+- name: French South African Chamber of Commerce and Industry
+  aliases:
+  - FSACCI
+  - CCI France Afrique du Sud
+  source: 'official websites, researched 15-16 Nov 2026: https://www.fsacci.com/, https://www.fsacci.com/about-us/who-we-are.html, https://www.fsacci.com/business-services/hr-recruitment.html, https://www.fsacci.com/business-services/mon-developpement-en-afrique-du-sud.html'
+  facts:
+  - Mission is to promote reciprocal trade between France and South Africa.
+  - Prospecting & Business Development service offers market watch, market studies, market tests and an Executive Connection Programme of scheduled meetings with potential partners, investors, buyers, distributors
+    and suppliers, partly with Business France.
+  - '''Mon Développement en Afrique du Sud'' programme supports French companies in three phases: market entry, local set-up (company registration, address, cultural training) and growth (recruitment, business
+    centre, remote sales representation).'
+  - HR & Recruitment service runs a job board and candidate CV database, HR training and coaching, and B-BBEE coaching.
+  - 'Other business services: LeBooster Business Centre, company set-up & admin, VAT tax refund service.'
+  - Runs a Cape Town Regional Committee and recruited a six-month intern in Cape Town (July 2025) to rebuild its Western Cape network.
+- name: Chambre Française de Commerce et d'Industrie du Maroc
+  aliases:
+  - CFCIM
+  source: 'official websites, researched 15-16 Nov 2026: https://www.cfcim.org/implantations, https://www.cfcim.org/je-cree/implante-mon-entreprise, https://www.cfcim.org/se-developper-et-performer'
+  facts:
+  - Since January 2019 the CFCIM has been the sole Team France Export correspondent in Morocco under a public service concession from Business France.
+  - Organises individual prospecting missions with B2B meetings with Moroccan partners, clients and buyers (EUR 2,200 to 3,600 excl. VAT) and remote B2B meetings (EUR 350).
+  - Runs collective prospecting missions for chambers, clusters and trade associations, and trade fair missions to about 20 major fairs per year.
+  - Sells market studies (from EUR 5,000), market watch/diagnostics (from EUR 1,200) and offer tests (EUR 3,400 to 5,000).
+  - Supports company set-up with feasibility studies/business plans, partner introductions, domiciliation and the LeBooster business centre in Casablanca (for V.I.E. and developing companies).
+  - Develops and operates industrial parks (Bouskoura, Ouled Salah, Settat, Berrechid, with six more planned).

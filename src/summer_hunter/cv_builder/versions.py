@@ -21,7 +21,7 @@ from summer_hunter.cv_builder.document import Rendered, build
 from summer_hunter.cv_builder.intent import CVRequest
 from summer_hunter.database.models import CVVersion
 
-EDITABLE = {"language", "pages", "style", "emphasis", "exclude", "target_role", "company", "country_code", "track",
+EDITABLE = {"language", "pages", "style", "emphasis", "exclude", "target_role", "company", "company_aliases", "country_code", "track",
             "family", "personalization"}
 
 

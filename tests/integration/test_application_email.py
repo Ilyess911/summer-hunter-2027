@@ -115,7 +115,7 @@ def test_a_fccs_prompt_has_verified_organisation_facts_and_no_reference_text(env
     prompt = provider.prompts[0]
     assert "supports the development of French businesses in Singapore" in prompt
     assert "As I approach the end of my engineering degree" not in prompt      # reasoning, not a template to copy
-    assert "Never mention: ESSEC, ESCP, AST" in prompt
+    assert "Never mention: ESSEC, ESCP, EDHEC" in prompt and "business school" in prompt.split("GOALS (his words):")[1][:600]
     assert mail.model == "scripted-model" and mail.warnings == [] and mail.attempts == 1
 
 

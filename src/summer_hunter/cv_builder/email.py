@@ -43,7 +43,7 @@ THEME_FR = {
 }
 _PRESENT = {"develop", "analyze", "analyse", "automate", "monitor", "build", "lead", "manage", "support", "design",
             "coordinate", "collaborate", "deliver", "drive", "run", "create", "engage", "conduct", "optimize"}
-_ARTICLE = re.compile(r"\b(chamber|association|university|institute|foundation|ministry|embassy|agency|federation|"
+_ARTICLE = re.compile(r"\b(chamber|chambre|association|university|institute|foundation|ministry|embassy|agency|federation|"
                       r"council|office|bank of|organisation|organization|commission)\b", re.I)
 
 

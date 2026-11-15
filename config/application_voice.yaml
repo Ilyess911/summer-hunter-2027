@@ -4,10 +4,15 @@
 
 goals:   # his professional project, in his words
   - "build a career at the interface of technology, business development and international management"
+  - "after the engineering degree, pursue further studies in management at a business school (a plan, not an admission; never name a school)"
+  - "discover international business concretely before that management programme, while contributing with engineering and entrepreneurial skills"
   - "a growing interest in partnerships and in connecting people and organisations"
   - "an internship of 3 to 5 months between April and August 2027, ideally abroad"
 
-never_mention: [ESSEC, ESCP, AST, "admission", "admissions", "business school", "master in management", "MiM"]
+# Business-school plans may be mentioned (16 Nov 2026), as a plan only; schools, admissions and "this internship
+# would strengthen my application" never.
+never_mention: [ESSEC, ESCP, EDHEC, HEC Paris, INSEAD, AST, "admission", "admissions", "admitted", "admis", "strengthen my application",
+                "my application to", "renforcer ma candidature"]
 
 # Story lines. One is chosen per application from the profile (track) and the role; the email builds its
 # argument on it. Evidence = organisations whose verified CV facts may be used; angle = what that experience

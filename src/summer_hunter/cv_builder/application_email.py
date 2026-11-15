@@ -314,13 +314,13 @@ def check(paragraphs: list[str], subject: str, st: Strategy, ctx: ApplicationCon
         if re.search(rf"(?<![a-z]){re.escape(normalize_for_match(term))}(?![a-z])", low):
             r.blocking.append(f"mentions « {term} », which must never appear")
     allowed_nums = set(re.findall(r"\d+(?:[.,/]\d+)*", allowed_text)) | {"2027", "3", "5"}
-    unknown = set(re.findall(r"(?<![A-Za-z0-9])\d+(?:[.,/]\d+)*(?![A-Za-z0-9])", body)) - allowed_nums
+    unknown = set(re.findall(r"(?<![A-Za-z0-9-])\d+(?:[.,/]\d+)*(?![A-Za-z0-9])", body)) - allowed_nums
     if unknown:
         r.blocking.append(f"numbers not in the facts: {', '.join(sorted(unknown))}")
     # A number keeps the word it qualifies in the facts: '140 registrations' must not become '140 attendees'.
     units = {"months", "month", "mois", "weeks", "week", "semaines", "semaine", "years", "year", "ans", "an", "days",
              "jours", "and", "to", "et", "à"}
-    for m in re.finditer(r"(?<![A-Za-z0-9])(\d+(?:[.,]\d+)?)\s+([A-Za-zÀ-ÿ]{2,})", body):
+    for m in re.finditer(r"(?<![A-Za-z0-9-])(\d+(?:[.,]\d+)?)\s+([A-Za-zÀ-ÿ]{2,})", body):   # 'J-1' is a name
         num, word = m.group(1), m.group(2).lower()
         if word in units:
             continue                              # durations and ranges ('3 à 5 mois') carry no claim

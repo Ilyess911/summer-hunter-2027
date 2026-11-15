@@ -81,10 +81,10 @@ def from_request(req: CVRequest, profile_raw: dict[str, Any]) -> ApplicationCont
 # text places in a recipient position ("Dear X team", "at X", "join X", "au sein de X"). They fail closed:
 # a target with no recipient slot, or any slot that is not exactly the target or a vetted alias, blocks.
 
-_TOKEN = r"[A-Z][\w&'’-]*(?:\.[A-Za-z][\w&'’-]*)*"      # 'S.A.' keeps its dots, a sentence's full stop does not
+_TOKEN = r"(?:d['’])?[A-Z][\w&'’-]*(?:\.[A-Za-z][\w&'’-]*)*"   # 'S.A.' keeps its dots; "d'Industrie" is one word
 _RECIPIENT_TEXT = re.compile(
     r"(?:\bDear|\bjoin|\bat|contribute to|bring to|au sein d[e'’u]|au service d[e'’u]|activités d[e'’u]|\bchez|\bde la)"
-    r"\s*(?:the |la |le |l['’])?(?P<name>" + _TOKEN + r"(?:\s+(?:(?:of|in|for|and|de|du|des|et|&)\s+)?" + _TOKEN + r"){0,7})")
+    r"\s*(?:the |la |le |l['’])?(?P<name>" + _TOKEN + r"(?:\s+(?:(?:of|in|for|and|de|du|des|et|au|aux|&)\s+)?" + _TOKEN + r"){0,7})")
 _NOT_ORG = {"hiring team", "april", "may", "june", "july", "august", "september", "march", "monsieur", "madame"}
 
 
@@ -119,8 +119,13 @@ def _recipients_in(text: str) -> list[str]:
     return out
 
 
-def _target_or_place(name: str, ctx: ApplicationContext) -> bool:
-    return _is_target(name, ctx) or _is_target(_drop_place(name), ctx)
+def _target_or_place(name: str, ctx: ApplicationContext, text: str = "") -> bool:
+    """The target itself, the target followed by a place, or the start of the target's name cut by a lowercase
+    word ("Chambre de Commerce et d'Industrie [française du Japon]") when the text names the target in full."""
+    if _is_target(name, ctx) or _is_target(_drop_place(name), ctx):
+        return True
+    n = _norm(name)
+    return bool(text) and any(_norm(t).startswith(n + " ") and _norm(t) in _norm(text) for t in ctx.names)
 
 
 TRUSTED_SOURCES = {"explicit", "short_request", "posting_label", "posting_header", "posting_intro"}
@@ -141,7 +146,7 @@ def validate_cv(cv: dict[str, Any], ctx: ApplicationContext, orgs: list[str], ow
     for sentence in re.split(r"(?<=[.!?])\s+", str(cv.get("summary", ""))):
         targeted = bool(re.match(r"(?i)\s*(seeking|looking for|candidat|ready to|eager to|keen to)", sentence))
         for name in _recipients_in(sentence):
-            if _target_or_place(name, ctx):
+            if _target_or_place(name, ctx, sentence):
                 continue
             if targeted or re.search(rf"\bjoin\s+(?:the )?{re.escape(name)}", sentence) or not _own(name, own_orgs):
                 problems.append(f"le résumé du CV vise « {name} » au lieu de « {ctx.target_company or 'aucune entreprise'} »")
@@ -159,7 +164,7 @@ def validate_email(parts: dict[str, Any], ctx: ApplicationContext, orgs: list[st
             problems.append(f"mail adressé à « {slot} » au lieu de « {ctx.target_company or 'aucune entreprise'} »")
     for key in ("greeting", "opening", "closing"):
         for name in _recipients_in(parts.get(key, "")):
-            if not _target_or_place(name, ctx):
+            if not _target_or_place(name, ctx, parts.get(key, "")):
                 problems.append(f"mail ({key}) adressé à « {name} » au lieu de « {ctx.target_company or 'aucune entreprise'} »")
     # Experience positions ("At X, I…", "chez X", "co-founder of X") may only name the candidate's organisations.
     for m in _EXPERIENCE_SLOT.finditer(parts.get("proof", "")):
