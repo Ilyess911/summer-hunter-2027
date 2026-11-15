@@ -119,6 +119,8 @@ def ranked_extras(content: dict[str, Any], cv: dict[str, Any], req: CVRequest) -
     keys = cvmod._tokens(f"{req.target_role or ''} {cvmod.role_text(_job_text(req))}") | \
         set(cvmod.FAMILY_KEYWORDS.get(req.family, "").split())
     shown = {p.get("name") for p in cv.get("projects", [])}
+    if ((content.get("tracks") or {}).get(cv.get("track", "")) or {}).get("projects"):
+        return []                                  # the profile fixes its projects: nothing added to fill the page
     excluded = [(_tokens(w) - _GENERIC, _norm(w)) for w in req.exclude]
     pool = [p for p in content.get("projects", []) if p.get("name") not in shown and cvmod._on_track(p, cv.get("track", ""))
             and not any((want and want <= _tokens(p.get("name", ""))) or n in _norm(p.get("name", "")) for want, n in excluded)]
@@ -162,6 +164,7 @@ def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tu
     cv["recipient"] = company or None          # the only organisation the CV addresses (checked before delivery)
     keys = _tokens(f"{req.target_role or ''} {_job_text(req)}")
     _place_confirmed(cv, confirmed, keys, notes)
+    _track_projects(cv, content, req)
     _apply_emphasis(cv, content, req, notes)
     _apply_exclude(cv, req, notes)
     if req.language == "fr":
@@ -178,11 +181,16 @@ def _place_confirmed(cv: dict[str, Any], confirmed: list[Any], keys: set[str], n
     skills: dict[str, list[str]] = cv.get("skills") or {}
     fixed = {"Languages"}
     movable = [g for g in skills if g not in fixed]
-    tech = next((g for g in movable if re.search(r"tech|data|analytics|ai", g, re.I)), movable[0] if movable else None)
+    # Confirmed skills join a technical group only; a profile without one (e.g. international business) keeps
+    # its business focus and reports them as not placed.
+    tech = next((g for g in movable if re.search(r"\btech|\bdata\b|analytics|\bai\b", g, re.I)), None)
+    skipped = []
     unplaced = []
     for f in confirmed:
-        if f.kind == "skill" and tech:
-            if _norm(f.text) not in {_norm(s) for items in skills.values() for s in items}:
+        if f.kind == "skill":
+            if not tech:
+                skipped.append(f.text)
+            elif _norm(f.text) not in {_norm(s) for items in skills.values() for s in items}:
                 skills[tech].append(f.text)
         elif f.kind == "certification":
             skills.setdefault("Certifications", [])
@@ -199,6 +207,8 @@ def _place_confirmed(cv: dict[str, Any], confirmed: list[Any], keys: set[str], n
     cv["skills"] = skills
     if unplaced:
         notes.append("Faits confirmés non placés automatiquement (expérience, distinction…) : " + "; ".join(unplaced[:3]))
+    if skipped:
+        notes.append("Compétences techniques confirmées laissées hors de ce profil : " + ", ".join(skipped[:6]))
 
 
 def _apply_emphasis(cv: dict[str, Any], content: dict[str, Any], req: CVRequest, notes: list[str]) -> None:
@@ -225,6 +235,15 @@ def _apply_emphasis(cv: dict[str, Any], content: dict[str, Any], req: CVRequest,
 
 _GENERIC = {"mon", "ma", "mes", "my", "projet", "project", "projects", "projets", "experience", "experiences", "stage",
             "the", "le", "la", "les", "de", "du", "des"}
+
+
+def _track_projects(cv: dict[str, Any], content: dict[str, Any], req: CVRequest) -> None:
+    """A profile may fix its projects ('projects: [Vinc'IA, Medical'IA]'), in that order."""
+    order = ((content.get("tracks") or {}).get(req.track) or {}).get("projects")
+    if not order:
+        return
+    pool = content.get("projects", [])
+    cv["projects"] = [p for name in order for p in pool if str(p.get("name", "")).startswith(name)]
 
 
 def _apply_exclude(cv: dict[str, Any], req: CVRequest, notes: list[str]) -> None:

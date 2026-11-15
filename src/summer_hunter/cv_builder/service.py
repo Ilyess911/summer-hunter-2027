@@ -97,7 +97,7 @@ def derive(settings: Settings, sessions: sessionmaker[Session], vid: int, change
         if parent is None:
             return None
         overrides = dict(overrides)
-        if "target_role" in overrides:
+        if "target_role" in overrides and "track" not in overrides:
             ctx = context_from(settings, session)
             family = classify_family(ctx, overrides["target_role"], "", False)
             overrides["family"] = family
@@ -177,8 +177,44 @@ def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, lan
             req = replace(req, language=language)
         actx = context_from(settings, session)
     ctx = from_request(req, settings.profile_raw)
-    mail = compose(row.content or {}, ctx, req.track)
+    custom = _custom_email(sessions, vid, req.language)
+    mail = custom or compose(row.content or {}, ctx, req.track)
     problems = validate_email(mail.parts, ctx, sorted(set(actx.companies) | set(actx.own_orgs)), actx.own_orgs)
     if problems:
         raise ContextViolation(problems)
     return mail
+
+
+def _custom_email(sessions: sessionmaker[Session], vid: int, language: str):  # noqa: ANN202
+    """An email written for this exact version (kv cv_email:<id>:<lang>), if any. Still validated by the caller."""
+    import json
+
+    from summer_hunter.cv_builder.email import Email
+
+    with sessions() as session:
+        raw = Repository(session).get_kv(f"cv_email:{vid}:{language}")
+    if not raw:
+        return None
+    data = json.loads(raw)
+    return Email(data["subject"], data["body"], language, data.get("parts") or {})
+
+
+def set_custom_email(settings: Settings, sessions: sessionmaker[Session], vid: int, subject: str, body: str,
+                     language: str, parts: dict[str, Any]) -> None:
+    """Attach a hand-written email to a version after the same blocking checks as a generated one."""
+    import json
+
+    from summer_hunter.cv_builder.context import ContextViolation, from_request, validate_email
+
+    with sessions() as session:
+        row = VersionStore(session, settings.data_dir, settings.config_dir).get(vid)
+        if row is None:
+            raise KeyError(vid)
+        req = replace(CVRequest.from_dict(row.request or {}), language=language)
+        actx = context_from(settings, session)
+        problems = validate_email(parts, from_request(req, settings.profile_raw), sorted(set(actx.companies) | set(actx.own_orgs)),
+                                  actx.own_orgs)
+        if problems:
+            raise ContextViolation(problems)
+        Repository(session).set_kv(f"cv_email:{vid}:{language}", json.dumps({"subject": subject, "body": body, "parts": parts}))
+        session.commit()

@@ -130,6 +130,8 @@ _NOT_EMPLOYER_LINE = re.compile(r"partner|partenaire|ecosyst|tools?\b|outils?|st
                                 r"software|logiciel|certif", re.I)
 _INTRO = re.compile(r"(?:\babout\b|à propos d[e'’]|\bjoin\b|rejoign\w*|\bat\b|\bchez\b)\s*(?:us\b\s*[:\-–]?\s*)?"
                     r"(?:the |la |le |l['’])?(?P<name>" + _NAME + r")")
+_INTERNATIONAL = re.compile(r"chamber of commerce|chambre de commerce|\bcci\b|business france|international business|"
+                            r"commerce international|d[ée]veloppement international|international development", re.I)
 _EXPERIENCE_CUE = re.compile(r"\b(mon exp[ée]rience|valoris\w*|ancien\w*|previous|my experience|where i|o[uù] j'ai)\b", re.I)
 _PAGES = re.compile(r"\b(?P<n>[12]|une|un|one|two|deux)\s+pages?\b", re.I)
 _LANG_FR = re.compile(r"\b(en fran[cç]ais|in french|version fran[cç]aise|cv fran[cç]ais)\b", re.I)
@@ -501,6 +503,9 @@ def analyze(text: str, ctx: AnalyzerContext) -> CVRequest:
                     pages=detect_pages(text) or 1, style=detect_style(text) if not offer else None,
                     emphasis=(requested_emphasis(text, ctx.own_orgs)
                               or [m.group("what").strip() for m in _EMPHASIS.finditer(text)][:3]) if not offer else [])
+    if not offer and _INTERNATIONAL.search(f"{company or ''} {text[:1500]}") and \
+            "international" in (ctx.cv_content.get("tracks") or {}):
+        req.track = "international"           # chambers of commerce, international business, partnerships
     lexicon = (ctx.scoring.get("recruitability") or {}).get("skills") or {}
     if offer and lexicon:
         for r in reqs.extract(text, lexicon, ctx.verified_skills):

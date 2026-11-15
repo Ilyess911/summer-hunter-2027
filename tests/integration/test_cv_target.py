@@ -214,3 +214,34 @@ def test_edits_with_a_company_word_stay_edits():
     assert not edits.is_new_request("Mets davantage en avant mon projet pour Airbus", FCCS_NAME)
     assert not edits.is_new_request("Change le titre pour Business Development", FCCS_NAME)
     assert edits.is_new_request("Candidature spontanée chez Google Cloud", FCCS_NAME)
+
+
+# FCCS V2 (16 Nov 2026): international business profile and a hand-written email per version ------------
+def test_chamber_of_commerce_requests_use_the_international_profile(actx):
+    r = analyze(FCCS, actx)
+    assert r.track == "international"
+    assert analyze("Candidature spontanée chez Salesforce, stage Tech Sales", actx).track == "business"
+
+
+@needs_tex
+def test_international_profile_cv(settings, sessions):
+    b = service.generate(settings, sessions, FCCS)
+    cv = b.res.cv
+    assert cv["headline"] == "BUSINESS DEVELOPMENT | INTERNATIONAL BUSINESS | PARTNERSHIPS"
+    assert [e["org"].split(" -- ")[0] for e in cv["experiences"]][:2] == ["Nexya Agency", "Air France Industries"]
+    assert [p["name"].split(" -- ")[0] for p in cv["projects"]] == ["Vinc'IA", "Medical'IA"]
+    assert list(cv["skills"])[0] == "Business & Partnerships" and b.res.pages == 1 and b.res.ok
+    assert "Airbus Helicopters" in [e["org"] for e in cv["experiences"]]          # experience, never recipient
+    assert "the French Chamber of Commerce in Singapore" in cv["summary"]
+
+
+@needs_tex
+def test_hand_written_email_is_validated_and_served(settings, sessions):
+    b = service.generate(settings, sessions, FCCS)
+    good = {"subject": "Internship enquiry", "greeting": "Dear FCCS team,", "opening": "Could the FCCS host an intern?",
+            "proof": "At Nexya Agency, I prospect clients.", "closing": "", "slots": [FCCS_NAME, "FCCS"]}
+    service.set_custom_email(settings, sessions, b.version_id, "Internship enquiry", "Dear FCCS team,\n\nBody", "en", good)
+    assert service.email_for(settings, sessions, b.version_id).body.startswith("Dear FCCS team,\n\nBody")
+    with pytest.raises(ContextViolation):
+        service.set_custom_email(settings, sessions, b.version_id, "x", "Dear Airbus team,", "en",
+                                 good | {"greeting": "Dear Airbus team,", "slots": ["Airbus"]})

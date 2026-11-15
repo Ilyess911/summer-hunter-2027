@@ -239,7 +239,7 @@ def tailor(content: dict[str, Any], job_title: str, job_text: str, job_family: s
     family = job_family or ""
     if track == "product" and family not in set(content.get("product_families", [])):
         family = "data"            # an industry label on a listing that reads like a data / tech role
-    out["headline"] = headlines.get(family, headlines.get("default", ""))
+    out["headline"] = over.get("headline") or headlines.get(family, headlines.get("default", ""))
     summary = _summary(over, content.get("summary", ""), job_text)
     target = target_line(company, job_title, job_text, content.get("start_label", "April 2027")) if company else ""
     out["summary"] = f"{summary} {target}".strip()

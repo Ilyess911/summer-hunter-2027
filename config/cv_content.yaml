@@ -87,7 +87,7 @@ experiences:
 max_projects: 2
 projects:
   - name: "Vinc'IA -- Conferences & Partnerships"
-    tracks: [business, product]
+    tracks: [business, product, international]
     tags: [partnerships, business, development, outreach, events, ai, go-to-market]
     bullets:
       - {text: "Led speaker outreach and partnership development for AI-focused masterclasses, engaging technology professionals and coordinating events attracting over 140 registrations."}
@@ -135,6 +135,24 @@ industry_families: [maintenance_reliability, industrial_project_management, indu
 product_families: [product_management, product_marketing, ai_solutions, program_management,
                    commercial_strategy, strategy_consulting]
 tracks:
+  # Chambers of commerce, international business, partnerships (added 16 Nov 2026 for the FCCS application).
+  # Every fact below is on this CV already; only the order and the emphasis change.
+  international:
+    headline: "BUSINESS DEVELOPMENT | INTERNATIONAL BUSINESS | PARTNERSHIPS"
+    summary: >-
+      Final-year engineering student at ESILV (Industry 4.0 & Robotics) combining industrial experience,
+      entrepreneurship and business development. Engineering apprentice at Air France Industries -- KLM
+      Engineering & Maintenance; co-founder of Nexya Agency, prospecting B2B clients and presenting digital and
+      AI solutions to decision-makers; in charge of conferences and partnerships at Vinc'IA. Now building a
+      career at the intersection of technology, business development and international business.
+    labels: {projects: LEADERSHIP & ENTREPRENEURSHIP}
+    experience_order: ["Nexya Agency", "Air France Industries -- KLM Engineering & Maintenance", "Amundi Asset Management", "Airbus Helicopters"]
+    max_bullets: {"Nexya Agency": 2, "Air France Industries -- KLM Engineering & Maintenance": 2, "Amundi Asset Management": 1, "Airbus Helicopters": 1}
+    projects: ["Vinc'IA", "Medical'IA"]
+    skills:
+      "Business & Partnerships": [Business Development, Lead Generation, Customer Outreach, Client Relationship Management, Consultative Selling, CRM, Partnership Outreach, Stakeholder Engagement, Event Organization, Public Speaking]
+      "Engineering & Analysis": [Project Coordination, Process Improvement, Data Analysis, KPI Monitoring, Process Automation, Python, Microsoft Excel]
+      "Languages": ["French (Native)", "English (TOEIC 945/990)", "Spanish (Academic)", "Dutch (Beginner)"]
   product:
     summary: >-
       Final-year engineering student in Industry 4.0 & Robotics at ESILV and engineering apprentice at

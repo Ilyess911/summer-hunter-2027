@@ -43,8 +43,10 @@ def test_english_spontaneous_email_quotes_only_cv_bullets(make):
     bullets = {b["text"].rstrip(".").lower() for e in cv["experiences"] + cv["projects"] for b in e["bullets"]}
     quoted = re.findall(r"At [^,]+, I ([^.]+)\.", mail.body)
     assert quoted and all(q.lower() in bullets for q in quoted)        # verbatim, nothing invented
-    assert "no internship advertised" in mail.body and "Best regards," in mail.body
-    assert "Final-year Engineering Student – ESILV" in mail.body and cv["header"]["email"] in mail.body
+    assert "Would one of your teams be able to host an intern between April and August 2027?" in mail.body
+    assert "pass my message on to the relevant colleague" in mail.body and "If my profile fits" not in mail.body
+    assert mail.body.endswith("Ilyess Assadi\nEngineering Student | ESILV × Air France Industries\n+33 6 63 47 21 73\n"
+                              "ilyess.assadipro@gmail.com\nLinkedIn: linkedin.com/in/ilyess-assadi")
 
 
 def test_french_email_is_neutral_and_never_translates_bullets(make):
@@ -53,7 +55,7 @@ def test_french_email_is_neutral_and_never_translates_bullets(make):
     assert "au sein de Safran au Maroc" in mail.body and mail.body.startswith("Madame, Monsieur,")
     assert not any(b["text"] in mail.body for e in cv["experiences"] for b in e["bullets"])
     assert not re.search(r"\b(ravi|heureux|motivé|intéressé)\b", mail.body)
-    assert "Élève ingénieur en dernière année" in mail.body
+    assert "Élève ingénieur | ESILV × Air France Industries" in mail.body and "accueillir quelqu'un en stage" in mail.body
 
 
 def test_offer_email_is_not_called_spontaneous(make):

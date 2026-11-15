@@ -120,15 +120,19 @@ def _people(cv: dict[str, Any]) -> tuple[dict, dict | None, dict | None]:
 
 
 def _signature(cv: dict[str, Any], school: dict | None, fr: bool) -> str:
+    """Name / Engineering Student | ESILV × Air France Industries / phone / email / LinkedIn: <label>."""
     h = cv.get("header", {})
-    degree = _dash(str((school or {}).get("degree", "")).split(" -- ")[-1])
     school_name = _first(str((school or {}).get("school", "")))
-    title = (f"Élève ingénieur en dernière année – {school_name} ({FR_TERMS.get(degree, degree)})" if fr
-             else f"Final-year Engineering Student – {school_name} ({degree})")
-    contact = " | ".join(x for x in (h.get("phone"), h.get("email")) if x)
-    linkedin = next((l.get("url") for l in h.get("links", []) if "linkedin" in str(l.get("url", ""))), None)
-    return "\n".join(x for x in (h.get("name", ""), title if school_name else "", contact,
-                                 f"LinkedIn : {linkedin}" if fr and linkedin else f"LinkedIn: {linkedin}" if linkedin else "") if x)
+    current = [e for e in cv.get("experiences", []) if re.search(r"present", str(e.get("dates", "")), re.I)
+               and "apprentice" in str(e.get("role", "")).lower()]
+    employer = _first(current[0].get("org", "")) if current else ""
+    title = ("Élève ingénieur" if fr else "Engineering Student") + (
+        f" | {school_name} × {employer}" if school_name and employer else f" | {school_name}" if school_name else "")
+    link = next((l for l in h.get("links", []) if "linkedin" in str(l.get("url", ""))), None)
+    lines = [h.get("name", ""), title, h.get("phone", ""), h.get("email", "")]
+    if link:
+        lines.append(f"LinkedIn{' :' if fr else ':'} {link.get('label') or link.get('url')}")
+    return "\n".join(x for x in lines if x)
 
 
 def compose(cv: dict[str, Any], ctx: ApplicationContext, track: str = "business") -> Email:
@@ -172,8 +176,8 @@ def compose(cv: dict[str, Any], ctx: ApplicationContext, track: str = "business"
         if projects:
             proof += " J'ai aussi mené des projets comme " + " et ".join(_first(p["name"]) for p in projects[:2]) + "."
         bridge = f"C'est cette double culture, technique et terrain, que je souhaite mettre au service {later or 'de vos équipes'}, notamment sur {theme}."
-        closing = ((f"Même en l'absence d'offre publiée, ce serait un plaisir d'échanger avec vous sur la manière dont je pourrais "
-                    f"contribuer aux activités {later or 'de votre organisation'}.") if spontaneous
+        closing = ((f"L'une de vos équipes pourrait-elle accueillir quelqu'un en stage {period} ? Si ce message ne vous est pas "
+                    "destiné, merci par avance de le transmettre à la personne concernée.") if spontaneous
                    else "Ce serait un plaisir d'échanger avec vous sur ce poste.") + " Vous trouverez mon CV en pièce jointe."
         body = "\n\n".join([greeting, opening, proof, bridge, closing, sign, signature])
         slots = [s for s in (full, alias) if s] if full else []
@@ -202,9 +206,10 @@ def compose(cv: dict[str, Any], ctx: ApplicationContext, track: str = "business"
     proof = identity + " " + " ".join(facts)
     bridge = (f"That mix of engineering rigour and hands-on work with clients and stakeholders is what I would like to bring to "
               f"{short or 'your team'}, especially in {theme}.")
-    closing = ((f"I understand there may be no internship advertised at the moment. If my profile fits your needs, "
-                f"I would be glad to discuss how I could contribute to {short or 'your team'}.") if spontaneous
-               else f"I would welcome the opportunity to discuss the {role or 'internship'} position with you.") \
+    window = ctx.availability.replace("–", " and ", 1)
+    closing = ((f"Would one of your teams be able to host an intern between {window}? If you are not the right "
+                f"person for this, I would be grateful if you could pass my message on to the relevant colleague.")
+               if spontaneous else f"I would welcome the opportunity to discuss the {role or 'internship'} position with you.") \
         + " My CV is attached."
     body = "\n\n".join([greeting, opening, proof, bridge, closing, sign, signature])
     slots = [n for n in ctx.names] if ctx.target_company else []
