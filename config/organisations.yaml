@@ -1,0 +1,10 @@
+# What the application emails may say about an organisation. Only facts with a source belong here.
+# Without an entry, the email never describes the organisation's activities (name, sector and place only).
+organisations:
+  - name: French Chamber of Commerce in Singapore
+    aliases: [FCCS]
+    source: "candidate's briefs, 15-16 Nov 2026"
+    facts:
+      - "supports the development of French businesses in Singapore, including companies entering the Singapore market"
+      - "works on business development, partnerships and services for companies"
+      - "connects French and Singaporean companies and professionals (the Franco-Singaporean business community)"

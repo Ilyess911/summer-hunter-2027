@@ -68,6 +68,17 @@ def version_buttons(vid: int, saved: bool = False) -> list[list[dict[str, str]]]
             [{"text": "✉️ Mail de candidature", "callback_data": f"cvm:{vid}"}]]
 
 
+def email_buttons(vid: int, subject: str, language: str) -> list[list[dict]]:
+    other = "en" if language == "fr" else "fr"
+    rev = lambda code, label: {"text": label, "callback_data": f"cvw:{vid}:{code}"}  # noqa: E731
+    return [[{"text": "📋 Copier l'objet", "copy_text": {"text": subject[:256]}}],
+            [rev("natural", "Plus naturel"), rev("convincing", "Plus convaincant")],
+            [rev("informal", "Moins formel"), rev("personal", "Plus personnel")],
+            [rev("hook", "Revois l'accroche"), rev("closing", "Change la conclusion")],
+            [rev("motivation", "Explique mieux ma motivation")],
+            [{"text": "🇬🇧 Version anglaise" if other == "en" else "🇫🇷 Version française", "callback_data": f"cvm:{vid}:{other}"}]]
+
+
 def fact_buttons(fact_id: int) -> list[list[dict[str, str]]]:
     return [[{"text": "✅ Confirmer", "callback_data": f"pf:{fact_id}:ok"},
              {"text": "❌ Faux / retirer", "callback_data": f"pf:{fact_id}:no"}]]
@@ -84,6 +95,8 @@ class CVBot:
         self._buf: list[str] = []
         self._buf_timer: threading.Timer | None = None
         self._buf_lock = threading.Lock()
+        self.auto_email = True              # write the application email right after each CV
+        self.background_email = True        # emails are written in a thread (tests run them inline)
 
     def _store(self, session) -> ProfileStore:  # noqa: ANN001
         store = ProfileStore(session)
@@ -273,6 +286,12 @@ class CVBot:
         if active and len(text) < 400 and not first_url(text):
             from summer_hunter.cv_builder import edits
 
+            from summer_hunter.cv_builder.application_email import detect_revision
+
+            code, what = detect_revision(text)
+            if code:
+                self.email_job(active, None, f"skip:{what}" if code == "skip" else code)
+                return True
             if edits.is_new_request(text, self._active_company(active)):
                 self.bot.send("⏳ Nouvelle candidature, analyse en cours…")   # never an edit of the previous CV
                 self._collect(text, new_batch=True)
@@ -375,6 +394,8 @@ class CVBot:
         ids = [self._send_id(summary_card(req, res, tag))]
         self._send_files([p for p, fmt in ((res.pdf_path, "pdf"), (res.docx_path, "docx")) if p and fmt in wanted])
         ids.append(self._send_id(optimization_report(req, res), version_buttons(vid) if vid else None))
+        if vid and self.auto_email:
+            self.email_job(vid, announce=True)
         if vid:
             with self.bot.session_factory() as session:
                 repo = Repository(session)
@@ -575,28 +596,54 @@ class CVBot:
                 self.bot.send("🎨 Styles disponibles. Modern Professional et Consulting / Business arrivent plus tard.", buttons)
         return True
 
-    def _email(self, cq: dict, vid: int, language: str | None) -> bool:
-        """Draft the cover email in the chat, ready to copy. Never sent to anyone."""
+    def _email(self, cq: dict, vid: int, language: str | None, revise: str | None = None,
+               background: bool = True) -> bool:
+        """Show the application email of a version (drafted, never sent). Writing or revising runs in a thread."""
+        self.bot.telegram.answer_callback(cq["id"], "Email en préparation…" if revise else "Email")
+        self.email_job(vid, language, revise, background and self.background_email)
+        return True
+
+    def email_job(self, vid: int, language: str | None = None, revise: str | None = None, background: bool = True,
+                  announce: bool = True) -> None:
+        background = background and self.background_email
+        if announce:
+            self.bot.send("✍️ Révision de l'email…" if revise else "✉️ Email de candidature en préparation (1 à 3 min avec le modèle local)…")
+        if background:
+            threading.Thread(target=self._email_run, args=(vid, language, revise), daemon=True, name="cv-email").start()
+        else:
+            self._email_run(vid, language, revise)
+
+    def _email_run(self, vid: int, language: str | None, revise: str | None) -> None:
         from summer_hunter.cv_builder.service import email_for
 
         try:
-            mail = email_for(self.bot.settings, self.bot.session_factory, vid, language)
+            mail = email_for(self.bot.settings, self.bot.session_factory, vid, language, revise=revise)
         except ContextViolation as exc:
-            self.bot.telegram.answer_callback(cq["id"], "Mail bloqué")
-            self.bot.send("⛔ <b>Mail bloqué</b> : " + escape("; ".join(exc.problems)))
-            return True
+            self.bot.send("⛔ <b>Email bloqué</b> : " + escape("; ".join(exc.problems)))
+            return
+        except Exception as exc:  # noqa: BLE001
+            log.error("cv email failed", extra=safe_error(exc))
+            self.bot.send("❌ Email impossible (erreur interne, voir les logs).")
+            return
         if mail is None:
-            self.bot.telegram.answer_callback(cq["id"], "Version introuvable")
-            return True
-        self.bot.telegram.answer_callback(cq["id"], "Mail prêt, à copier")
-        other = "en" if mail.language == "fr" else "fr"
-        buttons = [[{"text": "📋 Copier l'objet", "copy_text": {"text": mail.subject[:256]}}],
-                   [{"text": "🇬🇧 Version anglaise" if other == "en" else "🇫🇷 Version française",
-                     "callback_data": f"cvm:{vid}:{other}"}]]
-        self.bot.send("✉️ <b>Mail de candidature</b> · rien n'est envoyé : touche le bloc pour copier le texte.\n\n"
-                      f"<b>Objet</b> : <code>{escape(mail.subject)}</code>\n\n<pre>{escape(mail.body)}</pre>", buttons)
-        log.info("cv email drafted", extra={"language": mail.language})
-        return True
+            self.bot.send("Version introuvable.")
+            return
+        self.send_email(vid, mail)
+
+    def send_email(self, vid: int, mail) -> None:  # noqa: ANN001
+        from summer_hunter.database.repository import Repository
+
+        warnings = [w for w in (getattr(mail, "warnings", None) or [])]
+        text = ("✉️ <b>Email de candidature</b> · rien n'est envoyé. Touche le bloc pour le copier.\n\n"
+                f"<b>Objet</b> : <code>{escape(mail.subject)}</code>\n\n<pre>{escape(mail.body)}</pre>")
+        if warnings:
+            text += "\n\n⚠️ <i>À relire : " + escape("; ".join(warnings))[:600] + "</i>"
+        mid = self._send_id(text, email_buttons(vid, mail.subject, mail.language))
+        if mid:
+            with self.bot.session_factory() as session:
+                Repository(session).set_kv(f"cv_msg:{mid}", str(vid))
+                session.commit()
+        log.info("cv email shown", extra={"language": mail.language, "model": getattr(mail, "model", "manual")})
 
     def _regenerate(self, vid: int, background: bool = True) -> None:
         """Same request, current profile (e.g. after confirming a fact): a new version, nothing else changes."""
@@ -614,6 +661,13 @@ class CVBot:
             return self._version_callback(cq, action, int(parts[1]))
         if action == "cvm":
             return self._email(cq, int(parts[1]), parts[2] if len(parts) > 2 else None)
+        if action == "cvw" and len(parts) == 3:
+            from summer_hunter.cv_builder.application_email import REVISIONS
+
+            if parts[2] not in REVISIONS:
+                self.bot.telegram.answer_callback(cq["id"], "Révision inconnue")
+                return True
+            return self._email(cq, int(parts[1]), None, revise=parts[2])
         if action in {"cvr", "cve", "cvs", "cvl", "cvp", "cvd", "cvk"}:
             return self._cv_button(cq, action, int(parts[1]), parts[2] if len(parts) > 2 else None)
         if action == "cvo" and len(parts) == 3:
@@ -696,14 +750,19 @@ def describe(req) -> str:  # noqa: ANN001 - CVRequest
 
 
 def summary_card(req, res, tag: str = "") -> str:  # noqa: ANN001
-    head = ("✅ <b>CV GÉNÉRÉ</b>" if res.ok else "⚠️ <b>CV GÉNÉRÉ, À VÉRIFIER</b>") + (f" · {escape(tag)}" if tag else "")
+    from summer_hunter.cv_builder.application_email import SITUATION_FR
+    from summer_hunter.cv_builder.context import availability
+
+    head = ("✅ <b>APPLICATION READY</b>" if res.ok else "⚠️ <b>APPLICATION READY, À VÉRIFIER</b>") + (f" · {escape(tag)}" if tag else "")
+    period = getattr(req, "_availability", None) or "April–August 2027"
     return "\n".join([head, "",
-                      f"Poste : {escape(req.target_role or 'non précisé')}",
-                      f"Entreprise : {escape(req.company or 'non précisée')}",
-                      f"Lieu : {escape(req.location if req.country_code else 'non précisé')}",
-                      f"Langue : {'anglais' if req.language == 'en' else 'français'}",
-                      f"Format : {res.pages or '?'} page{'s' if (res.pages or 1) > 1 else ''}, style ATS Classic",
-                      f"Fichiers : {escape(res.stem)}.pdf / .docx"])
+                      f"Company : {escape(req.company or 'non précisée')}",
+                      f"Position : {escape(req.target_role or 'non précisé')}",
+                      f"Application Type : {SITUATION_FR.get(getattr(req, 'situation', ''), 'Candidature')}",
+                      f"Location : {escape(req.location if req.country_code else 'non précisé')}",
+                      f"Availability : {escape(period)}",
+                      f"CV : {res.pages or '?'} page{'s' if (res.pages or 1) > 1 else ''}, "
+                      f"{'anglais' if req.language == 'en' else 'français'} · {escape(res.stem)}.pdf / .docx"])
 
 
 def optimization_report(req, res) -> str:  # noqa: ANN001

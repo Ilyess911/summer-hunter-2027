@@ -90,7 +90,7 @@ def test_full_conversation(settings, sessions):
     assert "Envoie-moi une offre" in fake.sent[-1]["text"]
     _say(bot, "Je veux un CV pour un stage en AI Business Development à Singapour.")
     deadline = time.time() + 30
-    while time.time() < deadline and not any("CV GÉNÉRÉ" in m["text"] for m in fake.sent):
+    while time.time() < deadline and not any("APPLICATION READY" in m["text"] for m in fake.sent):
         time.sleep(0.1)
     with bot.cvb._lock:
         pass

@@ -164,7 +164,7 @@ def validate_email(parts: dict[str, Any], ctx: ApplicationContext, orgs: list[st
     # Experience positions ("At X, I…", "chez X", "co-founder of X") may only name the candidate's organisations.
     for m in _EXPERIENCE_SLOT.finditer(parts.get("proof", "")):
         name = m.group("name").strip()
-        if not _own(name, own_orgs):
+        if not _own(name, own_orgs) and not _target_or_place(name, ctx):
             problems.append(f"le mail présente « {name} » comme une expérience, alors que ce n'est pas ton parcours")
     return list(dict.fromkeys(problems))
 

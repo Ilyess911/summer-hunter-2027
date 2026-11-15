@@ -1,0 +1,118 @@
+# How application emails are argued and written. Read by cv_builder/application_email.py.
+# Every statement about the candidate below was written or confirmed by him (FCCS briefs, 15-16 Nov 2026);
+# the facts themselves come from cv_content.yaml (verified). Edit freely: nothing here is generated.
+
+goals:   # his professional project, in his words
+  - "build a career at the interface of technology, business development and international management"
+  - "a growing interest in partnerships and in connecting people and organisations"
+  - "an internship of 3 to 5 months between April and August 2027, ideally abroad"
+
+never_mention: [ESSEC, ESCP, AST, "admission", "admissions", "business school", "master in management", "MiM"]
+
+# Story lines. One is chosen per application from the profile (track) and the role; the email builds its
+# argument on it. Evidence = organisations whose verified CV facts may be used; angle = what that experience
+# brings to this kind of role (his own reading of his path).
+threads:
+  business:
+    story: "engineering → entrepreneurship → business development"
+    evidence:
+      "Air France Industries": "understanding how technical and industrial organisations work, and working with operational stakeholders"
+      "Nexya Agency": "co-founding an agency led him to B2B prospecting, client conversations and turning technical solutions into business opportunities"
+      "Vinc'IA": "developing partnerships and organising conferences: connecting people and organisations"
+    differentiator: "an engineer who has also prospected clients and built partnerships himself"
+  international:
+    story: "engineering → entrepreneurship → business development → international business"
+    evidence:
+      "Air France Industries": "a solid understanding of industrial environments and technical teams"
+      "Nexya Agency": "entrepreneurship led him to the commercial side: B2B prospecting, client relationships, turning technical solutions into business opportunities"
+      "Vinc'IA": "developing partnerships and organising conferences reinforced his interest in connecting people and organisations"
+    differentiator: "technical understanding combined with entrepreneurial, client-facing experience"
+  industry:
+    story: "industrial engineering → maintenance data and automation → industrial performance"
+    evidence:
+      "Air France Industries": "automating equipment data consolidation and analysing maintenance data in an MRO environment"
+      "Airbus Helicopters": "improving industrial processes and building a test bench for equipment reliability"
+      "Predictive Maintenance Lab": "a predictive-maintenance benchmark on turbofan data, built end to end"
+    differentiator: "an engineer who has worked inside two aerospace industrial environments and builds his own data tools"
+  robotics:
+    story: "industry 4.0 & robotics studies → industrial engineering → automation and robotics projects"
+    evidence:
+      "Industrial Digital Twin": "a digital shadow of a machining cell with a robot, conveyor and inspection, built from scratch"
+      "Airbus Helicopters": "improving industrial processes and building a test bench"
+      "Air France Industries": "automating engineering data workflows in an industrial setting"
+    differentiator: "a robotics-track engineer with real industrial experience, not only lab projects"
+  product:
+    story: "engineering → data and AI tools for operations → building products for clients"
+    evidence:
+      "Air France Industries": "building AI-enabled tools and automated workflows used by engineering teams"
+      "Nexya Agency": "building a SaaS product for clients and talking to them about their needs"
+      "Medical'IA": "leading a multidisciplinary team on an AI healthcare project, presented to institutional stakeholders"
+    differentiator: "someone who builds tools himself and also talks to the people who use them"
+  strategy:
+    story: "analytical engineering work → entrepreneurship → strategic and operational questions"
+    evidence:
+      "Air France Industries": "analysing operational data and KPIs to identify improvement and cost opportunities"
+      "Nexya Agency": "discussing business requirements and pricing with decision-makers as a founder"
+      "Medical'IA": "leading a team and presenting a project to institutional stakeholders"
+    differentiator: "analytical rigour from engineering plus a founder's view of business decisions"
+
+# Avoided by default (checked automatically after writing); replacing them with other clichés is not enough.
+banned_phrases:
+  - "i am writing to express"
+  - "i am writing to apply"
+  - "i'm writing to"
+  - "passionate"
+  - "thrilled"
+  - "excited to"
+  - "my diverse background"
+  - "perfectly align"
+  - "aligns perfectly"
+  - "fast-paced"
+  - "dynamic environment"
+  - "asset to"
+  - "i am confident i would be"
+  - "great fit"
+  - "strong communication skills"
+  - "unique opportunity"
+  - "leverage"
+  - "synergy"
+  - "hope this email finds you"
+  - "delve"
+  - "honed"
+  - "eager to"
+  - "look no further"
+  - "proven track record"
+  - "je me permets"
+  - "passionné"
+  - "vif intérêt"
+  - "n'hésitez pas"
+  - "dynamique"
+
+# Sentences from the FCCS reference email: its reasoning is the model, its wording must not become a template.
+reference_phrases_not_to_reuse:
+  - "as i approach the end of my engineering degree"
+  - "what particularly attracts me"
+  - "i believe my combination of"
+  - "this is what led me to"
+  - "would be interested to know whether there might be an opportunity"
+
+# One is drawn per email (never the one used last) so emails do not all start the same way.
+opening_styles:
+  - "Open with the professional project that leads to this organisation, in one or two plain sentences."
+  - "Open with a concrete experience that explains the interest in this field, then name the request."
+  - "Open with what the organisation or role does and why that matters for the candidate's path (only verified facts)."
+  - "Open with the precise request (internship, field, period) in one sentence, then justify it."
+  - "Open with the link between the candidate's current work and the role's core activity."
+
+reference_email: |
+  Dear FCCS Team,
+
+  As I approach the end of my engineering degree, I am looking to take the next step in a career that brings together technology, business development and international management. This is what led me to the French Chamber of Commerce in Singapore.
+
+  My experience at Air France Industries has given me a strong understanding of industrial environments, but it is through entrepreneurship that I discovered my interest in the commercial side of business. Co-founding Nexya Agency introduced me to B2B prospecting, client relationships and the challenge of turning technical solutions into business opportunities. Alongside this, developing partnerships and organising conferences at Vinc'IA reinforced my interest in connecting people and organisations.
+
+  What particularly attracts me to the FCCS is the opportunity to contribute to the development of French businesses in Singapore, whether through business development, partnerships or supporting companies entering a new market. I believe my combination of technical understanding, entrepreneurial initiative and interpersonal skills could be valuable to your teams.
+
+  I am available for an internship between April and August 2027 and would be interested to know whether there might be an opportunity to contribute during that period.
+
+  I have attached my CV and would be happy to discuss my application further.

@@ -130,6 +130,23 @@ _NOT_EMPLOYER_LINE = re.compile(r"partner|partenaire|ecosyst|tools?\b|outils?|st
                                 r"software|logiciel|certif", re.I)
 _INTRO = re.compile(r"(?:\babout\b|à propos d[e'’]|\bjoin\b|rejoign\w*|\bat\b|\bchez\b)\s*(?:us\b\s*[:\-–]?\s*)?"
                     r"(?:the |la |le |l['’])?(?P<name>" + _NAME + r")")
+# Who the email is for, beyond the organisation (chosen from the request wording; spontaneous by default).
+SITUATIONS = [
+    ("follow_up", r"\b(relance|relancer|follow[- ]?up|suite [àa] ma candidature|no reply|sans r[ée]ponse)\b"),
+    ("introduction", r"\b(mise en relation|mettre en relation|introduce me|introduction to|put me in touch|recommand\w* aupr[eè]s)\b"),
+    ("executive", r"\b(dirigeant\w*|ceo|founder|fondat\w*|directeur g[ée]n[ée]ral|managing director|general manager|pr[ée]sident\w*)\b"),
+    ("recruiter", r"\b(recruteur|recruteuse|recruiter|talent acquisition|charg[ée]e? de recrutement|\brh\b|\bhr\b)\b"),
+]
+
+
+def detect_situation(text: str, offer: bool) -> str:
+    head = text.strip()[:600]
+    for situation, pattern in SITUATIONS:
+        if re.search(pattern, head, re.I):
+            return situation
+    return "offer" if offer else "spontaneous"
+
+
 _INTERNATIONAL = re.compile(r"chamber of commerce|chambre de commerce|\bcci\b|business france|international business|"
                             r"commerce international|d[ée]veloppement international|international development", re.I)
 _EXPERIENCE_CUE = re.compile(r"\b(mon exp[ée]rience|valoris\w*|ancien\w*|previous|my experience|where i|o[uù] j'ai)\b", re.I)
@@ -177,6 +194,7 @@ class CVRequest:
     style: str | None = None
     emphasis: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)          # "retire X": items left out of this CV only
+    situation: str = "spontaneous"                            # spontaneous | offer | recruiter | executive | introduction | follow_up
     personalization: str = "standard"                         # standard | light (no targeted sentence)
     requirements: list[Requirement] = field(default_factory=list)
     expected_skills: list[str] = field(default_factory=list)   # usual for the role, NOT an employer's demand
@@ -503,6 +521,7 @@ def analyze(text: str, ctx: AnalyzerContext) -> CVRequest:
                     pages=detect_pages(text) or 1, style=detect_style(text) if not offer else None,
                     emphasis=(requested_emphasis(text, ctx.own_orgs)
                               or [m.group("what").strip() for m in _EMPHASIS.finditer(text)][:3]) if not offer else [])
+    req.situation = detect_situation(text, offer) if not offer else "offer"
     if not offer and _INTERNATIONAL.search(f"{company or ''} {text[:1500]}") and \
             "international" in (ctx.cv_content.get("tracks") or {}):
         req.track = "international"           # chambers of commerce, international business, partnerships

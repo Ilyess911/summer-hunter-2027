@@ -29,3 +29,14 @@ letters:
   temperature: 0.4
   max_attempts: 3
   words: [280, 350]
+
+# Application emails (cv_builder/application_email.py): strategy, one drafting call, checks, one revision.
+# Local and free by default. "anthropic" (Claude) writes noticeably better but is PAID (about 0.02-0.05 USD
+# per email): it is used only if set here explicitly, never by default.
+emails:
+  provider: ollama            # ollama | anthropic | none (deterministic email only)
+  model: qwen2.5:14b          # with anthropic: claude-sonnet-5-5 (or claude-opus-5-5)
+  url: http://127.0.0.1:11434
+  temperature: 0.6
+  timeout: 420
+

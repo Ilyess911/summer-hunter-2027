@@ -75,7 +75,10 @@ def test_profile_survives_a_restart(settings):
 def _bot(settings, sessions):
     settings.telegram_bot_token, settings.telegram_chat_id = TOKEN, CHAT
     fake = FakeTelegram()
-    return Bot(settings, sessions, TelegramClient(TOKEN, transport=httpx.MockTransport(fake)), NullProvider()), fake
+    bot = Bot(settings, sessions, TelegramClient(TOKEN, transport=httpx.MockTransport(fake)), NullProvider())
+    bot.cvb.auto_email = False          # tests that need the automatic email turn it on explicitly
+    bot.cvb.background_email = False
+    return bot, fake
 
 
 def _say(bot, text):

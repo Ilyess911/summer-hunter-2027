@@ -117,15 +117,25 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
         return JSONResponse(version_json(built.version_id))
 
     async def email(request: Request) -> Response:
-        language = (await body(request)).get("language")
+        from summer_hunter.cv_builder.application_email import REVISIONS
+
+        data = await body(request)
+        language = data.get("language")
+        revise = data.get("revise")
+        if revise and revise not in REVISIONS and not str(revise).startswith("skip:"):
+            return _err("Révision inconnue.")
         try:
-            mail = service.email_for(settings, sessions, vid_of(request), language)
+            mail = await asyncio.to_thread(service.email_for, settings, sessions, vid_of(request), language,
+                                           revise or None, bool(data.get("regenerate")))
         except ContextViolation as exc:
             return _err("Mail bloqué : " + "; ".join(exc.problems), 409)
         if mail is None:
             return _err("Version introuvable.", 404)
         log.info("miniapp cv email drafted", extra={"language": mail.language})
-        return JSONResponse({"subject": mail.subject, "body": mail.body, "text": mail.text, "language": mail.language})
+        return JSONResponse({"subject": mail.subject, "body": mail.body, "text": mail.text, "language": mail.language,
+                             "warnings": list(getattr(mail, "warnings", []) or []),
+                             "html_signature": getattr(mail, "html_signature", ""),
+                             "revisions": {k: v[0] for k, v in REVISIONS.items()}})
 
     async def get_version(request: Request) -> Response:
         data = version_json(vid_of(request))

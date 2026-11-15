@@ -83,9 +83,10 @@ def test_bot_email_button_never_sends_anything(settings, sessions):
     docs = len(fake.docs)
     _press(bot, "cvm:1")
     msg = fake.sent[-1]
-    assert "Mail de candidature" in msg["text"] and "<pre>" in msg["text"] and "rien n'est envoyé" in msg["text"]
+    assert "Email de candidature" in msg["text"] and "<pre>" in msg["text"] and "rien n'est envoyé" in msg["text"]
     kb = msg["reply_markup"]["inline_keyboard"]
-    assert kb[0][0]["copy_text"]["text"].startswith("Spontaneous application") and kb[1][0]["callback_data"] == "cvm:1:fr"
+    assert kb[0][0]["copy_text"]["text"].startswith("Spontaneous application") and kb[-1][0]["callback_data"] == "cvm:1:fr"
+    assert kb[1][0]["callback_data"] == "cvw:1:natural"
     _press(bot, "cvm:1:fr")
     assert "Madame, Monsieur" in fake.sent[-1]["text"] and len(fake.docs) == docs
 

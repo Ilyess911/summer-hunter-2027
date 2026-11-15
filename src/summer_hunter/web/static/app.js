@@ -423,11 +423,11 @@ async function copyText(textPromise) {
   return legacyCopy(text);
 }
 
-async function mailCV(v, language) {
+async function mailCV(v, language, revise) {
   const box = $("#cvmailbox");
-  const req = api(`/api/cv/${v.id}/email`, { method: "POST", body: JSON.stringify({ language }) });
+  const req = api(`/api/cv/${v.id}/email`, { method: "POST", body: JSON.stringify({ language, revise }) });
   const copied = copyText(req.then((m) => m.text));
-  box.innerHTML = `<div class="cv-wait"><span class="spin"></span>Rédaction du mail…</div>`;
+  box.innerHTML = `<div class="cv-wait"><span class="spin"></span>${revise ? "Révision" : "Rédaction"} de l'email… (jusqu'à 3 min avec le modèle local)</div>`;
   let m;
   try { m = await req; } catch (e) { box.innerHTML = ""; toast(`Erreur : ${e.message}`); return; }
   const ok = await copied.catch(() => false);
@@ -438,6 +438,9 @@ async function mailCV(v, language) {
     <div class="mail">
       <div class="mail-subject"><span class="x">${m.language === "fr" ? "Objet :" : "Subject:"}</span> ${esc(m.subject)}</div>
       <pre class="mail-body">${esc(m.body)}</pre>
+      ${m.warnings && m.warnings.length ? `<div class="x" style="margin-top:8px">⚠️ À relire : ${esc(m.warnings.join(" ; "))}</div>` : ""}
+      <div class="chips-row" id="mailrev">${Object.entries(m.revisions || {}).map(([k, label]) =>
+        `<button data-rev="${esc(k)}">${esc(label)}</button>`).join("")}</div>
       <div class="mail-btns">
         <button class="primary press" id="mailcopy">${ok ? "Recopier" : "Copier"}</button>
         <button class="primary ghost press" id="mailother">${other === "en" ? "En anglais" : "En français"}</button>
@@ -445,6 +448,7 @@ async function mailCV(v, language) {
     </div>`;
   $("#mailcopy").onclick = async () => { const done = await copyText(Promise.resolve(m.text)); haptic(); toast(done ? "Copié" : "Copie impossible : sélectionne le texte"); };
   $("#mailother").onclick = () => mailCV(v, other);
+  $("#mailrev").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) { haptic(); mailCV(v, m.language, b.dataset.rev); } });
 }
 
 async function runCV(path, body, msg) {

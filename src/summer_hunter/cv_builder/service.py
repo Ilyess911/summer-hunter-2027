@@ -7,7 +7,9 @@ numbers and files stay consistent whichever surface asked for the CV.
 from __future__ import annotations
 
 import fcntl
+import json
 import logging
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -52,8 +54,15 @@ def _guard(settings: Settings, session: Session):  # noqa: ANN202
 
 
 @contextmanager
-def build_lock(data_dir: Path) -> Iterator[None]:
-    path = data_dir / "cv_builder" / ".build.lock"
+def email_lock(data_dir: Path) -> Iterator[None]:
+    """Emails are written one at a time (bot and Mini App), separately from CV builds."""
+    with build_lock(data_dir, ".email.lock"):
+        yield
+
+
+@contextmanager
+def build_lock(data_dir: Path, name: str = ".build.lock") -> Iterator[None]:
+    path = data_dir / "cv_builder" / name
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
@@ -160,13 +169,24 @@ def payload(row: CVVersion) -> dict[str, Any]:
             "has_docx": bool(row.docx_path and Path(row.docx_path).exists())}
 
 
-def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, language: str | None = None):  # noqa: ANN201
-    """Cover email for a CV version, from the same ApplicationContext as the CV. Drafted only, never sent.
+def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, language: str | None = None,
+              revise: str | None = None, regenerate: bool = False, provider=None, rng=None):  # noqa: ANN001, ANN201
+    with email_lock(settings.data_dir):
+        return _email_for(settings, sessions, vid, language, revise, regenerate, provider, rng)
 
+
+def _email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, language: str | None = None,
+               revise: str | None = None, regenerate: bool = False, provider=None, rng=None):  # noqa: ANN001, ANN201
+    """The application email of a CV version, from the same ApplicationContext as the CV. Drafted, never sent.
+
+    Stored per version and language (kv cv_email:<id>:<lang>): served as is unless `regenerate`, or revised with
+    `revise` (a REVISIONS code, or 'skip:<experience>'). Written by application_email (strategy, one local-model
+    call, checks, one revision); the deterministic email stands in when the model is unavailable or blocked.
     None if the version is unknown; raises ContextViolation if the email would address anyone but the target.
     """
+    from summer_hunter.cv_builder import application_email as ae
     from summer_hunter.cv_builder.context import ContextViolation, from_request, validate_email
-    from summer_hunter.cv_builder.email import compose
+    from summer_hunter.web.cv import load_content
 
     with sessions() as session:
         row = VersionStore(session, settings.data_dir, settings.config_dir).get(vid)
@@ -176,27 +196,67 @@ def email_for(settings: Settings, sessions: sessionmaker[Session], vid: int, lan
         if language in {"en", "fr"}:
             req = replace(req, language=language)
         actx = context_from(settings, session)
+        repo = Repository(session)
+        stored = _stored_email(repo, vid, req.language)
+        recent = json.loads(repo.get_kv("cv_email_openings") or "[]")
+        skip = json.loads(repo.get_kv(f"cv_email_skip:{vid}") or "[]")
     ctx = from_request(req, settings.profile_raw)
-    custom = _custom_email(sessions, vid, req.language)
-    mail = custom or compose(row.content or {}, ctx, req.track)
-    problems = validate_email(mail.parts, ctx, sorted(set(actx.companies) | set(actx.own_orgs)), actx.own_orgs)
+    orgs = sorted(set(actx.companies) | set(actx.own_orgs))
+    if stored is not None and not regenerate and not revise:
+        mail = stored
+    else:
+        instruction = None
+        if revise and revise.startswith("skip:"):
+            skip = list(dict.fromkeys([*skip, revise[5:].strip()]))
+            instruction = f"Do not mention {revise[5:].strip()} at all; rebuild the argument without it."
+        elif revise:
+            instruction = ae.REVISIONS.get(revise, (None, None, revise))[2]
+        if provider is None:
+            try:
+                provider = ae.provider_from(settings.llm, settings.anthropic_api_key)
+            except Exception:  # noqa: BLE001 - no model configured: deterministic email
+                provider = None
+        mail = ae.write(row.content or {}, load_content(settings.config_dir), ctx, req.track, req.family, req.situation,
+                        settings.config_dir, settings.profile_raw, orgs, actx.own_orgs, provider,
+                        source_text=req.source_text if req.mode != "offer" else "",
+                        posting=req.source_text if req.mode == "offer" else "", recent_openings=recent,
+                        revision=instruction, previous=stored if instruction else None, skip=skip, rng=rng)
+    problems = validate_email(mail.parts, ctx, orgs, actx.own_orgs)
     if problems:
         raise ContextViolation(problems)
+    if mail is not stored:
+        with sessions() as session:
+            repo = Repository(session)
+            repo.set_kv(f"cv_email:{vid}:{req.language}", json.dumps(_email_json(mail)))
+            paragraphs = mail.parts.get("paragraphs") or []
+            if paragraphs and getattr(mail, "model", "deterministic") != "deterministic":
+                first = re.split(r"(?<=[.!?])\s+", paragraphs[0].strip())[0][:160]
+                repo.set_kv("cv_email_openings", json.dumps((recent + [first])[-12:]))
+            repo.set_kv(f"cv_email_skip:{vid}", json.dumps(skip))
+            session.commit()
     return mail
 
 
-def _custom_email(sessions: sessionmaker[Session], vid: int, language: str):  # noqa: ANN202
-    """An email written for this exact version (kv cv_email:<id>:<lang>), if any. Still validated by the caller."""
-    import json
+def _email_json(mail) -> dict[str, Any]:  # noqa: ANN001
+    return {"subject": mail.subject, "body": mail.body, "parts": mail.parts, "language": mail.language,
+            "warnings": list(getattr(mail, "warnings", []) or []), "model": getattr(mail, "model", "manual"),
+            "answers": getattr(mail, "answers", {}) or {}, "html_signature": getattr(mail, "html_signature", "")}
 
-    from summer_hunter.cv_builder.email import Email
 
-    with sessions() as session:
-        raw = Repository(session).get_kv(f"cv_email:{vid}:{language}")
+def _stored_email(repo: Repository, vid: int, language: str):  # noqa: ANN202
+    """The email kept for this version and language (generated, revised or written by hand), if any."""
+    from summer_hunter.cv_builder.application_email import DraftedEmail
+
+    raw = repo.get_kv(f"cv_email:{vid}:{language}")
     if not raw:
         return None
     data = json.loads(raw)
-    return Email(data["subject"], data["body"], language, data.get("parts") or {})
+    parts = data.get("parts") or {}
+    if "paragraphs" not in parts:            # hand-written: paragraphs = body without greeting, sign-off, signature
+        blocks = data["body"].split("\n\n")
+        parts = parts | {"paragraphs": blocks[1:-2] if len(blocks) > 3 else blocks}
+    return DraftedEmail(data["subject"], data["body"], language, parts, {}, data.get("answers") or {},
+                        list(data.get("warnings") or []), data.get("model", "manual"), 0, data.get("html_signature", ""))
 
 
 def set_custom_email(settings: Settings, sessions: sessionmaker[Session], vid: int, subject: str, body: str,

@@ -18,6 +18,12 @@ from summer_hunter.utils.settings import PROJECT_ROOT, Settings
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(autouse=True)
+def _no_local_llm_for_emails(monkeypatch):
+    """Tests never call the local model for application emails (scripted providers are injected instead)."""
+    monkeypatch.setenv("SH_EMAIL_PROVIDER", "none")
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     # Tests run against a frozen profile (all identity/immigration fields UNKNOWN),

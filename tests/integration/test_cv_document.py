@@ -122,7 +122,7 @@ def test_telegram_cv_command(settings, sessions):
         s.commit()
     bot.cvb.generate("CV pour un stage Tech Sales chez Salesforce à Dublin", background=False)
     texts = "\n".join(m["text"] for m in fake.sent)
-    assert "Analyse en cours" in texts and "CV GÉNÉRÉ" in texts and "Rapport d'optimisation" in texts
+    assert "Analyse en cours" in texts and "APPLICATION READY" in texts and "Rapport d'optimisation" in texts
     assert "Salesforce" in texts and "Ireland" in texts
     assert len(fake.docs) == 2
     _say(bot, "/cv")
