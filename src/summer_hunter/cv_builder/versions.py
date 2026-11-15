@@ -76,29 +76,36 @@ class VersionStore:
                                           .where(CVVersion.lineage_id == lineage_id)).scalar() or 0)
         else:
             lineage_id, version = None, 1
+        # Render first, outside any write transaction: pdflatex can take seconds and SQLite allows one writer,
+        # so holding the lock here would block the bot's own writes (offsets, buttons) meanwhile.
+        staging = self.root / "_staging" / f"{time.time_ns()}"
+        res = build(self.config_dir, staging, req, confirmed, version=version)
         row = CVVersion(lineage_id=lineage_id, parent_id=parent.id if parent else None, version=version,
-                        source_text=req.source_text[:20000], stem="pending", change=(change or "")[:300] or None)
+                        source_text=req.source_text[:20000], stem=res.stem, change=(change or "")[:300] or None,
+                        target_role=req.target_role, company=req.company, country_code=req.country_code,
+                        language=req.language, pages=res.pages, style=res.style, request=req.to_dict(), content=res.cv,
+                        profile=profile_snapshot(self.config_dir, confirmed),
+                        checks=[{"name": c.name, "ok": c.ok, "detail": c.detail} for c in res.checks])
         self.s.add(row)
         self.s.flush()
         if row.lineage_id is None:
             row.lineage_id = row.id
         out_dir = self.root / f"CV-{row.lineage_id:04d}" / f"v{version}"
         if out_dir.exists() and any(out_dir.iterdir()):
-            # Only a build that failed and was rolled back can leave files without a row: keep them aside.
+            # Only a build that was rolled back can leave files without a row: keep them aside.
             owned = self.s.execute(select(CVVersion.id).where(CVVersion.pdf_path.like(f"{out_dir}%"))).first()
             if owned:
                 raise FileExistsError(f"{out_dir} already holds a version")   # never overwrite
             out_dir.rename(out_dir.with_name(f"{out_dir.name}.orphan-{row.id}-{int(time.time())}"))
-        res = build(self.config_dir, out_dir, req, confirmed, version=version)
-        row.target_role, row.company, row.country_code = req.target_role, req.company, req.country_code
-        row.language, row.pages, row.style = req.language, res.pages, res.style
-        row.request, row.content = req.to_dict(), res.cv
-        row.profile = profile_snapshot(self.config_dir, confirmed)
-        row.checks = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in res.checks]
-        row.stem = res.stem
-        row.pdf_path = str(res.pdf_path) if res.pdf_path else None
-        row.docx_path = str(res.docx_path) if res.docx_path else None
-        row.tex_path = str(res.tex_path) if res.tex_path else None
+        out_dir.parent.mkdir(parents=True, exist_ok=True)
+        if out_dir.exists():
+            out_dir.rmdir()                     # empty directory only
+        staging.rename(out_dir)
+        for attr in ("pdf_path", "docx_path", "tex_path"):
+            path = getattr(res, attr)
+            if path:
+                setattr(res, attr, out_dir / path.name)
+                setattr(row, attr, str(out_dir / path.name))
         self.s.flush()
         return row, res
 

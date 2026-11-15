@@ -26,7 +26,16 @@ def extract_text(path: Path) -> str:
     if suffix == ".docx":
         from docx import Document
 
-        return "\n".join(p.text for p in Document(path).paragraphs)
+        doc = Document(path)
+        parts = [p.text for p in doc.paragraphs]
+        for table in doc.tables:                      # CV templates often lay sections out in tables
+            for row in table.rows:
+                for cell in row.cells:
+                    parts += [p.text for p in cell.paragraphs]
+        for section in doc.sections:
+            for part in (section.header, section.footer):
+                parts += [p.text for p in part.paragraphs]
+        return "\n".join(dict.fromkeys(parts))
     if suffix == ".pdf":
         exe = shutil.which("pdftotext")
         if not exe:
@@ -36,11 +45,29 @@ def extract_text(path: Path) -> str:
     raise ValueError("format non pris en charge (PDF ou DOCX)")
 
 
+# Sections that describe what an employer wants, not what the candidate did (a job description sent by mistake).
+_DEMAND_HEADING = re.compile(r"^\s*(requirements?|qualifications?|what you.ll (?:do|bring|need)|who you are|your profile|"
+                             r"profil recherch\w*|vos missions|nice to have|must have|we offer|nous offrons|about (?:us|the role))\b",
+                             re.I)
+
+
 def items(text: str) -> list[str]:
-    """Bullet points and sentences, with wrapped lines joined back together."""
+    """Bullet points and sentences, with wrapped lines joined back together; employer-demand sections skipped."""
     out: list[str] = []
     cur = ""
+    skipping = False
     for raw in text.splitlines():
+        if _DEMAND_HEADING.match(raw) and len(raw.strip()) < 60:
+            skipping = True
+            if cur:
+                out.append(cur)
+            cur = ""
+            continue
+        if skipping:
+            if _HEADING.match(raw.strip()) and not _DEMAND_HEADING.match(raw):
+                skipping = False          # a new candidate section starts
+            else:
+                continue
         line = re.sub(r"\s{3,}.*$", "", raw.strip()) if "   " in raw.strip() else raw.strip()   # drop right-aligned dates
         if not line:
             if cur:

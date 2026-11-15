@@ -28,7 +28,9 @@ le CV : le bot propose d'ajouter le fait au profil, puis 🔁 Regénérer l'int�
 
 Boutons sous chaque CV : Regénérer, Modifier, Style, Langue, PDF, DOCX, Sauvegarder (⭐).
 
-Un PDF ou DOCX envoyé au bot est lu comme un CV ; un `.xlsx` reste un import du CRM.
+Un PDF ou DOCX n'est lu comme un CV qu'après `/cv_upload` (un PDF peut être une offre : ses exigences ne
+doivent jamais entrer dans le profil ; les sections « Requirements », « Profil recherché »… sont de toute façon
+ignorées). Un `.xlsx` reste un import du CRM.
 
 ## Chaîne
 
@@ -58,7 +60,11 @@ demande ─▶ intent.analyze ─▶ prefs.apply ─▶ document.compose ─▶ 
   candidature spontanée.
 - Le contrôle « faits » refuse toute puce, tout projet et toute compétence absents du profil vérifié.
 - Aucun score ATS inventé : le rapport liste exigences couvertes, partielles et non couvertes.
-- Les textes des faits ne sont jamais écrits dans les logs ; un CV importé est supprimé dès sa lecture.
+- Les textes des faits ne sont jamais écrits dans les logs (une erreur n'y laisse que son type et sa
+  position dans le code) ; un CV importé est supprimé dès sa lecture.
+- Le rendu se fait hors transaction d'écriture, dans `data/cv_builder/_staging/`, puis les fichiers sont
+  déplacés vers leur version : la base n'est jamais verrouillée pendant pdflatex. Un build à la fois, livraison
+  comprise, pour que le CV « actif » soit toujours le dernier livré.
 
 ## Limites
 

@@ -136,6 +136,7 @@ class Bot:
         if text and not text.startswith("/") and self.cvb.handle_text(text, reply_to):
             return                          # CV builder: awaited request, edit of the last CV, or reply to a CV
         if text.startswith("/"):
+            self.cvb._await = None          # any command ends a pending CV question; /cv and /cv_upload set it again
             head, _, args = text.partition(" ")
             self.handle_command(head[1:].split("@")[0].lower(), args)
             return

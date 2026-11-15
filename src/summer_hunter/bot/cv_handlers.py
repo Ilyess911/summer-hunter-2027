@@ -75,6 +75,7 @@ class CVBot:
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self._seeded = False
+        self._seed_lock = threading.Lock()
         self._lock = threading.Lock()
         self._await: tuple[str, int | None, float] | None = None     # (request | edit | upload, version id, since)
         self.buffer_wait_s = 4.0
@@ -85,9 +86,11 @@ class CVBot:
     def _store(self, session) -> ProfileStore:  # noqa: ANN001
         store = ProfileStore(session)
         if not self._seeded:
-            if store.seed():
-                session.commit()
-            self._seeded = True
+            with self._seed_lock:               # the polling thread and a build thread may both get here first
+                if not self._seeded:
+                    if store.seed():
+                        session.commit()
+                    self._seeded = True
         return store
 
     def _cv(self) -> dict:
@@ -194,20 +197,28 @@ class CVBot:
             self.bot.send("Envoie-moi une offre d'emploi, un métier, une entreprise ou simplement le type de CV que tu "
                           "souhaites créer.")
             return
+        self._await = None
         self.bot.send("⏳ Analyse en cours…")
         if background:
-            self._collect(text)       # Telegram splits a long posting: the next parts join this one
+            self._collect(text, new_batch=True)   # Telegram splits a long posting: the next parts join this one
         else:
             self._generate(text)
 
-    def _collect(self, text: str) -> None:
+    def _collect(self, text: str, new_batch: bool = False) -> None:
+        previous = ""
         with self._buf_lock:
+            if new_batch and self._buf:           # an explicit /cv never merges into the previous request
+                if self._buf_timer:
+                    self._buf_timer.cancel()
+                previous, self._buf = "\n".join(self._buf), []
             self._buf.append(text)
             if self._buf_timer:
                 self._buf_timer.cancel()
             self._buf_timer = threading.Timer(self.buffer_wait_s, self._flush)
             self._buf_timer.daemon = True
             self._buf_timer.start()
+        if previous.strip():
+            threading.Thread(target=self._generate, args=(previous,), daemon=True, name="cv-builder").start()
 
     def _flush(self) -> None:
         with self._buf_lock:
@@ -319,12 +330,12 @@ class CVBot:
                     row, res = vs.derive(parent, self._store(session).confirmed(), change, **overrides)
                     session.commit()
                     tag, req, rid = label(row), CVRequest.from_dict(row.request), row.id
-            except Exception:  # noqa: BLE001
-                log.exception("cv edit failed")
+            except Exception as exc:  # noqa: BLE001
+                log.error("cv edit failed", extra=safe_error(exc))
                 self.bot.send("❌ Modification impossible (erreur interne, voir les logs).")
                 return
-        log.info("cv edited", extra={"cv": tag, "fields": sorted(overrides)})
-        self.deliver(req, res, tag, rid)
+            log.info("cv edited", extra={"cv": tag, "fields": sorted(overrides)})
+            self.deliver(req, res, tag, rid)
 
     def versions(self, session):  # noqa: ANN001, ANN201
         from summer_hunter.cv_builder.versions import VersionStore
@@ -346,12 +357,12 @@ class CVBot:
                     row, res = self.versions(session).create(req, store.confirmed())
                     session.commit()
                     tag, rid = label(row), row.id
-            except Exception:  # noqa: BLE001 - a failed build must answer, never crash the bot
-                log.exception("cv build failed")
+            except Exception as exc:  # noqa: BLE001 - a failed build must answer, never crash the bot
+                log.error("cv build failed", extra=safe_error(exc))
                 self.bot.send("❌ Génération impossible (erreur interne, voir les logs).")
                 return
-        log.info("cv built", extra={"cv": tag, "mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
-        self.deliver(req, res, tag, rid)
+            log.info("cv built", extra={"cv": tag, "mode": req.mode, "family": req.family, "pages": res.pages, "ok": res.ok})
+            self.deliver(req, res, tag, rid)      # under the lock: an older build can never become the active CV
 
     def deliver(self, req, res, tag: str, vid: int | None = None) -> None:  # noqa: ANN001
         from summer_hunter.cv_builder import prefs
@@ -452,6 +463,10 @@ class CVBot:
         suffix = Path(name).suffix.lower()
         if suffix not in {".pdf", ".docx"}:
             return False
+        waiting = self._await and self._await[0] == "upload" and time.time() - self._await[2] < AWAIT_TTL_S
+        if not waiting:      # a PDF can be a job description: never read into the profile without /cv_upload
+            self.bot.send("Pour importer ton CV dans ton profil, lance d'abord /cv_upload puis renvoie le fichier.")
+            return True
         self._await = None
         if int(document.get("file_size") or 0) > 10_000_000:
             self.bot.send("Fichier trop gros (10 Mo maximum).")
@@ -534,6 +549,8 @@ class CVBot:
                     pass
             return True
         tg.answer_callback(cq["id"])
+        if action != "cve":
+            self._await = None
         if action in files:
             path = Path(files[action]) if files[action] else None
             if path and path.exists():
@@ -705,3 +722,12 @@ def _all_strings(node) -> list[str]:  # noqa: ANN001
         for v in node:
             out += _all_strings(v)
     return out
+
+
+def safe_error(exc: BaseException) -> dict[str, str]:
+    """Exception type and code location only: messages can quote CV or profile text (YAML, SQL parameters)."""
+    import traceback
+
+    frames = traceback.extract_tb(exc.__traceback__)[-3:]
+    return {"error": type(exc).__name__,
+            "where": " < ".join(f"{Path(f.filename).name}:{f.lineno}" for f in reversed(frames))}

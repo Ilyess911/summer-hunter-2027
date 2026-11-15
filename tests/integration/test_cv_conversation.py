@@ -178,9 +178,52 @@ def test_upload_flow(settings, sessions, monkeypatch, tmp_path):
     texts = "\n".join(m["text"] for m in fake.sent)
     assert "1 ligne(s) absentes" in texts and "ABB robot" in texts
     assert not list((settings.data_dir / "cv_builder" / "uploads").glob("*"))      # temporary copy deleted
-    bot.handle_update({"update_id": 4, "message": {"chat": {"id": int(fake_chat())}, "document": {
-        "file_id": "f1", "file_name": "CV.docx", "file_size": 2000}}})
+    doc_update = {"update_id": 4, "message": {"chat": {"id": int(fake_chat())}, "document": {
+        "file_id": "f1", "file_name": "CV.docx", "file_size": 2000}}}
+    bot.handle_update(doc_update)               # no /cv_upload: a PDF/DOCX may be a job description
+    assert "lance d'abord /cv_upload" in fake.sent[-1]["text"]
+    _say(bot, "/cv_upload")
+    bot.handle_update(doc_update)
     assert "rien de nouveau" in fake.sent[-1]["text"]
+
+
+def test_upload_skips_employer_demand_sections():
+    text = ("EXPERIENCE\n• Led a team of 4 students to automate a pick-and-place cell with an ABB robot.\n"
+            "Requirements\n• Strong Python skills and 3 years of experience with ROS required.\n"
+            "SKILLS\n• Coordinated weekly maintenance planning meetings with the line managers.\n")
+    found = items(text)
+    assert not any("ROS required" in i for i in found)
+    assert any("ABB robot" in i for i in found) and any("maintenance planning" in i for i in found)
+
+
+def test_command_clears_a_pending_question(settings, sessions):
+    bot, _ = _bot(settings, sessions)
+    _say(bot, "/cv")
+    assert bot.cvb._await[0] == "request"
+    _say(bot, "/top10")
+    assert bot.cvb._await is None
+    assert bot.cvb.handle_text("https://jobs.example.com/1") is False      # the link goes to offer ingestion
+
+
+def test_two_quick_cv_commands_stay_two_requests(settings, sessions, monkeypatch):
+    bot, _ = _bot(settings, sessions)
+    built = []
+    monkeypatch.setattr(bot.cvb, "_generate", lambda text: built.append(text))
+    bot.cvb.buffer_wait_s = 0.05
+    bot.cvb.generate("CV Tech Sales")
+    bot.cvb.generate("CV Robotics Engineer")
+    time.sleep(0.3)
+    assert sorted(built) == ["CV Robotics Engineer", "CV Tech Sales"]
+
+
+def test_safe_error_never_carries_the_message():
+    from summer_hunter.bot.cv_handlers import safe_error
+
+    try:
+        raise ValueError("Automate the consolidation of aircraft equipment data")
+    except ValueError as exc:
+        info = safe_error(exc)
+    assert info["error"] == "ValueError" and "Automate" not in str(info)
 
 
 def fake_chat() -> str:
