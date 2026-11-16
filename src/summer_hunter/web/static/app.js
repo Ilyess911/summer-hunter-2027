@@ -166,6 +166,9 @@ async function openDetail(id) {
     <div class="reasons" id="reasons" hidden>
       ${Object.entries(REASON).map(([k, v]) => `<button data-reason="${k}">${esc(v)}</button>`).join("")}
     </div>
+    ${(o.paste_skills || []).length ? `<div class="block skills-paste"><h3>Skills à coller dans le formulaire</h3>
+      <div class="tags" style="display:flex;gap:6px;flex-wrap:wrap">${o.paste_skills.map((s) => `<span class="tag">${esc(s)}</span>`).join("")}</div>
+      <button class="file wide press" id="skillscopy" style="margin-top:10px"><span>📋 Copier les skills</span><small>${o.paste_skills.length} skills, séparés par des virgules</small></button></div>` : ""}
     <div id="cvbox"></div>
     <button class="file wide press" id="letterbtn"><span>✉️ Générer ma lettre de motivation</span><small>2-3 min, reçue dans le chat</small></button>
     <div class="fallback" id="fallback" ${tg && tg.MainButton ? "hidden" : ""}>
@@ -204,6 +207,9 @@ async function openDetail(id) {
       toast("Lettre en cours : tu la reçois dans le chat dans 2-3 min"); b.querySelector("span").textContent = "✉️ Lettre en cours…"; }
     catch (e) { toast(`Erreur : ${e.message}`); b.disabled = false; }
   };
+  const skBtn = box.querySelector("#skillscopy");
+  if (skBtn) skBtn.onclick = async () => { const done = await copyText(Promise.resolve(o.paste_skills.join(", "))); haptic();
+    toast(done ? "Skills copiés" : "Copie impossible : sélectionne le texte"); };
   const cvBtn = box.querySelector('#fallback [data-act="cv"]'); if (cvBtn) cvBtn.onclick = () => makeCV(o.id);
   const apBtn = box.querySelector('#fallback [data-act="apply"]'); if (apBtn) apBtn.onclick = () => openLink(o.apply_url);
   showNativeButtons(o);

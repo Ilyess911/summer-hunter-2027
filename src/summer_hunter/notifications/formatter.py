@@ -44,7 +44,7 @@ TRACK_LABEL = {"industry_robotics": "INDUSTRY & ROBOTICS", "business_tech": "BUS
 def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, priority: dict,
          contacts: list[Contact], webapp_url: str | None = None,
          recruit: dict | None = None, comp: dict | None = None,
-         strategy: dict | None = None) -> tuple[str, list[list[dict[str, str]]]]:
+         strategy: dict | None = None, skills: list[str] | None = None) -> tuple[str, list[list[dict[str, str]]]]:
     tier = priority.get("tier", "review")
     industrial = opp.career_track == INDUSTRY_TRACK
     head = "🚀 SUMMER 2027 — NEW OPPORTUNITY" if tier in {"exceptional", "high"} else "🔎 SUMMER 2027 — WORTH REVIEWING"
@@ -92,10 +92,12 @@ def card(opp: Opportunity, criteria: list[dict], fit: dict, networking: dict, pr
         lines.append(f"{e(best.name, 80)}, {e(best.relationship_type.replace('_', ' '))} (confidence {best.confidence:.2f})")
     else:
         lines.append("No verified recruiter or hiring manager.")
+    if skills:
+        lines += ["", "<b>Skills to paste</b> <i>(tap to copy)</i>:", f"<code>{e(', '.join(skills), 400)}</code>"]
     if opp.career_category:
         lines.append(f"<b>Category:</b> {e(TRACK_LABEL.get(opp.career_track or '', ''))} · {e(opp.career_category)}")
     lines.append(f"<i>#{opp.id}</i>")
-    return "\n".join(lines), buttons(opp, best, webapp_url)
+    return "\n".join(lines), buttons(opp, best, webapp_url, skills)
 
 
 ACTION_LABEL = {"APPLY_NOW": "APPLY NOW", "PREPARE_APPLICATION": "PREPARE APPLICATION", "CONTACT_RECRUITER": "CONTACT RECRUITER",
@@ -144,7 +146,8 @@ def _why(fit: dict, recruit: dict | None, industrial: bool) -> list[str]:
     return fit.get("reasons", [])[:3]
 
 
-def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = None) -> list[list[dict[str, str]]]:
+def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = None,
+            skills: list[str] | None = None) -> list[list[dict[str, Any]]]:
     row1 = []
     apply = safe_url(opp.apply_url) or safe_url(opp.official_url)
     if apply:
@@ -164,7 +167,8 @@ def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = 
     row5 = [{"text": "📄 CV", "callback_data": f"cv:{opp.id}"}, {"text": "✉️ Lettre", "callback_data": f"lm:{opp.id}"},
             {"text": "Explain Score", "callback_data": f"ex:{opp.id}"}, {"text": "⭐ Rate", "callback_data": f"rt:{opp.id}"}]
     row0 = [{"text": "📱 Ouvrir · CV adapté", "web_app": {"url": f"{webapp_url}/#/o/{opp.id}"}}] if safe_url(webapp_url) else []
-    return [r for r in (row0, row1, row2, row3, row4, row5) if r]
+    row6 = [{"text": "📋 Copier les skills", "copy_text": {"text": ", ".join(skills)[:256]}}] if skills else []
+    return [r for r in (row0, row1, row6, row2, row3, row4, row5) if r]
 
 
 def dismiss_reason_buttons(opp_id: int) -> list[list[dict[str, str]]]:

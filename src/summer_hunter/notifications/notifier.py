@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session, sessionmaker
 
 from summer_hunter.crm import briefing as crm_briefing
+from summer_hunter.cv_builder import paste_skills
 from summer_hunter.crm import followups
 from summer_hunter.crm.service import CRM
 from summer_hunter.database.models import RecruitmentSignal, utcnow
@@ -64,7 +65,8 @@ class Notifier:
         if ev is None or fit is None:
             return False
         text, buttons = formatter.card(opp, ev.criteria, fit.report, fit.networking, fit.priority, repo.contacts(opp.id),
-                                       repo.get_kv("webapp_url"), fit.recruitability, fit.compensation, fit.strategy)
+                                       repo.get_kv("webapp_url"), fit.recruitability, fit.compensation, fit.strategy,
+                                       paste_skills.for_opportunity(self.settings.config_dir, repo.s, opp))
         return self._send(repo, report, f"card:{opp.id}", "card", opp.id, text, buttons)
 
     def morning_digest(self, dry_run: bool = False, force: bool = False) -> DeliveryReport:

@@ -8,6 +8,7 @@ import threading
 from html import escape
 
 from summer_hunter.collectors.link_ingest import NeedsText, fetch_posting, from_pasted_text, is_linkedin
+from summer_hunter.cv_builder import paste_skills
 from summer_hunter.database.repository import Repository
 from summer_hunter.integrations.anthropic_client import LLMError, NullProvider
 from summer_hunter.integrations.telegram_client import TelegramError
@@ -66,7 +67,8 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
         ev, fit = repo.latest_eligibility(opp.id), repo.latest_fit(opp.id)
         card_text, buttons = formatter.card(opp, ev.criteria, fit.report, fit.networking, fit.priority,
                                             repo.contacts(opp.id), repo.get_kv("webapp_url"), fit.recruitability,
-                                            fit.compensation, fit.strategy)
+                                            fit.compensation, fit.strategy,
+                                            paste_skills.for_opportunity(settings.config_dir, session, opp))
         opp_id, decision = opp.id, opp.eligibility_status
         fails = [c["explanation"] for c in ev.criteria if c["status"] == "FAIL"]
         merged = "déjà connue (fusionnée)" if stats.merged_duplicates else "ajoutée"

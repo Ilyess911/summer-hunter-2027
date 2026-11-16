@@ -19,6 +19,7 @@ from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Respon
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from summer_hunter.cv_builder import paste_skills
 from summer_hunter.database.models import Opportunity
 from summer_hunter.database.repository import Repository, as_utc, is_fresh
 from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
@@ -160,6 +161,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
                 "sources": [{"source": s.source, "url": s.url} for s in opp.sources],
                 "post": {"author": post.author_name, "text": post.text[:1500], "class": post.classification} if post else None,
                 "dismiss_reasons": {k: v[2] for k, v in DISMISS_REASONS.items()},
+                "paste_skills": paste_skills.for_opportunity(settings.config_dir, session, opp),
             }
         return JSONResponse(data)
 
