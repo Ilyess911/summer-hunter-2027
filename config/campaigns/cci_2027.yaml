@@ -4,23 +4,23 @@
 campaign: CCI_FRANCE_INTERNATIONAL_2027
 period: "April–August 2027"
 chambers:
-  - {id: "01", folder: 01_Singapore,       tag: Singapore,       priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "02", folder: 02_UAE_Dubai,       tag: UAE,             priority: P1, wave: 1, emphasis: ["Vinc'IA", "Nexya Agency", "Air France Industries"]}
-  - {id: "03", folder: 03_Hong_Kong,       tag: Hong_Kong,       priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "04", folder: 04_USA_New_York,    tag: New_York,        priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Amundi Asset Management"]}
-  - {id: "05", folder: 05_Canada_Montreal, tag: Montreal,        priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"], email_fr: true}
-  - {id: "06", folder: 06_Japan_Tokyo,     tag: Tokyo,           priority: P1, wave: 1, emphasis: ["Air France Industries", "Airbus Helicopters", "Nexya Agency"]}
-  - {id: "07", folder: 07_USA_San_Francisco, tag: San_Francisco, priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "08", folder: 08_UK_London,       tag: London,          priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Amundi Asset Management"]}
-  - {id: "09", folder: 09_South_Korea_Seoul, tag: Seoul,         priority: P2, wave: 2, emphasis: ["Air France Industries", "Nexya Agency", "Vinc'IA"]}
-  - {id: "10", folder: 10_Australia,       tag: Australia,       priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "11", folder: 11_Malaysia,        tag: Malaysia,        priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
-  - {id: "12", folder: 12_Vietnam,         tag: Vietnam,         priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
-  - {id: "13", folder: 13_India,           tag: India,           priority: P2, wave: 2, emphasis: ["Air France Industries", "Nexya Agency", "Vinc'IA"]}
-  - {id: "14", folder: 14_Canada_Toronto,  tag: Toronto,         priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "15", folder: 15_USA_Boston,      tag: Boston,          priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
-  - {id: "16", folder: 16_Thailand,        tag: Thailand,        priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "17", folder: 17_Taiwan,          tag: Taiwan,          priority: P3, wave: 3, emphasis: ["Air France Industries", "Airbus Helicopters", "Nexya Agency"]}
-  - {id: "18", folder: 18_Qatar,           tag: Qatar,           priority: P3, wave: 3, emphasis: ["Vinc'IA", "Nexya Agency", "Air France Industries"]}
-  - {id: "19", folder: 19_South_Africa,    tag: South_Africa,    priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
-  - {id: "20", folder: 20_Morocco,         tag: Morocco,         priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"], email_fr: true}
+  - {id: "01", folder: 01_CCI_Singapore_FCCS,       tag: Singapore,       priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "02", folder: 02_CCI_UAE_Dubai,       tag: UAE,             priority: P1, wave: 1, emphasis: ["Vinc'IA", "Nexya Agency", "Air France Industries"]}
+  - {id: "03", folder: 03_CCI_Hong_Kong_FCCIHK,       tag: Hong_Kong,       priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "04", folder: 04_CCI_USA_New_York_FACC-NY,    tag: New_York,        priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Amundi Asset Management"]}
+  - {id: "05", folder: 05_CCI_Canada_Montreal_CCIFC, tag: Montreal,        priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"], email_fr: true}
+  - {id: "06", folder: 06_CCI_Japan_Tokyo_CCIFJ,     tag: Tokyo,           priority: P1, wave: 1, emphasis: ["Air France Industries", "Airbus Helicopters", "Nexya Agency"]}
+  - {id: "07", folder: 07_CCI_USA_San_Francisco_FACC-California, tag: San_Francisco, priority: P1, wave: 1, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "08", folder: 08_CCI_UK_London_CCFGB,       tag: London,          priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Amundi Asset Management"]}
+  - {id: "09", folder: 09_CCI_South_Korea_Seoul_FKCCI, tag: Seoul,         priority: P2, wave: 2, emphasis: ["Air France Industries", "Nexya Agency", "Vinc'IA"]}
+  - {id: "10", folder: 10_CCI_Australia_FACCI,       tag: Australia,       priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "11", folder: 11_CCI_Malaysia_CCIFM,        tag: Malaysia,        priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
+  - {id: "12", folder: 12_CCI_Vietnam_CCIFV,         tag: Vietnam,         priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
+  - {id: "13", folder: 13_CCI_India_IFCCI,           tag: India,           priority: P2, wave: 2, emphasis: ["Air France Industries", "Nexya Agency", "Vinc'IA"]}
+  - {id: "14", folder: 14_CCI_Canada_Toronto_FCCCO,  tag: Toronto,         priority: P2, wave: 2, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "15", folder: 15_CCI_USA_Boston_FACCNE,      tag: Boston,          priority: P2, wave: 2, emphasis: ["Nexya Agency", "Air France Industries", "Vinc'IA"]}
+  - {id: "16", folder: 16_CCI_Thailand_FTCC,        tag: Thailand,        priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "17", folder: 17_CCI_Taiwan_CCIFT,          tag: Taiwan,          priority: P3, wave: 3, emphasis: ["Air France Industries", "Airbus Helicopters", "Nexya Agency"]}
+  - {id: "18", folder: 18_CCI_Qatar_CCIFQ,           tag: Qatar,           priority: P3, wave: 3, emphasis: ["Vinc'IA", "Nexya Agency", "Air France Industries"]}
+  - {id: "19", folder: 19_CCI_South_Africa_FSACCI,    tag: South_Africa,    priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"]}
+  - {id: "20", folder: 20_CCI_Morocco_CFCIM,         tag: Morocco,         priority: P3, wave: 3, emphasis: ["Nexya Agency", "Vinc'IA", "Air France Industries"], email_fr: true}
