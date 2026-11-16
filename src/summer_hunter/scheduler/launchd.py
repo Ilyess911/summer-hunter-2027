@@ -10,6 +10,7 @@ BOT_LABEL = "com.summerhunter.bot"
 WEB_LABEL = "com.summerhunter.web"
 OS_LABEL = "com.summerhunter.os"
 TAILSCALE_LABEL = "com.summerhunter.tailscale"
+RELAY_LABEL = "com.summerhunter.relay"
 AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
 
 
@@ -84,6 +85,21 @@ def tailscale_plist(executable: Path, project_root: Path, log_dir: Path) -> dict
         "StandardOutPath": str(log_dir / "launchd-tailscale.out.log"),
         "StandardErrorPath": str(log_dir / "launchd-tailscale.err.log"),
         "EnvironmentVariables": {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        "ProcessType": "Background",
+    }
+
+
+def relay_plist(executable: Path, project_root: Path, log_dir: Path) -> dict:
+    """Drains the VPS relay (reports Instinct sent while the Mac was away) at login and every 2 minutes."""
+    return {
+        "Label": RELAY_LABEL,
+        "ProgramArguments": [str(executable), "relay-sync"],
+        "WorkingDirectory": str(project_root),
+        "RunAtLoad": True,
+        "StartInterval": 120,
+        "StandardOutPath": str(log_dir / "launchd-relay.out.log"),
+        "StandardErrorPath": str(log_dir / "launchd-relay.err.log"),
+        "EnvironmentVariables": {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin", "PYTHONUNBUFFERED": "1"},
         "ProcessType": "Background",
     }
 

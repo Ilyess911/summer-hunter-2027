@@ -1,0 +1,31 @@
+[Unit]
+Description=Summer Hunter relay (Instinct agent API front door)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+User=shrelay
+Group=shrelay
+EnvironmentFile=/etc/shrelay.env
+ExecStart=/usr/bin/python3 -I /opt/shrelay/sh_relay.py
+Restart=always
+RestartSec=5
+MemoryMax=80M
+TasksMax=40
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+ReadWritePaths=/opt/shrelay
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -614,27 +614,27 @@ def cmd_launchd(app: App, args) -> int:  # noqa: ANN001
     exe = Path(sys.executable).parent / "summer-hunter"
     log_dir = app.settings.data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    labels = [launchd.NIGHT_LABEL] + ([launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.TAILSCALE_LABEL] if args.with_bot else [])
+    labels = [launchd.NIGHT_LABEL] + ([launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.TAILSCALE_LABEL, launchd.RELAY_LABEL] if args.with_bot else [])
     labels += [launchd.OS_LABEL] if args.with_os else []
     uid = subprocess.run(["id", "-u"], capture_output=True, text=True).stdout.strip()
     if args.action == "install":
         for label in labels:
             data = {launchd.NIGHT_LABEL: launchd.night_plist, launchd.BOT_LABEL: launchd.bot_plist,
                     launchd.WEB_LABEL: launchd.web_plist, launchd.OS_LABEL: launchd.os_plist,
-                    launchd.TAILSCALE_LABEL: launchd.tailscale_plist}[label](exe, app.settings.root, log_dir)
+                    launchd.TAILSCALE_LABEL: launchd.tailscale_plist, launchd.RELAY_LABEL: launchd.relay_plist}[label](exe, app.settings.root, log_dir)
             path = launchd.write_plist(data, label)
             subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
             res = subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", str(path)], capture_output=True, text=True)
             print(f"{label}: {'loaded' if res.returncode == 0 else 'bootstrap failed: ' + res.stderr.strip()} ({path})")
     elif args.action == "uninstall":
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL, launchd.TAILSCALE_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL, launchd.TAILSCALE_LABEL, launchd.RELAY_LABEL):
             path = launchd.AGENTS_DIR / f"{label}.plist"
             if path.exists():
                 subprocess.run(["launchctl", "bootout", f"gui/{uid}", str(path)], capture_output=True)
                 path.unlink()
                 print(f"{label}: removed")
     else:
-        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL, launchd.TAILSCALE_LABEL):
+        for label in (launchd.NIGHT_LABEL, launchd.BOT_LABEL, launchd.WEB_LABEL, launchd.OS_LABEL, launchd.TAILSCALE_LABEL, launchd.RELAY_LABEL):
             res = subprocess.run(["launchctl", "print", f"gui/{uid}/{label}"], capture_output=True, text=True)
             state = next((l.strip() for l in res.stdout.splitlines() if l.strip().startswith("state =")), "not loaded")
             print(f"{label}: {state}")
@@ -643,6 +643,18 @@ def cmd_launchd(app: App, args) -> int:  # noqa: ANN001
         if shutil.which("pmset"):
             sched = subprocess.run(["pmset", "-g", "sched"], capture_output=True, text=True).stdout.strip()
             print("Wake schedule (pmset -g sched):\n" + (sched or "none"))
+    return 0
+
+
+def cmd_relay_sync(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.web.relay_sync import run_once
+
+    report = run_once()
+    if not report.configured:
+        print("relay not configured (SH_RELAY_URL / SH_RELAY_TOKEN)")
+        return 0
+    print(f"replayed {report.replayed}, acked {report.acked}, deferred {report.deferred}, snapshot {report.snapshot}"
+          + (f", errors {report.errors}" if report.errors else ""))
     return 0
 
 
@@ -784,6 +796,8 @@ def build_parser() -> argparse.ArgumentParser:
     wb = sub.add_parser("web", help="run the Telegram Mini App (local server + HTTPS tunnel)")
     wb.add_argument("--port", type=int, default=8787)
     wb.set_defaults(fn=cmd_web)
+    rs = sub.add_parser("relay-sync", help="replay reports queued on the VPS relay and push the application list")
+    rs.set_defaults(fn=cmd_relay_sync)
     lc = sub.add_parser("llm-check", help="verify the Anthropic key with one tiny call")
     lc.add_argument("--yes", action="store_true")
     lc.set_defaults(fn=cmd_llm_check)
