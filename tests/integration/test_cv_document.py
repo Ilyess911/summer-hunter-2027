@@ -66,11 +66,30 @@ def test_dates_and_sections_checks(settings, ctx):
     assert not doc.check_sections(cv).ok
 
 
-def test_french_request_without_french_content_is_flagged(settings, ctx):
+def test_french_request_without_french_content_is_never_half_translated(settings, ctx):
     content, notes = doc.load_content_for(settings.config_dir, "fr")
-    assert notes and "jamais traduit" in notes[0]
+    assert notes and "entièrement en anglais" in notes[0]
     cv, _ = doc.compose(content, analyze("CV en français pour un stage maintenance au Maroc", ctx), [])
-    assert cv["labels"]["experience"] == "EXPÉRIENCE PROFESSIONNELLE"
+    labels = set(cv["labels"].values())
+    assert "PROFESSIONAL EXPERIENCE" in labels and not labels & {"EXPÉRIENCE PROFESSIONNELLE", "PROFIL", "FORMATION",
+                                                                  "COMPÉTENCES & LANGUES"}
+
+
+def test_french_content_gets_french_headings(settings, ctx, tmp_path):
+    import shutil
+
+    shutil.copy(settings.config_dir / "cv_content.yaml", tmp_path / "cv_content.yaml")
+    shutil.copy(settings.config_dir / "cv_content.yaml", tmp_path / "cv_content_fr.yaml")   # stands in for a validated file
+    content, notes = doc.load_content_for(tmp_path, "fr")
+    cv, _ = doc.compose(content, analyze("CV en français pour un stage maintenance au Maroc", ctx), [])
+    assert not notes and cv["labels"]["experience"] == "EXPÉRIENCE PROFESSIONNELLE"
+
+
+def test_first_explicit_language_request_wins(ctx):
+    text = ("Génère-moi un CV premium, en anglais, pour un stage en business development.\n"
+            "Livrables : CV anglais en PDF et DOCX, plus une version française si possible.")
+    assert analyze(text, ctx).language == "en"
+    assert analyze("CV en français pour un stage, version anglaise plus tard", ctx).language == "fr"
 
 
 def test_emphasis_brings_the_project_first(settings, ctx):

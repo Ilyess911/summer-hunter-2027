@@ -70,16 +70,18 @@ def _tokens(text: str) -> set[str]:
 
 def load_content_for(config_dir: Path, language: str) -> tuple[dict[str, Any], list[str]]:
     """Verified content in the requested language. A French CV needs a validated cv_content_fr.yaml:
-    without it the text stays in English (never machine-translated) and only the headings are French."""
+    without it the WHOLE CV stays in English (headings included). A CV is never half French, half English."""
     notes: list[str] = []
     content = cvmod.load_content(config_dir)
+    content["_language"] = "en"
     if language == "fr":
         fr = config_dir / "cv_content_fr.yaml"
         if fr.exists():
             content = _load_yaml(fr)
+            content["_language"] = "fr"
         else:
-            notes.append("Version française du contenu absente (config/cv_content_fr.yaml) : titres en français, "
-                         "texte resté en anglais, jamais traduit automatiquement.")
+            notes.append("CV entièrement en anglais : la version française du contenu (config/cv_content_fr.yaml) "
+                         "n'est pas encore validée, et un CV n'est jamais à moitié traduit.")
     return content, notes
 
 
@@ -167,7 +169,7 @@ def compose(content: dict[str, Any], req: CVRequest, confirmed: list[Any]) -> tu
     _track_projects(cv, content, req)
     _apply_emphasis(cv, content, req, notes)
     _apply_exclude(cv, req, notes)
-    if req.language == "fr":
+    if req.language == "fr" and content.get("_language") == "fr":     # French headings only over French text
         cv["labels"] = {k: LABELS_FR.get(v, v) for k, v in (cv.get("labels") or {}).items()}
         cv["labels"] = {"summary": "PROFIL", "experience": "EXPÉRIENCE PROFESSIONNELLE", "education": "FORMATION",
                         "skills": "COMPÉTENCES & LANGUES"} | cv["labels"]

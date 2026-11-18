@@ -413,10 +413,10 @@ def _header_location(head: str) -> list[str]:
 
 
 def detect_language(text: str, country: str | None, offer: bool) -> tuple[str, str]:
-    if _LANG_FR.search(text):
-        return "fr", "demandé"
-    if _LANG_EN.search(text):
-        return "en", "demandé"
+    fr_ask, en_ask = _LANG_FR.search(text), _LANG_EN.search(text)
+    if fr_ask or en_ask:      # the first explicit request wins ("en anglais ... plus une version française si possible")
+        first = min((m for m in (fr_ask, en_ask) if m), key=lambda m: m.start())
+        return ("fr" if first is fr_ask else "en"), "demandé"
     if offer:
         low = text.lower()
         fr, en, de = len(_FRENCH_WORDS.findall(low)), len(_ENGLISH_WORDS.findall(low)), len(_GERMAN_WORDS.findall(low))
