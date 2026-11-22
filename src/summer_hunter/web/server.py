@@ -26,7 +26,7 @@ from summer_hunter.engine.feedback import DISMISS_REASONS, recompute
 from summer_hunter.engine.geo import country_name
 from summer_hunter.engine.regions import REGIONS, region_of
 from summer_hunter.utils.settings import Settings
-from summer_hunter.web import agent, auth, cv_api, founders_api
+from summer_hunter.web import agent, apply_api, auth, cv_api, founders_api
 from summer_hunter.web.cv import build_cv
 
 log = logging.getLogger(__name__)
@@ -254,6 +254,7 @@ def create_app(settings: Settings, sessions: sessionmaker[Session], telegram=Non
         *agent.routes(settings, sessions, telegram),
         *cv_api.routes(settings, sessions, telegram),
         *founders_api.routes(settings, sessions, telegram),
+        *apply_api.routes(settings, sessions, telegram),
         Mount("/static", StaticFiles(directory=STATIC), name="static"),
     ]
     return Starlette(routes=routes, middleware=[Middleware(TelegramAuth, settings=settings)])

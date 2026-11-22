@@ -486,6 +486,60 @@ def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def _default_password_dialog() -> int:
+    """Hidden-input dialog on the Mac: the password goes straight to the Keychain, never to a terminal or a chat."""
+    import subprocess
+
+    from summer_hunter.apply import workday
+
+    def ask(prompt: str) -> str | None:
+        script = (f'display dialog "{prompt}" default answer "" with hidden answer with title "Summer Hunter" '
+                  'buttons {"Annuler", "Enregistrer"} default button "Enregistrer"')
+        r = subprocess.run(["osascript", "-e", script, "-e", "text returned of result"], capture_output=True, text=True)
+        return r.stdout.rstrip("\n") if r.returncode == 0 else None
+
+    pw = ask("Mot de passe générique des comptes candidat (Workday). Il va dans le trousseau du Mac.")
+    if not pw:
+        print("Annulé.")
+        return 1
+    if problem := workday.password_problem(pw):
+        print(f"Refusé : il faut {problem}.")
+        return 1
+    if ask("Confirme le mot de passe") != pw:
+        print("Les deux saisies diffèrent : rien enregistré.")
+        return 1
+    workday.keychain_set(workday.DEFAULT_ACCOUNT, pw)
+    print("Enregistré dans le trousseau.")
+    return 0
+
+
+def cmd_apply_password(app: App, args) -> int:  # noqa: ANN001
+    """Store (after a reset on the site) the password of a Workday account, typed here, never sent anywhere."""
+    import getpass
+
+    from summer_hunter.apply import workday
+    from summer_hunter.web.cv import load_content
+
+    host = args.host.strip().lower()
+    if host == "default":                      # the generic password, typed in a hidden macOS dialog
+        return _default_password_dialog()
+    if not host.endswith(".myworkdayjobs.com"):
+        print("Hôte attendu du type entreprise.wd3.myworkdayjobs.com")
+        return 2
+    email = str((load_content(app.settings.config_dir).get("header") or {}).get("email") or "")
+    pw = getpass.getpass(f"Mot de passe Workday pour {host} : ")
+    if not pw or pw != getpass.getpass("Encore une fois : "):
+        print("Différents ou vides : rien enregistré.")
+        return 1
+    try:
+        workday.keychain_set(workday.account_name(host, email), pw)
+    except workday.KeychainError as exc:
+        print(f"Trousseau : {exc}")
+        return 1
+    print("Enregistré dans le trousseau. Appuie sur « Réessayer » dans Telegram.")
+    return 0
+
+
 def cmd_founders(app: App, args) -> int:  # noqa: ANN001
     from summer_hunter.crm import founders
 
@@ -815,6 +869,9 @@ def build_parser() -> argparse.ArgumentParser:
     fd.add_argument("--force", action="store_true", help="run again even if today's list was sent")
     fd.add_argument("--dry-run", action="store_true", help="search and verify, store and send nothing")
     fd.set_defaults(fn=cmd_founders)
+    ap = sub.add_parser("apply-password", help="store a Workday account password in the Keychain (after a reset)")
+    ap.add_argument("host", help="e.g. salesforce.wd12.myworkdayjobs.com, or 'default' for the generic password (dialog)")
+    ap.set_defaults(fn=cmd_apply_password)
     sub.add_parser("backup", help="snapshot the SQLite database").set_defaults(fn=cmd_backup)
     sub.add_parser("status", help="runs, counts, spend").set_defaults(fn=cmd_status)
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")

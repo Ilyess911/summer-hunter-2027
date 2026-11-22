@@ -167,8 +167,13 @@ def buttons(opp: Opportunity, contact: Contact | None, webapp_url: str | None = 
     row5 = [{"text": "📄 CV", "callback_data": f"cv:{opp.id}"}, {"text": "✉️ Lettre", "callback_data": f"lm:{opp.id}"},
             {"text": "Explain Score", "callback_data": f"ex:{opp.id}"}, {"text": "⭐ Rate", "callback_data": f"rt:{opp.id}"}]
     row0 = [{"text": "📱 Ouvrir · CV adapté", "web_app": {"url": f"{webapp_url}/#/o/{opp.id}"}}] if safe_url(webapp_url) else []
+    from summer_hunter.apply.ats import detect, gh_jid
+
+    row7 = ([{"text": "🤖 Postuler pour moi (tu valides l'envoi)", "callback_data": f"aa:{opp.id}:prep"}]
+            if detect(opp.apply_url) or detect(opp.official_url) or gh_jid(opp.apply_url) or gh_jid(opp.official_url)
+            else [])
     row6 = [{"text": "📋 Copier les skills", "copy_text": {"text": ", ".join(skills)[:256]}}] if skills else []
-    return [r for r in (row0, row1, row6, row2, row3, row4, row5) if r]
+    return [r for r in (row0, row1, row7, row6, row2, row3, row4, row5) if r]
 
 
 def dismiss_reason_buttons(opp_id: int) -> list[list[dict[str, str]]]:

@@ -1,0 +1,62 @@
+# Auto-apply, phase 1 (22 Nov 2026, the user's request): the bot reads a Greenhouse, Lever or Ashby form, fills
+# every field it can justify, sends a screenshot to Telegram, and submits ONLY when the user taps "Envoyer".
+# Files (CV, letter) are attached only at that moment, so nothing reaches the company before the tap.
+# Workday (account creation + email confirmation) is phase 2.
+
+enabled: true
+auto_after_link: true     # a pasted link: after the CV and the letter, prepare the form automatically
+headless: true
+timeout_s: 45
+
+# Facts used to answer forms. Only what the profile already establishes; anything else is asked to the user.
+applicant:
+  location: "Paris, France"           # city typed in location fields (to confirm by the user, 22 Nov 2026)
+  location_search: "Paris"            # what is typed in location autocompletes
+  country: "France"
+  current_company: "Air France Industries"
+  school: "ESILV"
+  school_fallback: "Other"
+  degree: "Master's Degree"           # the ESILV engineering diploma confers the master's degree (candidate_profile)
+  graduation_month: "August"
+  graduation_year: 2027
+  start_date: "1 April 2027"
+  internship_window: "April to August 2027 (up to 5 months)"
+  days_per_week: "5 (full time)"
+  notice: "Available from April 2027; the internship is part of my engineering degree."
+  # Workday asks a postal address. Unknown on 22 Nov 2026: asked once on Telegram, then remembered
+  # (data/apply/memory.json). Fill these to skip the question.
+  address_line1: null
+  city: "Paris"
+  postal_code: null
+  region: null
+  phone_device: "Mobile"
+  phone_country: "France (+33)"
+
+# Rules on the question label, first match wins. `pick`: option patterns tried in order (selects).
+# `text`: the answer for free text. `ask: true`: never guessed, always asked to the user.
+# `unless`: the rule is skipped when the label matches it.
+rules:
+  - {match: "salary|compensation expect|pay expect|current (ctc|pay)|expected (ctc|pay)|desired pay", ask: true}
+  - {match: "gender|race|ethnic|veteran|disabilit|sexual orientation|pronoun|transgender|hispanic|latino",
+     pick: ["decline", "prefer not", "don.?t wish", "do not wish", "not wish", "rather not", "not to (say|disclose|answer|specify)", "choose not"]}
+  - {match: "how did you (hear|find|learn)|where did you (hear|find)|source of (this|your) application|referred by",
+     pick: ["company website", "career(s)? (site|page|website)", "direct to careers", "external job board", "job board", "online job", "website", "^other"],
+     text: "Company careers page"}
+  - {match: "(consent|agree|acknowledge|accept).*(data|privacy|policy|terms|processing|notice)|(data|privacy).*(consent|agree|policy)",
+     pick: ["^yes", "i agree", "i consent", "^agree", "i confirm", "i acknowledge", "i accept"]}
+  # Past employment, ex-employees, relatives: the CV may not list everything, so always asked.
+  - {match: "ex-?employee|ever (been )?(employed|worked)|previously (employed|worked)|have you (ever )?worked (for|at)|former employee|relative|family member|related to|close personal relationship", ask: true}
+  # Present employment by a NAMED other company or group: the candidate's employers are known (CV). Generic
+  # "are you currently employed?" is asked (he is an apprentice).
+  - {match: "(presently|currently) employed (by|at|with) (any (company|entity|firm|subsidiary)|[^?]{0,80}\\b(group|holdings|subsidiar))",
+     unless: "air france|klm|nexya|esilv|apprentic", pick: ["^no\\b", "^no,", "^none"], text: "No"}
+  - {match: "(which|what) country.*(based|live|reside|located)|country of residence|country/region.*(based|currently)",
+     pick: ["^france$"], text: "France"}
+  - {match: "current location|where are you (currently )?(based|located)|city.*(country|based)", text: "Paris, France"}
+  - {match: "earliest (available )?start|when can you start|start date|available to start", text: "1 April 2027"}
+  - {match: "(how long|duration|how many (months|weeks)).{0,60}(internship|available|placement|commit|stay|program)", text: "April to August 2027 (up to 5 months)"}
+  - {match: "days.{0,15}(per|a) week", unless: "hours", text: "5 (full time)"}
+  - {match: "hours.{0,15}(per|a) week", ask: true}
+  - {match: "notice period", text: "Available from April 2027; the internship is part of my engineering degree."}
+  - {match: "graduat.*(date|year|when)|expected graduation", text: "August 2027"}
+  - {match: "university|school|institution", unless: "high school", text: "ESILV (Graduate School of Engineering, Paris)"}

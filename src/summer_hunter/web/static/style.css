@@ -348,3 +348,23 @@ textarea.cv-input { min-height: 104px; line-height: 1.45; }
   .chips-row button:not(.on):hover, .segmented button:not(.on):hover { color: var(--text); }
   .file:hover, .reasons button:hover { background: var(--glass-strong); }
 }
+
+/* Auto-apply ------------------------------------------------------------- */
+.linkish { display: block; margin: 8px 2px 0; border: 0; background: transparent; color: var(--accent); font: inherit;
+  font-size: 13.5px; font-weight: 600; padding: 6px 0; cursor: pointer; text-align: left; }
+.ap-note { margin-top: 12px; color: var(--muted); font-size: 13.5px; }
+.ap-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center;
+  background: rgb(0 0 0 / 0.45); padding: 16px; }
+.ap-sheet { width: 100%; max-width: 480px; max-height: calc(100vh - 32px); overflow-y: auto; border-radius: var(--r-lg);
+  padding: 18px 16px 16px; background: var(--bg); color: var(--text); border: 1px solid var(--edge);
+  box-shadow: var(--shadow); }
+.ap-sheet h3 { margin: 0 0 6px; font-size: 18px; }
+.ap-sheet .x { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.ap-sheet label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.ap-sheet label em { font-style: normal; font-weight: 500; color: var(--muted); }
+.ap-sheet input { display: block; width: 100%; margin-top: 6px; box-sizing: border-box; font: inherit; font-size: 16px;
+  color: var(--text); background: var(--glass); border: 1px solid var(--edge); border-radius: 12px; padding: 11px 12px; outline: none; }
+.ap-sheet input:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.ap-err { color: #ff6b6b; font-size: 13px; margin: 0 0 10px; }
+.ap-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 560px) { .ap-modal { align-items: center; } }

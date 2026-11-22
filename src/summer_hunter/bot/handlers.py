@@ -127,11 +127,35 @@ class Bot:
                 return
         if reply_to and text and not text.startswith("/"):
             with self.session_factory() as session:
+                link_for = Repository(session).get_kv(f"aa_link:{reply_to}")
+            if link_for:
+                from summer_hunter.apply import service as auto
+
+                auto.start(auto.attach_link, self.settings, self.session_factory, self.telegram, int(link_for), text)
+                return
+        if reply_to and text and not text.startswith("/"):
+            with self.session_factory() as session:
+                auto_for = Repository(session).get_kv(f"aa_msg:{reply_to}")
+            if auto_for:
+                from summer_hunter.apply import service as auto
+
+                oid, _, tag = auto_for.partition(":")
+                auto.start(auto.on_reply, self.settings, self.session_factory, self.telegram, int(oid), text,
+                           int(tag) if tag.isdigit() else None)
+                return
+        if reply_to and text and not text.startswith("/"):
+            with self.session_factory() as session:
                 pasted_for = Repository(session).get_kv(f"paste_msg:{reply_to}")
             if pasted_for is not None:
                 from summer_hunter.bot import links
 
                 self.queue_paste(text, pasted_for or None)
+                return
+        if text and not text.startswith("/") and not reply_to:
+            from summer_hunter.apply import service as auto
+
+            if (oid := auto.take_code(self.settings, self.session_factory, text)) is not None:
+                self.send(f"📧 Code reçu pour #{oid}, je le tape…")
                 return
         if text and not text.startswith("/") and self.cvb.handle_text(text, reply_to):
             return                          # CV builder: awaited request, edit of the last CV, or reply to a CV
@@ -172,8 +196,11 @@ class Bot:
             text, url = "\n".join(self._paste_parts), self._paste_url
             self._paste_parts, self._paste_url, self._paste_timer = [], None, None
         if text:
+            from summer_hunter.apply.ats import best_url, detect, gh_jid
             from summer_hunter.bot import links
 
+            if not (detect(url) or gh_jid(url)):      # a form link inside the pasted text enables auto-apply
+                url = best_url(text) or url
             links.start(self.settings, self.session_factory, self.telegram, url, text)
 
     def poll_forever(self, stop_after_s: float | None = None) -> None:
@@ -303,6 +330,33 @@ class Bot:
             self.telegram.answer_callback(cq["id"], "Unknown action")
             return
         action, opp_id = parts[0], int(parts[1])
+        if action == "aa" and len(parts) in (3, 4):
+            from summer_hunter.apply import service as auto
+
+            step = parts[2]
+            if step == "prep":
+                self.telegram.answer_callback(cq["id"], "Remplissage en cours…")
+                auto.start(auto.prepare, self.settings, self.session_factory, self.telegram, opp_id)
+            elif step == "go":
+                self.telegram.answer_callback(cq["id"], "Envoi en cours…")
+                msg = cq.get("message") or {}
+                if msg.get("message_id"):
+                    try:
+                        self.telegram.edit_buttons(self.chat_id, msg["message_id"], None)
+                    except TelegramError:
+                        pass
+                rev = int(parts[3]) if len(parts) == 4 and parts[3].isdigit() else None
+                auto.start(auto.submit, self.settings, self.session_factory, self.telegram, opp_id, rev)
+            elif step == "no":
+                self.telegram.answer_callback(cq["id"], auto.cancel(self.settings, opp_id))
+            elif step == "cont":
+                self.telegram.answer_callback(cq["id"], "Reprise…")
+                auto.start(auto.resume_workday, self.settings, self.session_factory, self.telegram, opp_id)
+            elif step == "done":
+                self.telegram.answer_callback(cq["id"], auto.confirm_done(self.settings, self.session_factory, opp_id))
+            else:
+                self.telegram.answer_callback(cq["id"], "Unknown action")
+            return
         if action == "fd" and len(parts) == 3:
             from summer_hunter.crm import founders
 

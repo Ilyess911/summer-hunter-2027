@@ -33,6 +33,7 @@ COMMANDS = [
     ("hunter_stats", "Discovery performance metrics"),
     ("mode", "Recruitment mode: /mode exploration | conversion"),
     ("founders", "Today's French founders abroad to contact"),
+    ("comptes", "E-mail and password for job-site accounts (secure window)"),
 ]
 UNKNOWN_PAY = {None, "COMPENSATION_UNKNOWN", "PAID_AMOUNT_UNKNOWN", "MIXED_OR_CONDITIONAL"}
 MAX = 15
@@ -78,6 +79,11 @@ class V3Bot:
             handler(Repository(session), args.strip())
             session.commit()
         return True
+
+    def cmd_comptes(self, repo: Repository, args: str) -> None:
+        from summer_hunter.apply import service as auto
+
+        auto.send_account_window(self.settings, self.bot.session_factory, self.bot.telegram)
 
     def cmd_founders(self, repo: Repository, args: str) -> None:
         import json as _json

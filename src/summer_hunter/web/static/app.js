@@ -172,6 +172,7 @@ async function openDetail(id) {
       <button class="file wide press" id="skillscopy" style="margin-top:10px"><span>📋 Copier les skills</span><small>${o.paste_skills.length} skills, séparés par des virgules</small></button></div>` : ""}
     <div id="cvbox"></div>
     <button class="file wide press" id="letterbtn"><span>✉️ Générer ma lettre de motivation</span><small>2-3 min, reçue dans le chat</small></button>
+    <div id="applybox"></div>
     <div class="fallback" id="fallback" ${tg && tg.MainButton ? "hidden" : ""}>
       <button class="primary press" data-act="cv">Générer mon CV adapté</button>
       <button class="primary ghost press" data-act="apply">Postuler sur le site</button>
@@ -211,9 +212,72 @@ async function openDetail(id) {
   const skBtn = box.querySelector("#skillscopy");
   if (skBtn) skBtn.onclick = async () => { const done = await copyText(Promise.resolve(o.paste_skills.join(", "))); haptic();
     toast(done ? "Skills copiés" : "Copie impossible : sélectionne le texte"); };
+  loadApply(o.id);
   const cvBtn = box.querySelector('#fallback [data-act="cv"]'); if (cvBtn) cvBtn.onclick = () => makeCV(o.id);
   const apBtn = box.querySelector('#fallback [data-act="apply"]'); if (apBtn) apBtn.onclick = () => openLink(o.apply_url);
   showNativeButtons(o);
+}
+
+// Auto-apply: the bot fills the company form; nothing is sent before the ✅ in the chat.
+async function loadApply(id) {
+  const box = $("#applybox"); if (!box) return;
+  let a;
+  try { a = await api(`/api/apply/${id}`); } catch (_) { return; }
+  if (!state.current || state.current.id !== id) return;
+  const keyBtn = `<button class="linkish press" id="acctbtn">🔑 E-mail et mot de passe des comptes</button>`;
+  if (!a.supported) {
+    box.innerHTML = `<div class="ap-note">🤖 Candidature auto indisponible ici (plateforme non gérée). ${keyBtn}</div>`;
+  } else {
+    const sub = a.account
+      ? `${esc(a.platform)} : crée ton compte et prépare un brouillon chez l'entreprise. Tu valides l'envoi dans le chat.`
+      : `${esc(a.platform)} : aperçu dans le chat, rien n'est envoyé avant ton ✅.`;
+    box.innerHTML = `<button class="file wide press" id="autoapply" ${a.can_start ? "" : "disabled"}>
+        <span>🤖 Postuler pour moi</span><small>${a.status_label ? esc(a.status_label) : sub}</small></button>${keyBtn}`;
+    const b = $("#autoapply");
+    b.onclick = async () => {
+      if (a.account && !(await confirmAsk(`Créer ton compte ${a.platform} chez cette entreprise et y préparer un brouillon ? Rien n'est envoyé avant ton ✅ dans le chat.`))) return;
+      b.disabled = true;
+      try { await api(`/api/apply/${id}`, { method: "POST", body: "{}" }); haptic("medium");
+        toast("C'est parti : suis le chat (1 à 4 min)"); b.querySelector("small").textContent = "En cours : suis le chat"; }
+      catch (e) { toast(`Erreur : ${e.message}`); b.disabled = false; }
+    };
+  }
+  $("#acctbtn").onclick = openAccount;
+}
+
+async function openAccount() {
+  let cur = { email: "", password_set: false };
+  try { cur = await api("/api/apply/account"); } catch (e) { return toast(`Erreur : ${e.message}`); }
+  const dlg = document.createElement("div");
+  dlg.className = "ap-modal"; dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true");
+  dlg.innerHTML = `<form class="ap-sheet" autocomplete="off">
+      <h3>Comptes créés pour toi</h3>
+      <p class="x">Utilisés quand un site demande un compte (Workday). Le mot de passe reste dans le trousseau du Mac : il n'est jamais réaffiché ni envoyé dans le chat.</p>
+      <label>E-mail<input type="email" name="email" autocomplete="email" required value="${esc(cur.email || "")}"></label>
+      <label>Mot de passe ${cur.password_set ? "<em>(déjà enregistré ✓, laisse vide pour le garder)</em>" : "<em>(sinon, un mot de passe différent est généré par site)</em>"}
+        <input type="password" name="pw" autocomplete="off" minlength="8"></label>
+      <label>Confirmer<input type="password" name="pw2" autocomplete="off"></label>
+      <p class="x">8 caractères minimum, avec majuscule, minuscule, chiffre et caractère spécial.</p>
+      <p class="ap-err" hidden></p>
+      <div class="ap-acts"><button type="button" class="primary ghost press" data-x>Annuler</button>
+        <button type="submit" class="primary press">Enregistrer</button></div>
+    </form>`;
+  document.body.appendChild(dlg);
+  const form = dlg.querySelector("form"), err = dlg.querySelector(".ap-err");
+  const close = () => { form.pw.value = form.pw2.value = ""; dlg.remove(); };   // nothing lingers in the page
+  dlg.querySelector("[data-x]").onclick = close;
+  dlg.onclick = (ev) => { if (ev.target === dlg) close(); };
+  form.email.focus();
+  form.onsubmit = async (ev) => {
+    ev.preventDefault(); err.hidden = true;
+    const pw = form.pw.value;
+    if (pw && pw !== form.pw2.value) { err.textContent = "Les deux mots de passe diffèrent."; err.hidden = false; return; }
+    try {
+      const r = await api("/api/apply/account", { method: "POST", body: JSON.stringify({ email: form.email.value.trim(), password: pw }) });
+      form.pw.value = form.pw2.value = ""; haptic("medium");
+      toast(r.password_set ? "Enregistré : e-mail et mot de passe" : "E-mail enregistré"); close();
+    } catch (e) { err.textContent = e.message; err.hidden = false; }
+  };
 }
 
 function showNativeButtons(o) {
@@ -650,3 +714,4 @@ if (tg) tg.BackButton.onClick(closeDetail);
 const start = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || "";
 const m = location.hash.match(/#\/o\/(\d+)/) || start.match(/^o(\d+)$/);
 if (m) openDetail(m[1]); else loadList();
+if (location.hash === "#/account" || start === "account") openAccount();   // the bot's "🔑" button opens it directly

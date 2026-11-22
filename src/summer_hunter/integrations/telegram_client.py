@@ -80,6 +80,22 @@ class TelegramClient:
             raise TelegramError(f"sendDocument: {data.get('error_code')} {data.get('description', '')[:200]}")
         return int(data["result"]["message_id"])
 
+    def send_photo(self, chat_id: str | int, path, caption: str = "") -> int:  # noqa: ANN001
+        """A screenshot; Telegram refuses very tall photos, so those go as a file instead."""
+        from pathlib import Path
+
+        path = Path(path)
+        try:
+            with path.open("rb") as handle:
+                resp = self._client.post(f"{self._base}/sendPhoto", data={"chat_id": str(chat_id), "caption": caption[:1000]},
+                                         files={"photo": (path.name, handle, "image/png")}, timeout=60)
+            data = resp.json()
+        except (httpx.HTTPError, ValueError):
+            data = {"ok": False}
+        if data.get("ok"):
+            return int(data["result"]["message_id"])
+        return self.send_document(chat_id, path, caption)
+
     def download_file(self, file_id: str, dest, max_bytes: int = 10_000_000):  # noqa: ANN001, ANN201
         """Download a file the user sent to the bot (getFile, then the file endpoint)."""
         from pathlib import Path

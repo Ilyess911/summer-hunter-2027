@@ -78,7 +78,8 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
         telegram.send_message(chat, "⛔ Rejetée par tes critères : " + escape("; ".join(fails[:2])) +
                               "\nTu peux quand même générer les documents :",
                               [[{"text": "📄 CV quand même", "callback_data": f"cv:{opp_id}"},
-                                {"text": "✉️ Lettre quand même", "callback_data": f"lm:{opp_id}"}]])
+                                {"text": "✉️ Lettre quand même", "callback_data": f"lm:{opp_id}"}],
+                               [{"text": "🤖 Postuler quand même", "callback_data": f"aa:{opp_id}:prep"}]])
         return
     if not auto_documents:
         return
@@ -108,6 +109,15 @@ def process(settings, sessions, telegram, url: str | None, text: str | None = No
         telegram.send_message(chat, escape(note))
     telegram.send_message(chat, "✉️ Lettre de motivation en cours (modèle local, 2 à 3 min)…")
     run_letter_job(settings, sessions, telegram, opp_id)
+    from summer_hunter.apply import service as auto
+
+    if auto.config(settings.config_dir).get("auto_after_link"):
+        with sessions() as session:
+            ok = auto.supported(Repository(session).opportunity(opp_id), settings.config_dir)
+        if ok:
+            auto.prepare(settings, sessions, telegram, opp_id, explicit=False)
+        else:
+            auto.ask_for_link(settings, sessions, telegram, opp_id)
 
 
 def start(settings, sessions, telegram, url: str | None, text: str | None = None) -> None:  # noqa: ANN001
