@@ -233,3 +233,15 @@ companies:
   - {name: Safran Morocco, sector: aerospace_mro, priority: 1, ats: none, note: "Safran sites in Casablanca"}
   - {name: Airbus Atlantic Maroc, sector: aerospace_mro, priority: 1, ats: none, note: "Airbus industrial operations, Casablanca"}
   - {name: Renault Group Maroc, sector: industrial_tech, priority: 2, ats: none, note: "Tangier plant"}
+
+  # South-East Asia & Greater China (added 22 Nov 2026, the user's first region). Live probe of ~200 boards:
+  # kept only boards that answered HTTP 200 with listings located in SE Asia / Greater China.
+  - {name: Agoda, sector: enterprise_tech, priority: 1, ats: greenhouse, token: agoda, verified: 2026-11-22, note: "2027 internships in Bangkok (cooperative, summer, MBA)"}
+  - {name: Lalamove, sector: logistics, priority: 2, ats: lever, token: lalamove, verified: 2026-11-22, note: "Global Trainee Program 2027: Bangkok, Jakarta, Kuala Lumpur, Singapore"}
+  - {name: Thunes, sector: fintech, priority: 2, ats: greenhouse, token: thunes, verified: 2026-11-22, note: "Singapore HQ, French founders"}
+  - {name: Nium, sector: fintech, priority: 3, ats: lever, token: nium, verified: 2026-11-22}
+  - {name: Thoughtworks, sector: enterprise_tech, priority: 3, ats: greenhouse, token: thoughtworks, verified: 2026-11-22, note: "most listings in SE Asia"}
+  - {name: Bybit, sector: fintech, priority: 3, ats: greenhouse, token: bybit, verified: 2026-11-22, note: "interns in Hong Kong and Kuala Lumpur"}
+  - {name: Binance, sector: fintech, priority: 3, ats: greenhouse, token: binance, verified: 2026-11-22}
+  - {name: OKX, sector: fintech, priority: 3, ats: greenhouse, token: okx, verified: 2026-11-22, note: "274 listings in SE Asia / Greater China"}
+  - {name: Crypto.com, sector: fintech, priority: 3, ats: lever, token: crypto, verified: 2026-11-22}
