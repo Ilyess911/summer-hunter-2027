@@ -17,13 +17,23 @@ geography:
   # Hard personal exclusions (FR, IL) are only removed by editing excluded_countries.
   country_overrides_allow: []
   priority_countries:
-    asia_pacific: [SG, HK, TW, JP, KR, AU, CN, VN, ID, TH]
+    asia_pacific: [SG, HK, TW, JP, KR, AU, CN, VN, ID, TH, MY, PH, KH]
     middle_east: [AE, QA]
     europe: [IE, GB, CH, DE, NL, SE, DK, 'NO', FI, BE, LU, ES, IT]
     north_america: [US, CA]
     # 23 Oct 2026: Africa is a full search region (discovery priorities, not an exhaustive list).
     africa: [MA, TN, EG, SN, CI, GH, NG, KE, RW, TZ, UG, ZA, BW, NA]
   priority_country_bonus: 2
+  # 22 Nov 2026, the user's order: Asia (South-East Asia and Greater China first) > Middle East > Europe > Africa.
+  # Bonus added to the career-fit score of an offer in that region (replaces priority_country_bonus there, never both).
+  # The first tier that lists the country wins. Americas are outside the user's four regions: -10 (US also keeps -12 on fit).
+  region_priority:
+    - {name: South-East Asia & Greater China, bonus: 20, countries: [SG, ID, TH, VN, MY, PH, KH, LA, MM, BN, CN, HK, TW, MO]}
+    - {name: Asia-Pacific, bonus: 15, countries: [JP, KR, AU, NZ]}
+    - {name: Middle East, bonus: 10, countries: [AE, QA, SA, KW, BH, OM, JO, LB]}
+    - {name: Europe, bonus: 5, countries: [GB, IE, CH, DE, NL, SE, DK, 'NO', FI, BE, LU, ES, IT, PT, AT, PL, CZ, HU, RO, GR, EE, LT, LV, BG, HR, SK, SI, MT, CY, IS, MC]}
+    - {name: Americas, bonus: -10, countries: [US, CA, MX, BR, AR, CL, CO, PE, CR, PA]}
+    - {name: Africa, bonus: 0, countries: [MA, TN, DZ, EG, LY, SN, CI, GH, NG, BJ, TG, BF, ML, CM, GA, CD, KE, RW, TZ, UG, ET, ZA, BW, NA, ZM, ZW, MZ, AO, MU, MG]}
   # Personal preference penalties on the career-fit score (not exclusions).
   # US: J-1 internship visa through a sponsor organisation is slow and costly (decided 21 Oct 2026).
   country_penalties: {US: -12}

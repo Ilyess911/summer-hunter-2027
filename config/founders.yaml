@@ -1,0 +1,40 @@
+# Daily founders to contact (22 Nov 2026, the user's request): French people who started a SMALL company abroad,
+# where the candidate could intern and also live well (gym in the morning, digital-nomad life).
+# Found by Claude with web search (paid, opt-in: go given on 22 Nov 2026 with a 0.30 USD/day cap, separate from
+# the email budget). Every person is kept only if WE fetch the source page and find both the name and the company
+# in it; otherwise the person is dropped. Nothing is ever sent to them: the bot only drafts a message.
+
+enabled: true
+per_day: 6                 # sent each morning after the digest (5-6 asked)
+send_minimum: 1            # fewer verified than per_day: still send what was verified, and say so
+model: claude-opus-5-5
+effort: low
+max_searches: 6            # web_search max_uses per run (each search is billed 0.01 USD)
+max_fetches: 3             # web_fetch max_uses per run (tokens only)
+max_continuations: 1       # pause_turn resumes, only while the cap leaves room for one more request
+daily_budget_usd: 0.30     # cap on purpose founder_scout only; the email/analysis cap ignores this spend
+web_search_usd: 0.01
+max_tokens: 6000           # bounds the output part of one request (6000 x 20 USD/M = 0.12 USD)
+
+# Areas in the user's order (Bali, rest of South-East Asia, Middle East). Each day uses two areas, rotating;
+# an area listed twice comes up twice as often.
+areas:
+  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu, Denpasar]}
+  - {name: Thailand, country: TH, cities: [Bangkok, Phuket, Chiang Mai, Koh Samui]}
+  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu, Denpasar]}
+  - {name: Vietnam, country: VN, cities: [Ho Chi Minh City, Da Nang, Hanoi, Hoi An]}
+  - {name: Dubai, country: AE, cities: [Dubai, Abu Dhabi]}
+  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu]}
+  - {name: Malaysia & Singapore, country: MY, cities: [Kuala Lumpur, Penang, Singapore]}
+  - {name: Philippines & Cambodia, country: PH, cities: [Siargao, Cebu, Manila, Phnom Penh, Siem Reap]}
+  - {name: Doha & Gulf, country: QA, cities: [Doha, Muscat, Bahrain]}
+
+# What a good fit looks like (shown to the model as guidance, never as facts about a person).
+company_size: 1-50 people
+sectors: [digital or marketing agency, e-commerce brand, hospitality or boutique hotel, coworking or coliving,
+          fitness or wellness studio, surf or sport business, SaaS or tech startup, sourcing or import-export,
+          food and beverage, real estate or property management, events]
+roles_for_candidate: [business development, operations, partnerships, sales, automation and data, project management]
+
+# Pages we cannot fetch to verify a person (login walls): never accepted as the source.
+blocked_source_domains: [linkedin.com, instagram.com, facebook.com, tiktok.com, x.com, twitter.com, threads.net]

@@ -34,16 +34,18 @@ from summer_hunter.database.models import (
 from summer_hunter.database.repository import as_utc
 
 CATEGORIES = ["hiring_manager", "team_manager", "talent_acquisition", "university_recruiter", "referral", "alumni_esilv",
-              "alumni_af_airbus", "team_member", "program_coordinator", "other"]
+              "alumni_af_airbus", "team_member", "program_coordinator", "founder_abroad", "other"]
 CATEGORY_LABEL = {"hiring_manager": "Manager qui recrute", "team_manager": "Manager de l’équipe", "talent_acquisition": "Recrutement",
                   "university_recruiter": "Recruteur campus", "referral": "Contact pour recommandation", "alumni_esilv": "Ancien de l’ESILV",
                   "alumni_af_airbus": "Ancien d’Air France / Airbus", "team_member": "Membre de l’équipe",
-                  "program_coordinator": "Coordinateur du programme de stages", "other": "Autre"}
+                  "program_coordinator": "Coordinateur du programme de stages",
+                  "founder_abroad": "Fondateur français à l’étranger", "other": "Autre"}
 _STATUS_FR = {"REJECTED": "refusée", "WITHDRAWN": "retirée", "CLOSED": "clôturée"}
 EVIDENCE_LABEL = {"public_post": "post public", "vacancy": "cité dans l’offre", "user": "ajouté par toi"}
 CRM_TYPE = {"hiring_manager": "Hiring Manager", "team_manager": "Hiring Manager", "talent_acquisition": "Recruiter",
             "university_recruiter": "Recruiter", "referral": "Referral Contact", "alumni_esilv": "Alumni",
-            "alumni_af_airbus": "Alumni", "team_member": "Employee", "program_coordinator": "Recruiter", "other": "Other"}
+            "alumni_af_airbus": "Alumni", "team_member": "Employee", "program_coordinator": "Recruiter",
+            "founder_abroad": "Other", "other": "Other"}
 SENIOR = re.compile(r"\b(vp|vice president|chief|cxo|ceo|cto|coo|cfo|president|head of|director|svp|evp)\b", re.I)
 UNIVERSITY = re.compile(r"\b(university|campus|early careers?|graduate|student|intern(ship)? program)\b", re.I)
 RECRUITING = re.compile(r"\b(recruit\w*|talent|sourcer|hr business partner|people partner)\b", re.I)

@@ -75,7 +75,7 @@ def ease(description: str, missing_mandatory: int, language_unknown: bool, docum
 
 def compute(fit: int, recruit: int, networking: int, comp: CompensationReport, rejected: bool, quality_score: float,
             urgency_score: float, ease_score: float, effort_minutes: int, mode: str, rules: dict[str, Any],
-            comp_cfg: dict[str, Any]) -> GlobalPriority:
+            comp_cfg: dict[str, Any], region: tuple[str, float] | None = None) -> GlobalPriority:
     gp_cfg = rules.get("global_priority") or {}
     prefs = comp_cfg.get("preferences") or {}
     gp = GlobalPriority(score=None, effort_minutes=effort_minutes)
@@ -113,6 +113,10 @@ def compute(fit: int, recruit: int, networking: int, comp: CompensationReport, r
         gp.notes.append("Stage payé confirmé.")
     total_w = sum(weights.values()) or 1.0
     value = sum(comps[k] * w for k, w in weights.items() if k in comps) / total_w - penalty
+    if region and region[1]:
+        # The user's region order (search_preferences.yaml region_priority), added after weighting so it truly ranks.
+        value += region[1]
+        gp.notes.append(f"Région prioritaire : {region[0]} (+{region[1]:g}).")
     gp.score = round(max(0.0, min(100.0, value)), 1)
     gp.components = {k: round(v, 1) for k, v in comps.items()}
     gp.weights = {k: round(w / total_w, 3) for k, w in weights.items()}

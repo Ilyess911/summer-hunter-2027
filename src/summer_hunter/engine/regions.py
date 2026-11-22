@@ -15,3 +15,20 @@ REGIONS = {
 
 def region_of(code: str | None) -> str:
     return next((r for r, codes in REGIONS.items() if code in codes), "other")
+
+
+def region_bonus_map(geography: dict) -> dict[str, tuple[str, float]]:
+    """search_preferences.yaml `region_priority` as country -> (tier name, bonus). The first tier listing a country wins."""
+    out: dict[str, tuple[str, float]] = {}
+    for tier in geography.get("region_priority") or []:
+        for code in tier.get("countries") or []:
+            out.setdefault(str(code).upper(), (str(tier.get("name", "region")), float(tier.get("bonus", 0))))
+    return out
+
+
+def region_rank(code: str | None, geography: dict) -> int:
+    """Position of the country's tier in the user's order (0 = first); unlisted countries come last."""
+    for i, tier in enumerate(geography.get("region_priority") or []):
+        if code and code.upper() in {str(c).upper() for c in tier.get("countries") or []}:
+            return i
+    return len(geography.get("region_priority") or [])

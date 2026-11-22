@@ -35,6 +35,7 @@ from summer_hunter.crm.deadlines import explicit_deadline
 from summer_hunter.engine import compensation, modes, networking_reco, recruitability, semantic, signals, strategist
 from summer_hunter.engine import priority as gpriority
 from summer_hunter.engine.fx import FxTable
+from summer_hunter.engine.regions import region_bonus_map
 from summer_hunter.engine.fx import load as fx_load
 from summer_hunter.engine.fx import refresh as fx_refresh
 from summer_hunter.engine.fx import stale as fx_stale
@@ -106,6 +107,7 @@ class Hunter:
         self.priority_countries = {c for group in (geo.get("priority_countries") or {}).values() for c in group}
         self.priority_bonus = float(geo.get("priority_country_bonus", 0))
         self.country_penalties = {str(k).upper(): float(v) for k, v in (geo.get("country_penalties") or {}).items()}
+        self.region_bonus = region_bonus_map(geo)
         self.exclude_whole_country = bool(geo.get("exclude_whole_country_advised_against", True))
         self.watchlist = {normalize_company(c["name"]): c for c in settings.companies}
 
@@ -378,6 +380,7 @@ class Hunter:
         sctx = ScoringContext(profile=self.profile, rules=rules, company_priority=watch.get("priority"),
                               company_sector=watch.get("sector"), priority_countries=self.priority_countries,
                               priority_country_bonus=self.priority_bonus, country_penalties=self.country_penalties,
+                              region_bonus=self.region_bonus,
                               learned=learned)
         fit = score_fit(opp.title, opp.description_text or "", facts, family, sctx, report, primary)
 
@@ -476,7 +479,7 @@ class Hunter:
         gp = gpriority.compute(fit.score, recruit.score, networking.score, comp, report.decision == Decision.REJECTED,
                                gpriority.quality(names, desc, watch.get("priority"), dates_pass, comp.status == "PAID_CONFIRMED"),
                                gpriority.urgency(deadline, rolling, as_utc(opp.source_published_at), today),
-                               ease_score, minutes, mode, rules, comp_cfg)
+                               ease_score, minutes, mode, rules, comp_cfg, self.region_bonus.get(primary or ""))
         best = min((c for c in contacts if float(c.get("confidence", 0)) >= 0.6),
                    key=lambda c: networking_reco.RANK.get(c["relationship"], 9), default=None)
         strat = strategist.decide(gp, report.decision.value, crit, comp, fit.score, recruit.score, networking.score,

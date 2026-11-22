@@ -75,8 +75,9 @@ function card(o, i) {
 }
 
 async function loadList() {
-  document.body.classList.toggle("cvmode", state.view === "cv");
+  document.body.classList.toggle("cvmode", state.view === "cv" || state.view === "founders");
   if (state.view === "cv") return renderCV();
+  if (state.view === "founders") return renderFounders();
   const list = $("#list");
   list.classList.remove("stagger");
   list.innerHTML = Array.from({ length: 5 }, () => `<div class="skeleton"></div>`).join("");
@@ -536,6 +537,88 @@ async function loadCVHistory() {
       catch (e) { toast(`Erreur : ${e.message}`); }
     });
   } catch (e) { box.innerHTML = `<div class="x">Historique indisponible : ${esc(e.message)}</div>`; }
+}
+
+/* Réseau tab: French founders abroad, verified on their source page, never contacted automatically ---- */
+
+const fdState = { filter: "todo", poll: null };
+const money = (v) => `${Number(v || 0).toFixed(2).replace(".", ",")} $`;
+
+function fdCard(f, i) {
+  const place = [f.city, f.country].filter(Boolean).join(", ");
+  const links = [f.source && ["source", "Page source"], f.website && ["website", "Site"], f.linkedin && ["linkedin", "LinkedIn"]]
+    .filter(Boolean).map(([k, label]) => `<button class="press" data-link="${k}">${label}</button>`).join("");
+  const state = f.dismissed ? "Retiré de ta liste" : f.contacted ? "Contacté" : "";
+  return `<article class="fd" data-id="${f.id}" style="--i:${i}">
+    <div class="who"><span class="name">${esc(f.name)}</span>${f.today ? `<span class="new">Aujourd'hui</span>` : ""}</div>
+    <div class="co">${esc(f.company)}</div>
+    <div class="meta">${flag(f.country_code)} ${esc(place || "Lieu inconnu")}${f.city && !f.city_verified ? " · lieu à confirmer" : ""}${f.sector ? ` · ${esc(f.sector)}` : ""}${f.team_size ? ` · ${esc(f.team_size)}` : ""}</div>
+    ${f.what ? `<p class="what">${esc(f.what)}</p>` : ""}
+    ${f.why ? `<p class="why">${esc(f.why)}</p>` : ""}
+    <div class="links">${links}</div>
+    <div class="msg">${esc(f.message)}</div>
+    <div class="msg-n">${f.message.length} / 300</div>
+    ${state ? `<div class="done"><span>${state}</span><button data-fd="undo">Annuler</button></div>` : `
+    <div class="fd-acts">
+      <button class="primary press" data-fd="copy">Copier</button>
+      <button class="primary ghost press" data-fd="sent">Contacté</button>
+      <button class="primary ghost press" data-fd="no">Pas pour moi</button>
+    </div>`}
+  </article>`;
+}
+
+async function renderFounders() {
+  const list = $("#list");
+  list.classList.remove("stagger");
+  if (!$("#fdbox")) {
+    list.innerHTML = `<section class="block fd-head" id="fdhead"><div class="x">Chargement…</div></section>
+      <div id="fdfilter"></div><div id="fdbox"></div>`;
+  }
+  let data;
+  try { data = await api(`/api/founders?filter=${fdState.filter}`); }
+  catch (e) { $("#fdbox").innerHTML = `<div class="empty">Chargement impossible : ${esc(e.message)}</div>`; return; }
+  if (state.view !== "founders") return;
+  const t = data.today, c = data.counts;
+  const date = day(t.date);
+  const status = t.running ? `<div class="cv-wait" style="margin-top:12px"><span class="spin"></span>Recherche en cours (1 à 3 min)…</div>`
+    : t.can_run ? `<button class="primary press" id="fdrun">Lancer la recherche du jour</button>`
+    : `<div class="x">${t.done ? `Liste du ${esc(date)} faite (${t.ids.length} vérifiés). Prochaine demain matin.` : !t.enabled ? "Désactivé." : "Plafond du jour atteint. Prochaine liste demain matin."}</div>`;
+  $("#fdhead").innerHTML = `<div class="fd-row"><span class="fd-title">Fondateurs à contacter</span>
+      <span class="fd-budget">${money(t.spent)} / ${money(t.cap)}</span></div>
+    <div class="x">Zones du jour : ${esc(t.areas.join(", "))}</div>${status}`;
+  $("#fdfilter").innerHTML = chipRow("fdchips", [["todo", `À contacter · ${c.todo}`], ["sent", `Contactés · ${c.sent}`], ["all", `Tous · ${c.all}`]], fdState.filter);
+  $("#fdchips").onclick = (ev) => { const b = ev.target.closest("button"); if (!b) return; fdState.filter = b.dataset.v; haptic(); renderFounders(); };
+  const box = $("#fdbox");
+  box.innerHTML = data.items.length ? data.items.map(fdCard).join("") + `<p class="fd-note">Vérifié sur la page source : nom, entreprise et rôle de fondateur ou dirigeant. Le reste est un résumé IA à confirmer. Rien n'est envoyé à personne.</p>`
+    : `<div class="empty"><b>${fdState.filter === "todo" ? "Personne à contacter" : "Rien ici"}</b>${fdState.filter === "todo" ? "La liste arrive chaque matin après le résumé." : ""}</div>`;
+  const items = Object.fromEntries(data.items.map((f) => [String(f.id), f]));
+  box.onclick = (ev) => {
+    const el = ev.target.closest("[data-fd],[data-link]"); const card = ev.target.closest(".fd"); if (!el || !card) return;
+    const f = items[card.dataset.id]; if (!f) return;
+    if (el.dataset.link) { haptic(); openLink({ source: f.source, website: f.website, linkedin: f.linkedin }[el.dataset.link]); return; }
+    fdAct(f, el.dataset.fd);
+  };
+  const run = $("#fdrun");
+  if (run) run.onclick = async () => {
+    run.disabled = true;
+    try { await api("/api/founders/run", { method: "POST", body: "{}" }); haptic("medium"); toast("Recherche lancée"); }
+    catch (e) { toast(e.message); }
+    renderFounders();
+  };
+  clearTimeout(fdState.poll);
+  if (t.running) fdState.poll = setTimeout(() => { if (state.view === "founders") renderFounders(); }, 8000);
+}
+
+async function fdAct(f, action) {
+  if (action === "copy") {
+    const ok = await copyText(Promise.resolve(f.message));
+    haptic(); toast(ok ? "Message copié. Colle-le sur LinkedIn." : "Copie impossible, sélectionne le texte");
+    return;
+  }
+  try {
+    const r = await api(`/api/founders/${f.id}`, { method: "POST", body: JSON.stringify({ action }) });
+    haptic(action === "sent" ? "medium" : "light"); toast(r.note); renderFounders();
+  } catch (e) { toast(e.message); }
 }
 
 /* Wiring ------------------------------------------------------------------ */

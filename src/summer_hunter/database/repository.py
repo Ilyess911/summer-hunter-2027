@@ -226,7 +226,9 @@ class Repository:
                                                        AIAnalysis.purpose == purpose)).scalar_one_or_none()
 
     def spend_on(self, local_date: str) -> float:
-        return float(self.s.scalar(select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0)).where(LLMUsage.local_date == local_date)) or 0.0)
+        # founder_scout has its own cap (config/founders.yaml) and never eats the analysis/email budget
+        return float(self.s.scalar(select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0))
+                                   .where(LLMUsage.local_date == local_date, LLMUsage.purpose != "founder_scout")) or 0.0)
 
     def usage_summary(self, days: int = 7) -> list[tuple[str, int, float]]:
         rows = self.s.execute(select(LLMUsage.local_date, func.count(), func.sum(LLMUsage.cost_usd))

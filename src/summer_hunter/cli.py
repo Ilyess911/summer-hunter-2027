@@ -112,6 +112,7 @@ def cmd_night(app: App, args) -> int:  # noqa: ANN001
             summary = run_night(app.hunter, app.notifier(), app.settings, stop)
             backup_sqlite(app.db_path, app.settings.data_dir / "backups")
             summary["os"] = _os_after_night(app)
+            summary["founders"] = _founders_after_night(app)
     except AlreadyRunning:
         log.info("another night run holds the lock; exiting")
         print("Another run is in progress; nothing to do.")
@@ -485,6 +486,30 @@ def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
+def cmd_founders(app: App, args) -> int:  # noqa: ANN001
+    from summer_hunter.crm import founders
+
+    res = founders.run(app.settings, app.sessions, None if args.dry_run else app.telegram(), force=args.force,
+                       dry_run=args.dry_run)
+    print(f"{res.status}: {len(res.kept)} kept, {len(res.rejected)} rejected, {res.searches} searches, "
+          f"{res.cost_usd:.3f} USD {res.note}")
+    for name, why in res.rejected:
+        print(f"  rejected {name}: {why}")
+    return 0
+
+
+def _founders_after_night(app: App) -> dict:
+    """The day's founders list, after the digest. Never fails the night."""
+    from summer_hunter.crm import founders
+
+    try:
+        res = founders.run(app.settings, app.sessions, app.telegram())
+        return {"status": res.status, "kept": len(res.kept), "rejected": len(res.rejected), "cost_usd": res.cost_usd}
+    except Exception as exc:  # noqa: BLE001
+        log.warning("founders failed: %s", type(exc).__name__)
+        return {"error": type(exc).__name__}
+
+
 def _os_after_night(app: App) -> dict:
     """Refresh networking priorities, then push to the hosted copy when one is configured. Never fails the night."""
     import os
@@ -786,6 +811,10 @@ def build_parser() -> argparse.ArgumentParser:
     fxp = sub.add_parser("fx", help="exchange rates used by the compensation engine (ECB, then fallback)")
     fxp.add_argument("action", choices=["show", "refresh"])
     fxp.set_defaults(fn=cmd_fx)
+    fd = sub.add_parser("founders", help="today's French founders abroad to contact (paid web search, own cap)")
+    fd.add_argument("--force", action="store_true", help="run again even if today's list was sent")
+    fd.add_argument("--dry-run", action="store_true", help="search and verify, store and send nothing")
+    fd.set_defaults(fn=cmd_founders)
     sub.add_parser("backup", help="snapshot the SQLite database").set_defaults(fn=cmd_backup)
     sub.add_parser("status", help="runs, counts, spend").set_defaults(fn=cmd_status)
     ld = sub.add_parser("launchd", help="install/uninstall/status of the macOS LaunchAgents")

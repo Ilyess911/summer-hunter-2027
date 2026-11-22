@@ -444,7 +444,8 @@ class BudgetedProvider(LLMProvider):
 
         with self.sessions() as s:
             return float(s.execute(select(func.coalesce(func.sum(LLMUsage.cost_usd), 0.0))
-                                   .where(LLMUsage.local_date == self._today())).scalar() or 0.0)
+                                   .where(LLMUsage.local_date == self._today(), LLMUsage.purpose != "founder_scout"))
+                         .scalar() or 0.0)
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any], max_tokens: int):  # noqa: ANN201
         from summer_hunter.database.models import LLMUsage

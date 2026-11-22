@@ -32,6 +32,7 @@ COMMANDS = [
     ("early_signals", "Early recruitment signals (not vacancies)"),
     ("hunter_stats", "Discovery performance metrics"),
     ("mode", "Recruitment mode: /mode exploration | conversion"),
+    ("founders", "Today's French founders abroad to contact"),
 ]
 UNKNOWN_PAY = {None, "COMPENSATION_UNKNOWN", "PAID_AMOUNT_UNKNOWN", "MIXED_OR_CONDITIONAL"}
 MAX = 15
@@ -77,6 +78,37 @@ class V3Bot:
             handler(Repository(session), args.strip())
             session.commit()
         return True
+
+    def cmd_founders(self, repo: Repository, args: str) -> None:
+        import json as _json
+
+        from summer_hunter.crm import founders
+
+        raw = repo.get_kv(founders.KV_DAY + founders.today().isoformat())
+        ids = [i for i in _json.loads(raw or "[]")
+               if (r := repo.s.get(founders.CRMContact, i)) is not None and not r.dismissed]
+        if ids:
+            founders.send_day(self.bot.telegram, self.bot.chat_id, repo.s, ids, "<b>🌴 Fondateurs du jour</b>")
+            return
+        if raw is not None:
+            self.bot.send("Aucun fondateur vérifié aujourd'hui (ou tous retirés). Prochaine liste demain matin.")
+            return
+        import threading
+
+        self.bot.send("Recherche des fondateurs du jour en cours (1 à 3 min)…")
+
+        def work() -> None:
+            try:
+                res = founders.run(self.settings, self.bot.session_factory, self.bot.telegram)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("founders failed: %s", type(exc).__name__)
+                self.bot.send("Recherche des fondateurs échouée, réessaie plus tard.")
+                return
+            if res.status != "sent":
+                self.bot.send(f"Pas de liste : {escape(res.status)} {escape(res.note)}"
+                              + (f" · {len(res.rejected)} candidats rejetés à la vérification" if res.rejected else ""))
+
+        threading.Thread(target=work, name="founders", daemon=True).start()
 
     def cmd_priority(self, repo: Repository, args: str) -> None:
         alloc = (self.settings.scoring.get("strategist") or {}).get("allocation", {"AMBITIOUS": .25, "TARGETED": .5, "SAFETY": .25})

@@ -110,6 +110,7 @@ class Settings:
         geo = prefs.get("geography", {}) or {}
         lists = [geo.get(k) or [] for k in ("excluded_countries", "safety_excluded_countries", "country_overrides_allow")]
         lists += list((geo.get("priority_countries") or {}).values())
+        lists += [t.get("countries") or [] for t in (geo.get("region_priority") or [])]
         for codes in lists:
             for code in codes:
                 if not isinstance(code, str) or len(code) != 2:

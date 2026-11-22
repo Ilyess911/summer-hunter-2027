@@ -303,6 +303,14 @@ class Bot:
             self.telegram.answer_callback(cq["id"], "Unknown action")
             return
         action, opp_id = parts[0], int(parts[1])
+        if action == "fd" and len(parts) == 3:
+            from summer_hunter.crm import founders
+
+            with self.session_factory() as session:
+                note = founders.mark(session, opp_id, parts[2])
+                session.commit()
+            self.telegram.answer_callback(cq["id"], note or "Contact introuvable")
+            return
         if self.crm.handle_callback(cq, action, parts) or self.cvb.handle_callback(cq, action, parts):
             return
         message = cq.get("message") or {}
