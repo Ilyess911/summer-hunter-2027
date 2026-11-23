@@ -680,6 +680,22 @@ def set_account_email(data_dir: Path, email: str) -> None:
     tmp.replace(p)
 
 
+def _tenant_flag(data_dir: Path, host: str, flag: str | None = None) -> bool:
+    """Per-company facts learnt from its pages (data/apply/tenants.json); with `flag`, record it."""
+    p = data_dir / "apply" / "tenants.json"
+    try:
+        known = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        known = {}
+    if flag:
+        known.setdefault(host, {})[flag] = True
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.with_suffix(".tmp").write_text(json.dumps(known, indent=1), encoding="utf-8")
+        p.with_suffix(".tmp").replace(p)
+        return True
+    return bool((known.get(host) or {}).get("single_profile"))
+
+
 def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict[str, Any],  # noqa: ANN001
                   submit: bool = False) -> None:
     """One browser run through the Workday wizard; caller holds _LOCK and saved the state."""
@@ -711,7 +727,7 @@ def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict
         state["status"] = "submitting"
         save_state(settings.data_dir, opp_id, state)
     try:
-        email = account_email(settings.data_dir, who.email)
+        email = state.get("email") or account_email(settings.data_dir, who.email)
         res = workday.run(target.form_url, email, workday.account_name(target.board, email), known, who, cfg,
                           citizenship, state["company"], state.get("resume"), shot, submit=submit,
                           headless=bool(cfg.get("headless", True)), timeout_s=int(cfg.get("timeout_s", 45)),
@@ -721,6 +737,21 @@ def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict
             state["status"] = "unconfirmed"
             save_state(settings.data_dir, opp_id, state)
         raise
+    if res.detail == "single_profile":
+        _tenant_flag(settings.data_dir, target.board, "single_profile")
+    strict = _tenant_flag(settings.data_dir, target.board)
+    if res.status in ("account_exists", "auth_failed") and strict:
+        res.detail = "single_profile"
+    if res.status in ("account_exists", "auth_failed") and not submit and not state.get("alias_tried") \
+            and res.detail != "single_profile":
+        alias = workday.plus_alias(email, target.board)
+        if alias and alias.lower() != email.lower():  # a fresh account with name+company@gmail.com (same inbox)
+            state["email"], state["alias_tried"] = alias, True
+            save_state(settings.data_dir, opp_id, state)
+            telegram.send_message(chat, f"🤖 Compte existant ou mot de passe refusé : je crée un compte neuf avec "
+                                        f"<code>{escape(alias)}</code> (les mails arrivent dans ta boîte habituelle).")
+            _workday_pass(settings, sessions, telegram, state, cfg, submit=False)
+            return
     status = {"review": "ready"}.get(res.status, res.status)
     if submit and res.clicked and status != "submitted":
         status = "unconfirmed"                  # the final click happened: only the user can tell what followed
@@ -783,6 +814,11 @@ def render_workday(state: dict[str, Any]) -> tuple[str, list[list[dict[str, str]
         return (head + "\n\n📧 Compte créé. Workday t'a envoyé un mail de confirmation : ouvre-le et clique le lien "
                 "(depuis ton téléphone, ça marche), puis appuie sur le bouton.",
                 [[{"text": "✅ C'est confirmé, continuer", "callback_data": f"aa:{opp_id}:cont"}], cancel])
+    if status in ("account_exists", "auth_failed") and state.get("detail") == "single_profile":
+        return (head + "\n\n🔑 Ce site interdit d'avoir plusieurs comptes (risque d'élimination), donc je ne crée pas "
+                "de compte en double. Clique « Forgot your password? » sur le site, choisis TON mot de passe générique, "
+                "puis appuie sur Réessayer.",
+                [[{"text": "Ouvrir", "url": url}, {"text": "🔁 Réessayer", "callback_data": f"aa:{opp_id}:cont"}], cancel])
     if status in ("account_exists", "auth_failed"):
         why = ("Un compte existe déjà chez cette entreprise avec ton e-mail, et je n'ai pas son mot de passe."
                if status == "account_exists" else "Le mot de passe enregistré est refusé : je n'insiste pas.")

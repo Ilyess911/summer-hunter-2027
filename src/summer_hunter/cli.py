@@ -486,7 +486,7 @@ def cmd_fx(app: App, args) -> int:  # noqa: ANN001
     return 0
 
 
-def _default_password_dialog() -> int:
+def _default_password_dialog(account: str | None = None, what: str = "Mot de passe générique des comptes candidat (Workday)") -> int:
     """Hidden-input dialog on the Mac: the password goes straight to the Keychain, never to a terminal or a chat."""
     import subprocess
 
@@ -498,7 +498,7 @@ def _default_password_dialog() -> int:
         r = subprocess.run(["osascript", "-e", script, "-e", "text returned of result"], capture_output=True, text=True)
         return r.stdout.rstrip("\n") if r.returncode == 0 else None
 
-    pw = ask("Mot de passe générique des comptes candidat (Workday). Il va dans le trousseau du Mac.")
+    pw = ask(f"{what}. Il va dans le trousseau du Mac.")
     if not pw:
         print("Annulé.")
         return 1
@@ -508,15 +508,13 @@ def _default_password_dialog() -> int:
     if ask("Confirme le mot de passe") != pw:
         print("Les deux saisies diffèrent : rien enregistré.")
         return 1
-    workday.keychain_set(workday.DEFAULT_ACCOUNT, pw)
+    workday.keychain_set(account or workday.DEFAULT_ACCOUNT, pw)
     print("Enregistré dans le trousseau.")
     return 0
 
 
 def cmd_apply_password(app: App, args) -> int:  # noqa: ANN001
     """Store (after a reset on the site) the password of a Workday account, typed here, never sent anywhere."""
-    import getpass
-
     from summer_hunter.apply import workday
     from summer_hunter.web.cv import load_content
 
@@ -526,18 +524,11 @@ def cmd_apply_password(app: App, args) -> int:  # noqa: ANN001
     if not host.endswith(".myworkdayjobs.com"):
         print("Hôte attendu du type entreprise.wd3.myworkdayjobs.com")
         return 2
-    email = str((load_content(app.settings.config_dir).get("header") or {}).get("email") or "")
-    pw = getpass.getpass(f"Mot de passe Workday pour {host} : ")
-    if not pw or pw != getpass.getpass("Encore une fois : "):
-        print("Différents ou vides : rien enregistré.")
-        return 1
-    try:
-        workday.keychain_set(workday.account_name(host, email), pw)
-    except workday.KeychainError as exc:
-        print(f"Trousseau : {exc}")
-        return 1
-    print("Enregistré dans le trousseau. Appuie sur « Réessayer » dans Telegram.")
-    return 0
+    from summer_hunter.apply import service as auto
+
+    email = auto.account_email(app.settings.data_dir,
+                               str((load_content(app.settings.config_dir).get("header") or {}).get("email") or ""))
+    return _default_password_dialog(workday.account_name(host, email), f"Mot de passe de ton compte {host}")
 
 
 def cmd_founders(app: App, args) -> int:  # noqa: ANN001

@@ -126,7 +126,7 @@ def detect(url: str | None, gh_board: str | None = None) -> Target | None:
     if m := _WORKDAY.match(u):
         host = f"{m.group(1)}.{m.group(2)}.myworkdayjobs.com"
         return Target("workday", host, m.group(4),
-                      f"https://{host}/en-US/{m.group(3)}/job/{m.group(4)}/apply/applyManually")
+                      f"https://{host}/en-US/{m.group(3)}/job/{m.group(4)}/apply/autofillWithResume")
     return None
 
 

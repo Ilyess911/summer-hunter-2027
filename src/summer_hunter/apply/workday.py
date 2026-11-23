@@ -57,8 +57,8 @@ ROLE_BY_ID = [("legalNameSection_firstName", "first_name"), ("legalNameSection_l
               ("countryDropdown", "country"), ("country", "country"), ("phone-device-type", "phone_device"),
               ("countryPhoneCode", "phone_country"), ("phone-number", "phone_national"),
               ("phone-extension", "skip"), ("email", "email")]
-ROLE_BY_LABEL = [(r"^(legal )?first name$|^given name$", "first_name"), (r"^(legal )?(last name|family name|surname)$",
-                                                                            "last_name"),
+ROLE_BY_LABEL = [(r"^(legal )?(first|given) name(\(s\)|s)?$", "first_name"),
+                 (r"^(legal )?((last|family) name(\(s\)|s)?|surname)$", "last_name"),
                  (r"^(full |legal )?name$", "full_name"), (r"^e-?mail( address)?$", "email"),
                  (r"^address line 1$", "address_line1"), (r"^city$", "city"),
                  (r"^(postal|zip)( code)?$", "postal_code"), (r"^country( ?/ ?(territory|region))?$", "country"),
@@ -225,7 +225,18 @@ def resolve(f: WDField, known: dict[str, Any], who: ans.Applicant, cfg: dict[str
         a.source, a.note = ans.PROFILE, "laissé vide"
         return a
     if role and (v := profile_value(role, who, cfg)):
+        if f.options:                                    # dropdowns: the site's own wording of the same thing
+            pats = {"phone_device": [r"^mobile", r"mobile", r"cell"], "country": [rf"^{re.escape(v)}$"],
+                    "phone_country": [rf"^{re.escape(v.split(' (')[0])}\b"]}.get(role, [])
+            v = ans.match_option(f.options, v) or ans._pick(f.options, pats)
+            if v is None:
+                return a                                 # not in the list: asked rather than forced
         a.value, a.source = v, ans.PROFILE
+        return a
+    if f.kind == "multiselect" and re.search(r"how did you (hear|find|learn)|source", f.label, re.I):
+        alts = (cfg.get("applicant") or {}).get("heard_from") or ["Company Website", "Career Site", "Careers",
+                                                                   "Website", "LinkedIn", "Job Board", "Other"]
+        a.value, a.source, a.extra["alts"] = alts[0], ans.RULE, list(alts)
         return a
     fld = Field(a.key, f.label, kind if kind != "checkbox" else "checkbox", f.required, list(f.options))
     for fn in (lambda: ans._availability(f.label, f.options, kind),
@@ -243,9 +254,23 @@ def resolve(f: WDField, known: dict[str, Any], who: ans.Applicant, cfg: dict[str
 
 # Browser ------------------------------------------------------------------------------------------
 
+SINGLE_PROFILE = re.compile(r"only one (authentic )?(candidate )?(profile|account)|duplicate (candidate )?(accounts?|profiles?)",
+                            re.I)
+
+
+def plus_alias(email: str, tenant_host: str) -> str | None:
+    """A fresh address for a new account that still lands in the same Gmail inbox (name+tenant@gmail.com)."""
+    local, _, domain = email.partition("@")
+    if domain.lower() not in ("gmail.com", "googlemail.com") or not local:
+        return None
+    tag = re.sub(r"[^a-z0-9]", "", tenant_host.split(".")[0].lower())[:20] or "wd"
+    return f"{local.split('+')[0]}+{tag}@{domain}"
+
+
 class Driver:
     def __init__(self, page, timeout_s: int) -> None:  # noqa: ANN001
         self.p, self.t = page, timeout_s
+        self.single_profile = False          # the site forbids several accounts per person
 
     def aid(self, name: str):  # noqa: ANN201
         return self.p.locator(f'[data-automation-id="{name}"]')
@@ -259,6 +284,20 @@ class Driver:
         except Exception:  # noqa: BLE001 - Workday lays a click_filter div over its buttons
             loc.first.click(force=True)
         return True
+
+    def wait_any(self, names: list[str], timeout_s: float = 15) -> str | None:
+        """Wait until one of these automation ids is visible (Workday renders its pages late)."""
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            for n in names:
+                loc = self.aid(n)
+                try:
+                    if loc.count() and loc.first.is_visible():
+                        return n
+                except Exception:  # noqa: BLE001
+                    pass
+            self.p.wait_for_timeout(500)
+        return None
 
     def accept_cookies(self) -> None:
         self.click("legalNoticeAcceptButton")
@@ -287,19 +326,30 @@ class Driver:
     def box(self, f: WDField):  # noqa: ANN201
         return self.p.locator(f'[data-sh-idx="{f.idx}"]')
 
+    def listbox(self, btn):  # noqa: ANN001, ANN201
+        """The option list this dropdown button opened (not another one still on screen)."""
+        ctrl = btn.get_attribute("aria-controls") or ""
+        if ctrl:
+            return self.p.locator(f'[id="{ctrl}"]')
+        return self.p.locator('[role="listbox"]:visible').last
+
     def options_of(self, f: WDField) -> list[str]:
         if f.kind != "select" or f.options:
             return f.options
+        self.p.keyboard.press("Escape")
+        self.wait(300)
         btn = self.box(f).locator('button[aria-haspopup="listbox"]').first
         try:
             btn.click()
-            opts = self.p.locator('[role="option"]:visible')
+            self.wait(600)
+            opts = self.listbox(btn).locator('[role="option"]')
             opts.first.wait_for(state="visible", timeout=5000)
             texts = [t.strip() for t in opts.all_inner_texts() if t.strip()]
         except Exception:  # noqa: BLE001
             texts = []
         self.p.keyboard.press("Escape")
-        return texts
+        self.wait(300)
+        return [t for t in texts if not re.fullmatch(r"select one", t, re.I)]
 
     def put(self, f: WDField, a: ans.Answer) -> bool:
         v = a.value
@@ -311,11 +361,22 @@ class Driver:
             elif f.kind == "select" and c.locator('input[type="radio"]').count():
                 c.get_by_label(str(v), exact=True).check()
             elif f.kind == "select":
-                c.locator('button[aria-haspopup="listbox"]').first.click()
-                opt = self.p.locator('[role="option"]:visible').filter(has_text=re.compile(rf"^\s*{re.escape(str(v))}\s*$", re.I))
+                self.p.keyboard.press("Escape")
+                btn = c.locator('button[aria-haspopup="listbox"]').first
+                btn.click()
+                self.wait(600)
+                opt = self.listbox(btn).locator('[role="option"]').filter(
+                    has_text=re.compile(rf"^\s*{re.escape(str(v))}\s*$", re.I))
                 opt.first.click(timeout=6000)
             elif f.kind == "multiselect":
-                for item in v if isinstance(v, list) else [v]:
+                items = v if isinstance(v, list) else [v]
+                alts = list(a.extra.get("alts") or [])
+                if alts and not isinstance(v, list):     # several ways to say it: the first the site offers wins
+                    for alt in alts:
+                        if self._prompt_pick(c, alt):
+                            return True
+                    return False
+                for item in items:
                     box = c.locator("input").first
                     box.click()
                     box.fill(str(item))
@@ -363,6 +424,25 @@ class Driver:
             self.p.keyboard.press("Escape")
             return False
 
+    def _prompt_pick(self, c, item: str) -> bool:  # noqa: ANN001
+        box = c.locator("input").first
+        box.click()
+        box.fill(item)
+        box.press("Enter")
+        self.wait(1500)
+        opts = self.p.locator('[data-automation-id="promptOption"]:visible, [role="option"]:visible')
+        texts = [t.strip().lower() for t in opts.all_inner_texts()]
+        want = item.lower()
+        i = next((k for k, t in enumerate(texts) if want in t), None)
+        if i is None:
+            box.fill("")
+            self.p.keyboard.press("Escape")
+            return False
+        opts.nth(i).click()
+        self.wait(800)
+        self.p.keyboard.press("Escape")
+        return bool(c.locator('[data-automation-id="selectedItem"]').count())
+
     def next_button(self):  # noqa: ANN201
         return self.p.locator('[data-automation-id="pageFooterNextButton"], [data-automation-id="bottom-navigation-next-button"]').first
 
@@ -408,7 +488,12 @@ def run(form_url: str, email: str, account: str, known: dict[str, Any], who: ans
                 d.accept_cookies()
                 auth = _authenticate(d, email, account)
                 if auth != "ok":
-                    return WDResult(auth, _shot(page, shot), d.step())
+                    if not d.single_profile:
+                        try:
+                            d.single_profile = bool(SINGLE_PROFILE.search(page.inner_text("body")))
+                        except Exception:  # noqa: BLE001
+                            pass
+                    return WDResult(auth, _shot(page, shot), d.step(), detail="single_profile" if d.single_profile else "")
                 filled: list[ans.Answer] = []
                 seen_steps: list[str] = []
                 for _ in range(10):
@@ -477,13 +562,17 @@ def _on_auth_page(d: Driver) -> bool:
     return any(d.aid(n).count() for n in ("signInSubmitButton", "createAccountSubmitButton", "SignInWithEmailButton"))
 
 
+AUTH_IDS = ["SignInWithEmailButton", "signInSubmitButton", "createAccountSubmitButton", "createAccountLink",
+            "signInLink", "pageFooterNextButton", "bottom-navigation-next-button"]
+
+
 def _sign_in(d: Driver, email: str, password: str) -> str:
-    if d.aid("SignInWithEmailButton").count():          # some tenants first offer Google / LinkedIn / e-mail
-        d.click("SignInWithEmailButton")
-        d.wait()
+    if d.wait_any(["SignInWithEmailButton", "signInSubmitButton", "signInLink"]) == "SignInWithEmailButton":
+        d.click("SignInWithEmailButton")             # some tenants first offer Google / LinkedIn / e-mail
+        d.wait_any(["signInSubmitButton"])
     if not d.aid("signInSubmitButton").count():
         d.click("signInLink")
-        d.wait()
+        d.wait_any(["signInSubmitButton"])
     if not d.aid("signInSubmitButton").count():
         return "error"
     d.aid("email").first.fill(email)
@@ -500,9 +589,10 @@ def _sign_in(d: Driver, email: str, password: str) -> str:
 
 def _authenticate(d: Driver, email: str, account: str) -> str:
     """Sign in with the stored password, or create the account (password stored BEFORE the click)."""
-    if d.aid("SignInWithEmailButton").count():
+    first = d.wait_any(AUTH_IDS)
+    if first == "SignInWithEmailButton":
         d.click("SignInWithEmailButton")
-        d.wait()
+        d.wait_any(["signInSubmitButton", "createAccountLink", "createAccountSubmitButton"])
     if not _on_auth_page(d):
         return "ok"
     password = keychain_get(account)
@@ -511,7 +601,7 @@ def _authenticate(d: Driver, email: str, account: str) -> str:
     default = keychain_get(DEFAULT_ACCOUNT)              # the user's chosen password, if set
     if not d.aid("verifyPassword").count():
         d.click("createAccountLink")
-        d.wait()
+        d.wait_any(["verifyPassword"])
     if not d.aid("verifyPassword").count():
         return "error"
     password = default or new_password()
@@ -532,6 +622,10 @@ def _authenticate(d: Driver, email: str, account: str) -> str:
             keychain_delete(account)
             return "error"
         box.first.check()
+    try:
+        d.single_profile = bool(SINGLE_PROFILE.search(d.aid("signInContent").first.inner_text(timeout=3000)))
+    except Exception:  # noqa: BLE001
+        pass
     d.click("createAccountSubmitButton")
     d.wait(5000)
     body = d.p.inner_text("body")
@@ -549,7 +643,10 @@ def _authenticate(d: Driver, email: str, account: str) -> str:
         keychain_delete(account)
         return "error"
     if _on_auth_page(d):                             # Workday sends some tenants back to Sign In after creation
-        return _sign_in(d, email, password)
+        res = _sign_in(d, email, password)
+        # A refusal right after creating the account means it still needs its e-mail confirmed (NVIDIA, 22 Nov
+        # 2026): ask for the confirmation instead of reporting a wrong password.
+        return "verify_email" if res == "auth_failed" else res
     return "ok"
 
 

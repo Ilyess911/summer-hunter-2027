@@ -17,7 +17,7 @@ HEADER = {"name": "Ilyess Assadi", "email": "me@example.com", "phone": "+33 6 12
 def test_detect_workday() -> None:
     t = ats.detect("https://salesforce.wd12.myworkdayjobs.com/Futureforce_Internships/job/France---Paris/Intern_JR1-2")
     assert t.kind == "workday" and t.board == "salesforce.wd12.myworkdayjobs.com"
-    assert t.form_url.endswith("/en-US/Futureforce_Internships/job/France---Paris/Intern_JR1-2/apply/applyManually")
+    assert t.form_url.endswith("/en-US/Futureforce_Internships/job/France---Paris/Intern_JR1-2/apply/autofillWithResume")
     t2 = ats.detect("https://airbus.wd3.myworkdayjobs.com/fr-FR/Airbus/job/Toulouse/Stage_JR9/apply?source=li")
     assert t2.job_id == "Toulouse/Stage_JR9"
 
@@ -187,3 +187,28 @@ def test_pasted_offers_find_and_take_the_form_link(settings, tmp_path, monkeypat
     assert called == [(oid, False)]                       # Workday still asks before creating the account
     with sessions() as s:
         assert s.get(Opportunity, oid).apply_url.endswith("Intern_JR1")
+
+
+def test_plus_alias_and_single_profile_tenants(tmp_path) -> None:  # noqa: ANN001
+    assert workday.plus_alias("me.pro@gmail.com", "nvidia.wd5.myworkdayjobs.com") == "me.pro+nvidia@gmail.com"
+    assert workday.plus_alias("me+x@gmail.com", "acme.wd1.myworkdayjobs.com") == "me+acme@gmail.com"
+    assert workday.plus_alias("me@outlook.com", "acme.wd1.myworkdayjobs.com") is None
+    assert not service._tenant_flag(tmp_path, "nvidia.wd5.myworkdayjobs.com")
+    service._tenant_flag(tmp_path, "nvidia.wd5.myworkdayjobs.com", "single_profile")
+    assert service._tenant_flag(tmp_path, "nvidia.wd5.myworkdayjobs.com")
+    st = _wd_state("auth_failed")
+    st["detail"] = "single_profile"
+    text, _ = service.render_workday(st)
+    assert "plusieurs comptes" in text
+
+
+def test_given_names_and_device_type_from_profile() -> None:
+    who = A.Applicant(HEADER, CFG)
+    r = lambda f: workday.resolve(f, {}, who, CFG, ["FR"], "Acme")  # noqa: E731
+    assert r(_f("Given Name(s)")).value == "Ilyess" and r(_f("Family Name(s)")).value == "Assadi"
+    dev = r(_f("Phone Device Type", "select", ["Home", "Home Cellular", "Mobile", "Work"], fid="phone-device-type"))
+    assert dev.value == "Mobile" and dev.source == A.PROFILE
+    cell = r(_f("Phone Device Type", "select", ["Home", "Home Cellular"], fid="phone-device-type"))
+    assert cell.value == "Home Cellular"
+    src = r(_f("How Did You Hear About Us?", "multiselect"))
+    assert src.extra["alts"][0] == "Company Website" and not src.missing
