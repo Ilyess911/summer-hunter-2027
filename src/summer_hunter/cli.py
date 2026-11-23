@@ -41,7 +41,7 @@ class App:
             return None
         from summer_hunter.integrations.telegram_client import TelegramClient
 
-        return TelegramClient(self.settings.telegram_bot_token)
+        return TelegramClient(self.settings.telegram_bot_token, outbox=self.settings.data_dir / "telegram_outbox")
 
     def notifier(self):  # noqa: ANN201
         from summer_hunter.notifications.notifier import Notifier

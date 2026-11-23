@@ -62,7 +62,7 @@ def serve(app_factory, settings, sessions, port: int = 8787) -> None:  # noqa: A
     from summer_hunter.database.repository import Repository
     from summer_hunter.integrations.telegram_client import TelegramClient
 
-    telegram = TelegramClient(settings.telegram_bot_token) if settings.telegram_configured else None
+    telegram = TelegramClient(settings.telegram_bot_token, outbox=settings.data_dir / "telegram_outbox") if settings.telegram_configured else None
 
     def publish(url: str) -> None:
         with sessions() as session:

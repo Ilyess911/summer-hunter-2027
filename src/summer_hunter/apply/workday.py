@@ -233,6 +233,24 @@ def resolve(f: WDField, known: dict[str, Any], who: ans.Applicant, cfg: dict[str
                 return a                                 # not in the list: asked rather than forced
         a.value, a.source = v, ans.PROFILE
         return a
+    ap = cfg.get("applicant") or {}
+    if f.id == "degree" or re.fullmatch(r"\s*degree\s*", f.label, re.I):
+        if f.options and ap.get("degree"):              # the applicant's own diploma, never a model guess
+            v = ans.match_option(f.options, str(ap["degree"])) or ans._pick(f.options, [r"^master", r"master"])
+            if v:
+                a.value, a.source = v, ans.PROFILE
+        return a
+    years = {"firstYearAttended": ap.get("school_start_year"), "lastYearAttended": ap.get("graduation_year")}
+    if f.id in years:
+        if years[f.id]:
+            a.value, a.source = str(years[f.id]), ans.PROFILE
+        return a
+    if f.kind == "multiselect" and (f.id == "fieldOfStudy" or re.fullmatch(r"\s*field of study\s*", f.label, re.I)):
+        alts = (cfg.get("applicant") or {}).get("field_of_study") or []
+        if alts:
+            alts = [alts] if isinstance(alts, str) else list(alts)
+            a.value, a.source, a.extra["alts"] = alts[0], ans.PROFILE, alts
+        return a
     if f.kind == "multiselect" and re.search(r"how did you (hear|find|learn)|source", f.label, re.I):
         alts = (cfg.get("applicant") or {}).get("heard_from") or ["Company Website", "Career Site", "Careers",
                                                                    "Website", "LinkedIn", "Job Board", "Other"]
@@ -298,6 +316,22 @@ class Driver:
                     pass
             self.p.wait_for_timeout(500)
         return None
+
+    def settle(self, timeout_s: float = 25) -> None:
+        """Workday paints grey placeholders first: wait for an enabled Next button and a stable field list."""
+        deadline = time.monotonic() + timeout_s
+        last = -1
+        while time.monotonic() < deadline:
+            self.wait(1200)
+            try:
+                btn = self.next_button()
+                ready = btn.count() and btn.is_enabled() and btn.get_attribute("aria-disabled") != "true"
+                n = self.p.locator('[data-automation-id^="formField-"]').count()
+            except Exception:  # noqa: BLE001
+                continue
+            if ready and n == last:
+                return
+            last = n
 
     def accept_cookies(self) -> None:
         self.click("legalNoticeAcceptButton")
@@ -402,6 +436,10 @@ class Driver:
                     self.p.keyboard.press("Escape")
             elif f.kind == "date":
                 m = re.search(r"(\d{1,2})[/ -](\d{4})", str(v)) or re.search(r"([A-Za-z]+) (\d{4})", str(v))
+                if not m and re.fullmatch(r"\s*\d{4}\s*", str(v)):         # year-only fields (education)
+                    c.locator('[data-automation-id="dateSectionYear-input"]').first.type(str(v).strip())
+                    self.wait(400)
+                    return True
                 if not m:
                     return False
                 month = m.group(1)
@@ -519,7 +557,8 @@ def review_fingerprint(page) -> str:  # noqa: ANN001
 
 def run(form_url: str, email: str, account: str, known: dict[str, Any], who: ans.Applicant, cfg: dict[str, Any],
         citizenship: list[str], company: str, resume: str | None, shot: Path, submit: bool = False,
-        headless: bool = True, timeout_s: int = 45, model=None, approved_fp: str | None = None) -> WDResult:  # noqa: ANN001
+        headless: bool = True, timeout_s: int = 45, model=None, approved_fp: str | None = None,
+        job_title: str = "") -> WDResult:  # noqa: ANN001
     """One pass through the wizard. `model(answers)` may answer custom questions (it fills Answer values)."""
     from playwright.sync_api import Error as PWError
     from playwright.sync_api import sync_playwright
@@ -547,7 +586,7 @@ def run(form_url: str, email: str, account: str, known: dict[str, Any], who: ans
                 filled: list[ans.Answer] = []
                 seen_steps: list[str] = []
                 for _ in range(10):
-                    d.wait(2500)
+                    d.settle()
                     step = d.step()
                     btn = d.next_button()
                     try:
@@ -587,6 +626,8 @@ def run(form_url: str, email: str, account: str, known: dict[str, Any], who: ans
                             return WDResult("needs", _shot(page, shot), step, filled=filled,
                                             detail="le brouillon a changé depuis l'aperçu")
                     else:
+                        if re.search(r"experience", step, re.I):
+                            _tidy_experience(d, job_title, cfg, filled)
                         pending = _fill_step(d, known, who, cfg, citizenship, company, resume, filled, model)
                         if pending:
                             return WDResult("needs", _shot(page, shot), step, pending, filled)
@@ -628,7 +669,11 @@ def _sign_in(d: Driver, email: str, password: str) -> str:
     d.aid("email").first.fill(email)
     d.aid("password").first.fill(password)
     d.click("signInSubmitButton")
-    d.wait(5000)
+    d.wait(3000)
+    for _ in range(20):                              # the next page renders late; judge only once it is there
+        if not _on_auth_page(d) or d.errors():
+            break
+        d.wait(1000)
     body = d.p.inner_text("body")
     if re.search(r"verif(y|ication)|not (yet )?verified|activate your account", body, re.I) and d.aid("email").count():
         return "verify_email"
@@ -698,6 +743,135 @@ def _authenticate(d: Driver, email: str, account: str) -> str:
         # 2026): ask for the confirmation instead of reporting a wrong password.
         return "verify_email" if res == "auth_failed" else res
     return "ok"
+
+
+PANEL_FIELDS_JS = """(g) => {
+  const out = {};
+  g.querySelectorAll('[data-automation-id^="formField-"]').forEach(f => {
+    const k = f.getAttribute('data-automation-id').replace('formField-', '');
+    const inp = f.querySelector('input:not([type=radio]):not([type=checkbox]), textarea');
+    const btn = f.querySelector('button[aria-haspopup="listbox"]');
+    const sel = Array.from(f.querySelectorAll('[data-automation-id="selectedItem"]')).map(x => x.innerText.trim());
+    out[k] = sel.length ? sel.join(' | ') : (btn ? btn.innerText.trim() : (inp ? inp.value : ''));
+  });
+  return out;
+}"""
+
+
+def _norm_title(t: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (t or "").lower()).strip()
+
+
+def _tidy_experience(d: Driver, job_title: str, cfg: dict[str, Any], filled: list[ans.Answer]) -> None:
+    """Fix what the resume parser gets wrong on 'My Experience'.
+
+    1. A work entry titled like the job applied for is the CV's own headline read as a job: deleted.
+    2. The applicant's school entry gets the configured degree (the parser reads 'Bachelors' for an
+       engineering master)."""
+    want = _norm_title(job_title)
+    if want:
+        for _ in range(5):
+            panels = d.p.locator('[role="group"][aria-labelledby^="Work-Experience-"][aria-labelledby$="-panel"]')
+            hit = None
+            for i in range(panels.count()):
+                vals = panels.nth(i).evaluate(PANEL_FIELDS_JS)
+                if _norm_title(vals.get("jobTitle", "")) == want:
+                    hit = panels.nth(i)
+                    break
+            if hit is None:
+                break
+            hit.locator("button").filter(has_text=re.compile(r"^\s*delete\s*$", re.I)).first.click()
+            d.wait(1500)
+            filled.append(ans.Answer("wd_drop_exp", "Expérience lue à tort dans le CV", "text", False, [], "",
+                                     f"supprimée ({job_title[:50]})", ans.RULE))
+    _add_work_history(d, cfg.get("work_history") or [], filled)
+    a = cfg.get("applicant") or {}
+    school, degree = str(a.get("school") or ""), str(a.get("degree") or "")
+    if not school or not degree:
+        return
+    pats = [rf"^{re.escape(degree)}", r"^master", r"master", r"msc|m\.sc"]
+    panels = d.p.locator('[role="group"][aria-labelledby^="Education-"][aria-labelledby$="-panel"]')
+    for i in range(panels.count()):
+        g = panels.nth(i)
+        vals = g.evaluate(PANEL_FIELDS_JS)
+        if school.lower() not in vals.get("schoolName", "").lower():
+            continue
+        if re.search(r"master", vals.get("degree", ""), re.I):
+            continue
+        btn = g.locator('[data-automation-id="formField-degree"] button[aria-haspopup="listbox"]').first
+        try:
+            d.p.keyboard.press("Escape")
+            btn.click()
+            d.wait(800)
+            opts = d.listbox(btn).locator('[role="option"]')
+            texts = [t.strip() for t in opts.all_inner_texts()]
+            pick = ans._pick(texts, pats)
+            if pick is None:
+                d.p.keyboard.press("Escape")
+                continue
+            opts.nth(texts.index(pick)).click()
+            d.wait(500)
+            filled.append(ans.Answer("wd_degree", f"Degree ({school})", "select", True, texts, "", pick, ans.PROFILE))
+        except Exception:  # noqa: BLE001 - left as the parser set it; the review screenshot shows it
+            d.p.keyboard.press("Escape")
+
+
+WORK_PANELS = '[role="group"][aria-labelledby^="Work-Experience-"][aria-labelledby$="-panel"]'
+
+
+def _type_date(box, mm_yyyy: str) -> None:  # noqa: ANN001
+    """MM/YYYY spin fields: the inputs sit under their 'MM'/'YYYY' display, so click that and type through."""
+    month, _, year = mm_yyyy.partition("/")
+    page = box.page
+    box.locator('[data-automation-id="dateSectionMonth-display"]').first.click(force=True)
+    page.keyboard.type(month)
+    page.wait_for_timeout(200)
+    yi = box.locator('[data-automation-id="dateSectionYear-input"]').first
+    if (yi.input_value() or "") != year:
+        box.locator('[data-automation-id="dateSectionYear-display"]').first.click(force=True)
+        page.keyboard.type(year)
+    page.wait_for_timeout(200)
+
+
+def _add_work_history(d: Driver, jobs: list[dict[str, Any]], filled: list[ans.Answer]) -> None:
+    """Workday lost (or never read) the CV's jobs: add them from the CV content, only when the section is empty."""
+    if not jobs or d.p.locator(WORK_PANELS).count():
+        return
+    section = d.p.locator('[role="group"][aria-labelledby="Work-Experience-section"]')
+    if not section.count():
+        return
+    for job in jobs:
+        before = d.p.locator(WORK_PANELS).count()
+        try:
+            section.locator("button").filter(has_text=re.compile(r"^\s*add( another)?\s*$", re.I)).first.click()
+            d.wait(1500)
+            panels = d.p.locator(WORK_PANELS)
+            if panels.count() <= before:
+                return
+            g = panels.nth(panels.count() - 1)
+            g.locator('[data-automation-id="formField-jobTitle"] input').first.fill(job["title"])
+            g.locator('[data-automation-id="formField-companyName"] input').first.fill(job["company"])
+            loc = g.locator('[data-automation-id="formField-location"] input')
+            if loc.count() and job.get("location"):
+                loc.first.fill(job["location"])
+            if job.get("current"):
+                cb = g.locator('[data-automation-id="formField-currentlyWorkHere"] input[type="checkbox"]')
+                if cb.count():
+                    cb.first.check(force=True)
+                    d.wait(500)
+            _type_date(g.locator('[data-automation-id="formField-startDate"]'), job["start"])
+            if job.get("end"):
+                _type_date(g.locator('[data-automation-id="formField-endDate"]'), job["end"])
+            desc = g.locator('[data-automation-id="formField-roleDescription"] textarea')
+            if desc.count() and job.get("description"):
+                desc.first.fill(job["description"])
+            d.p.keyboard.press("Tab")
+            d.wait(400)
+            filled.append(ans.Answer("wd_job", "Work Experience", "text", False, [], "",
+                                     f"{job['title']} · {job['company']}", ans.PROFILE))
+        except Exception as exc:  # noqa: BLE001 - the review screenshot shows what is there
+            log.info("work history entry failed", extra={"job": job.get("company"), "error": str(exc)[:200]})
+            return
 
 
 def _stale_phone(f: WDField, who: ans.Applicant, cfg: dict[str, Any]) -> bool:

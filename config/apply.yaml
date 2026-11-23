@@ -17,8 +17,11 @@ applicant:
   school: "ESILV"
   school_fallback: "Other"
   degree: "Master's Degree"           # the ESILV engineering diploma confers the master's degree (candidate_profile)
+  # ESILV major: Industry & Robotics (user, 23 Nov 2026). Workday lists differ per company: first match wins.
+  field_of_study: ["Robotics", "Industrial Engineering", "Mechatronics", "Mechanical Engineering", "Engineering"]
   graduation_month: "August"
   graduation_year: 2027
+  school_start_year: 2024             # ESILV entry, as read from the CV by Workday (23 Nov 2026)
   start_date: "1 April 2027"
   internship_window: "April to August 2027 (up to 5 months)"
   days_per_week: "5 (full time)"

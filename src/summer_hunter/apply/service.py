@@ -77,7 +77,39 @@ RETRYABLE = {"ready", "captcha", "invalid", "blocked", "error", "needs", "verify
 
 def config(config_dir: Path) -> dict[str, Any]:
     path = config_dir / "apply.yaml"
-    return load_yaml(path) if path.exists() else {}
+    cfg = load_yaml(path) if path.exists() else {}
+    cv = config_dir / "cv_content.yaml"
+    if cv.exists() and "work_history" not in cfg:     # the CV's own jobs, for forms that ask them one by one
+        try:
+            cfg["work_history"] = work_history(load_yaml(cv))
+        except Exception:  # noqa: BLE001
+            log.exception("cv_content unreadable for work history")
+    return cfg
+
+
+_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+
+
+def _month_year(text: str) -> str | None:
+    m = re.search(r"([A-Za-z]{3})[a-z]*\.? (\d{4})", text or "")
+    if not m or m.group(1).lower() not in _MONTHS:
+        return None
+    return f"{_MONTHS.index(m.group(1).lower()) + 1:02d}/{m.group(2)}"
+
+
+def work_history(cv: dict[str, Any]) -> list[dict[str, Any]]:
+    """cv_content experiences as form entries: title, company, location, MM/YYYY dates, a short description."""
+    out = []
+    for e in cv.get("experiences") or []:
+        start, _, end = str(e.get("dates") or "").partition("--")
+        current = bool(re.search(r"present|today|now", end, re.I))
+        bullets = [b["text"] if isinstance(b, dict) else str(b) for b in e.get("bullets") or []]
+        out.append({"title": re.sub(r"\s+--\s+", " - ", str(e.get("role") or "")).strip(),
+                    "company": str(e.get("org") or "").split(" -- ")[0].strip(),
+                    "location": str(e.get("location") or ""),
+                    "start": _month_year(start), "end": None if current else _month_year(end), "current": current,
+                    "description": "\n".join(f"- {b}" for b in bullets[:3])})
+    return [w for w in out if w["title"] and w["company"] and w["start"]]
 
 
 def target_for(opp, session=None, look_up: bool = False) -> ats.Target | None:  # noqa: ANN001
@@ -731,7 +763,8 @@ def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict
         res = workday.run(target.form_url, email, workday.account_name(target.board, email), known, who, cfg,
                           citizenship, state["company"], state.get("resume"), shot, submit=submit,
                           headless=bool(cfg.get("headless", True)), timeout_s=int(cfg.get("timeout_s", 45)),
-                          model=model, approved_fp=state.get("review_fp") if submit else None)
+                          model=model, approved_fp=state.get("review_fp") if submit else None,
+                          job_title=state.get("title") or "")
     except Exception:
         if submit:
             state["status"] = "unconfirmed"

@@ -351,6 +351,19 @@ class Repository:
         row = self.s.get(KeyValue, key)
         return row.value if row else default
 
+    def rename_kv_suffix(self, old: str, new: str) -> int:
+        """Keys stored under a queued message's placeholder id ("aa_msg:-123") take the real id once sent."""
+        from sqlalchemy import select
+
+        rows = self.s.scalars(select(KeyValue).where(KeyValue.key.like(f"%:{old}"))).all()
+        for row in rows:
+            key = row.key[: -len(old)] + new
+            value = row.value
+            self.s.delete(row)
+            self.s.flush()
+            self.set_kv(key, value)
+        return len(rows)
+
     def set_kv(self, key: str, value: str) -> None:
         row = self.s.get(KeyValue, key)
         if row is None:

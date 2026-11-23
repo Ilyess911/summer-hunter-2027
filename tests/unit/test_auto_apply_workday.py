@@ -212,3 +212,32 @@ def test_given_names_and_device_type_from_profile() -> None:
     assert cell.value == "Home Cellular"
     src = r(_f("How Did You Hear About Us?", "multiselect"))
     assert src.extra["alts"][0] == "Company Website" and not src.missing
+
+
+def test_work_history_from_cv_content():
+    from summer_hunter.apply.service import work_history
+
+    cv = {"experiences": [
+        {"org": "Air France Industries -- KLM E&M", "dates": "Sep 2024 -- Present", "role": "Apprentice -- Equipment",
+         "location": "Paris, France", "bullets": [{"text": "a"}, {"text": "b"}, {"text": "c"}, {"text": "d"}]},
+        {"org": "Amundi", "dates": "Jul 2023 -- Aug 2023", "role": "Assistant", "bullets": ["x"]},
+        {"org": "No dates", "role": "Ghost"}]}
+    jobs = work_history(cv)
+    assert [j["company"] for j in jobs] == ["Air France Industries", "Amundi"]
+    assert jobs[0] == {**jobs[0], "title": "Apprentice - Equipment", "start": "09/2024", "end": None, "current": True}
+    assert jobs[0]["description"].count("\n") == 2           # three bullets at most
+    assert jobs[1]["start"] == "07/2023" and jobs[1]["end"] == "08/2023" and not jobs[1]["current"]
+
+
+def test_degree_and_years_come_from_profile_not_model():
+    from summer_hunter.apply import workday as wd
+
+    cfg = {"applicant": {"degree": "Master's Degree", "school_start_year": 2024, "graduation_year": 2027}}
+    who = _who() if "_who" in globals() else None
+    f = wd.WDField(idx="1", id="degree", label="Degree", required=True, kind="select", value="",
+                   options=["Bachelors", "Masters", "PhD"])
+    a = wd.resolve(f, {}, who, cfg, [], "NVIDIA")
+    assert a.value == "Masters"
+    y = wd.WDField(idx="2", id="lastYearAttended", label="To (Actual or Expected)", required=True, kind="date",
+                   value="", options=[])
+    assert wd.resolve(y, {}, who, cfg, [], "NVIDIA").value == "2027"

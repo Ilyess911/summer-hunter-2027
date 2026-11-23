@@ -221,6 +221,7 @@ class Bot:
             try:
                 updates = self.telegram.get_updates(offset_int, timeout=30)
                 backoff = 1
+                self.flush_outbox()
             except TelegramError as exc:
                 log.warning("getUpdates failed", extra={"error": str(exc)})
                 time.sleep(min(backoff, 60))
@@ -235,6 +236,23 @@ class Bot:
                 with self.session_factory() as session:
                     Repository(session).set_kv("telegram_offset", str(offset_int))
                     session.commit()
+
+    def flush_outbox(self) -> None:
+        """Telegram answers again (left a filtering network): deliver what waited, and re-key reply mappings."""
+        box = getattr(self.telegram, "outbox", None)
+        if box is None or not box.pending():
+            return
+
+        def rekey(ph: int, real: int) -> None:
+            with self.session_factory() as session:
+                Repository(session).rename_kv_suffix(str(ph), str(real))
+                session.commit()
+
+        try:
+            left = box.flush(self.telegram, rekey)
+            log.info("outbox flushed", extra={"left": left})
+        except Exception:  # noqa: BLE001 - delivery problems must never stop the bot
+            log.exception("outbox flush failed")
 
     def scan_mailbox(self) -> None:
         from summer_hunter.crm import mail_status
