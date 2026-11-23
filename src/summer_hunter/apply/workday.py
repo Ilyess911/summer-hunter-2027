@@ -100,7 +100,7 @@ COLLECT_JS = r"""() => {
       value = Array.from(c.querySelectorAll('[data-automation-id="selectedItem"]')).map(x => x.innerText.trim()).join(' | '); }
     else if (radios.length) { kind = 'select';
       options = Array.from(radios).map(r => (c.querySelector('label[for="' + r.id + '"]') || r.parentElement).innerText.trim());
-      const on = Array.from(radios).findIndex(r => r.checked); value = on >= 0 ? options[on] : ''; }
+      const on = Array.from(radios).findIndex(r => r.hasAttribute('aria-checked') ? r.getAttribute('aria-checked') === 'true' : r.checked); value = on >= 0 ? options[on] : ''; }
     else if (month || year) { kind = 'date';
       value = [month && month.value, year && year.value].filter(Boolean).join('/'); }
     else if (boxes.length === 1) { kind = 'checkbox'; value = boxes[0].checked ? 'true' : ''; }
@@ -359,7 +359,8 @@ class Driver:
                 c.locator('input[type="file"]').set_input_files(str(v))
                 self.wait(4000)
             elif f.kind == "select" and c.locator('input[type="radio"]').count():
-                c.get_by_label(str(v), exact=True).check()
+                if not self._radio(c, str(v)):
+                    return False
             elif f.kind == "select":
                 self.p.keyboard.press("Escape")
                 btn = c.locator('button[aria-haspopup="listbox"]').first
@@ -374,7 +375,9 @@ class Driver:
                 if alts and not isinstance(v, list):     # several ways to say it: the first the site offers wins
                     for alt in alts:
                         if self._prompt_pick(c, alt):
+                            self.close_popups()
                             return True
+                    self.close_popups()
                     return False
                 for item in items:
                     box = c.locator("input").first
@@ -423,6 +426,53 @@ class Driver:
             log.info("workday field failed", extra={"field": f.label[:60], "error": str(exc)[:200]})
             self.p.keyboard.press("Escape")
             return False
+
+    def close_popups(self) -> None:
+        """Workday prompt lists stay open after a pick and cover the next fields; Escape does not always close them."""
+        self.p.keyboard.press("Escape")
+        try:
+            if self.p.locator('[data-automation-id="promptLeafNode"]:visible, [role="listbox"]:visible').count():
+                self.p.mouse.click(8, 400)          # the grey page margin, outside every control
+                self.wait(400)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _radio(self, c, value: str) -> bool:  # noqa: ANN001
+        """Tick a Workday radio: its input is visually hidden under a styled circle, so try the label too."""
+        want = re.compile(rf"^\s*{re.escape(value)}\s*$", re.I)
+        self.close_popups()
+        tries = [                                   # the label click is the one Workday's React state sees
+            lambda: c.locator("label[for]").filter(has_text=want).first.click(timeout=4000),
+            lambda: c.locator("label[for]").filter(has_text=want).first.click(force=True, timeout=4000),
+            lambda: (c.get_by_label(value, exact=True).first.focus(), self.p.keyboard.press("Space")),
+            lambda: c.get_by_text(want).first.click(force=True, timeout=4000),
+        ]
+        for t in tries:
+            try:
+                t()
+                self.wait(300)
+            except Exception:  # noqa: BLE001
+                continue
+            if self._radio_checked(c, want):
+                return True
+        return False
+
+    def _radio_checked(self, c, want) -> bool:  # noqa: ANN001
+        radios = c.locator('input[type="radio"]')
+        for i in range(radios.count()):
+            r = radios.nth(i)
+            try:
+                aria = r.get_attribute("aria-checked")
+                if not (aria == "true" if aria is not None else r.is_checked()):
+                    continue
+                rid = r.get_attribute("id") or ""
+                lab = c.locator(f'label[for="{rid}"]') if rid else None
+                text = lab.first.inner_text() if lab is not None and lab.count() else (r.get_attribute("aria-label") or "")
+                if want.match(text) or not text:
+                    return True
+            except Exception:  # noqa: BLE001
+                continue
+        return False
 
     def _prompt_pick(self, c, item: str) -> bool:  # noqa: ANN001
         box = c.locator("input").first
@@ -650,6 +700,14 @@ def _authenticate(d: Driver, email: str, account: str) -> str:
     return "ok"
 
 
+def _stale_phone(f: WDField, who: ans.Applicant, cfg: dict[str, Any]) -> bool:
+    """The resume autofill writes '+33 6 ...' in the national number field, which Workday then rejects."""
+    if role_for(f) != "phone_national":
+        return False
+    want = profile_value("phone_national", who, cfg) or ""
+    return bool(want) and re.sub(r"\D", "", f.value or "") != want
+
+
 def _fill_step(d: Driver, known: dict[str, Any], who: ans.Applicant, cfg: dict[str, Any], citizenship: list[str],
                company: str, resume: str | None, filled: list[ans.Answer], model) -> list[ans.Answer]:  # noqa: ANN001
     pending: list[ans.Answer] = []
@@ -661,13 +719,14 @@ def _fill_step(d: Driver, known: dict[str, Any], who: ans.Applicant, cfg: dict[s
                 if d.put(f, a):
                     filled.append(a)
             continue
-        if f.value:                                          # Workday kept it from a previous run or the resume
+        if f.value and not _stale_phone(f, who, cfg):        # Workday kept it from a previous run or the resume
             continue
         f.options = d.options_of(f)
         a = resolve(f, known, who, cfg, citizenship, company)
         todo.append((f, a))
     if model is not None:
-        model([a for _, a in todo if a.missing and a.required and a.source != ans.PROFILE])
+        model([a for _, a in todo if a.missing and a.required and a.source != ans.PROFILE
+               and a.extra.get("wd_kind") != "date"])      # dates are facts of the CV, never guessed
     for f, a in todo:
         if a.missing:
             if a.required:
