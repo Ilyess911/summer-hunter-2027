@@ -104,23 +104,47 @@ class Applicant:
                 "edu_end_year": str(a.get("graduation_year") or "")}.get(role) or None
 
 
-def _work_auth(label: str, options: list[str], citizenship: list[str]) -> tuple[Any, str] | None:
-    """Work-right questions: answered only for the EU/EEA/Switzerland (French citizen); elsewhere asked."""
+NON_EU_NAMES = re.compile(r"\b(united states|u\.?s\.?a?\.?|america|canada|mexico|brazil|japan|korea|singapore|australia|"
+                          r"new zealand|thailand|vietnam|indonesia|malaysia|philippines|china|hong kong|taiwan|india|"
+                          r"united kingdom|uk|u\.k\.|england|uae|united arab emirates|dubai|qatar|saudi|israel|"
+                          r"south africa|morocco|turkey)\b")
+EU_EEA_CH_ISO = {"FR", "DE", "ES", "IT", "NL", "BE", "LU", "PT", "IE", "AT", "SE", "DK", "FI", "PL", "CZ", "GR", "HU",
+                 "RO", "BG", "HR", "SI", "SK", "EE", "LV", "LT", "CY", "MT", "NO", "IS", "LI", "CH"}
+
+
+def _work_auth(label: str, options: list[str], citizenship: list[str], job_country: str = "",
+               outside_eu: str = "no_yes") -> tuple[Any, str] | None:
+    """Work-right questions. French citizen: authorized and no sponsorship in the EU/EEA/Switzerland. Elsewhere
+    (decided 28 Nov 2026): not authorized yet, needs sponsorship ('no_yes'), unless outside_eu is 'ask'."""
     if not WORK_AUTH.search(label):
         return None
     low = f" {label.lower()} "
-    in_eu = any(c in low for c in EU_EEA_CH) and "FR" in citizenship
-    if not in_eu:
+    named_eu = any(c in low for c in EU_EEA_CH)
+    jc = (job_country or "").upper()
+    if named_eu:
+        in_eu = True
+    elif NON_EU_NAMES.search(low):
+        in_eu = False
+    elif jc:
+        in_eu = jc in EU_EEA_CH_ISO
+    else:
+        return (None, "pays du poste inconnu : à toi")
+    in_eu = in_eu and "FR" in citizenship
+    if not in_eu and outside_eu != "no_yes":
         return (None, "droit au travail hors UE : à toi de répondre")
-    need = re.search(r"\b(require|need|will you need|do you need)\b.{0,50}\b(sponsor\w*|visa)", low)
-    auth = re.search(r"\b(authori[sz]ed|eligible|right|legally|permitted|allowed)\b.{0,30}\bwork", low)
+    need = re.search(r"\b(require|need|will you need|do you need)\b.{0,60}\b(sponsor\w*|visa|support)", low)
+    auth = re.search(r"\b(authori[sz]ed|authori[sz]ation|eligible|right|legally|permitted|allowed)\b.{0,40}\bwork|"
+                     r"\bwork (authori[sz]ation|permit)", low)
     if bool(need) == bool(auth):            # both or neither: ambiguous wording, the user answers
         return (None, "question visa ambiguë : à toi")
-    want = "no" if need else "yes"           # EU citizen: needs no sponsorship, is authorized
+    if in_eu:
+        want, why = ("no" if need else "yes"), "citoyen français, UE"
+    else:
+        want, why = ("yes" if need else "no"), "hors UE : pas encore de visa (règle du 28/11)"
     if options:
         opt = _pick(options, [rf"^{want}\b"])
-        return (opt, "citoyen français, UE") if opt else None
-    return (want.capitalize(), "citoyen français, UE")
+        return (opt, why) if opt else None
+    return (want.capitalize(), why)
 
 
 _MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov",
@@ -153,6 +177,30 @@ def _availability(label: str, options: list[str], kind: str) -> tuple[Any, str] 
         return (True, "dans ta fenêtre avril-août 2027")
     opt = _pick(options, [r"^yes\b"])
     return (opt, "dans ta fenêtre avril-août 2027") if opt else None
+
+
+PAST_JOB = re.compile(r"ex-?employee|former (employee|intern|worker|contractor)|ever (been )?(employed|worked)|"
+                      r"previously (been )?(employed|worked)|have you (ever )?worked (for|at)|worked (for|at) .{0,60} before|"
+                      r"(are|were) you a former", re.I)
+
+
+def _past_employment(label: str, options: list[str], kind: str, cfg: dict[str, Any]) -> tuple[Any, str] | None:
+    """'Have you worked for <company> before?': known from the CV. Yes only when one of the candidate's employers
+    (apply.yaml standing.employers) is named in the question or is the company applied to; otherwise No."""
+    if not PAST_JOB.search(label) or re.search(r"relative|family|spouse|friend|referr", label, re.I):
+        return None
+    employers = [str(e) for e in (cfg.get("standing") or {}).get("employers") or []]
+    if not employers:
+        return None
+    where = f"{label} {cfg.get('job_company') or ''}".lower()
+    hit = next((e for e in employers if re.search(rf"\b{re.escape(e.lower())}\b", where)), None)
+    want = "yes" if hit else "no"
+    why = f"ancien employeur : {hit}" if hit else "pas un de tes employeurs (CV)"
+    if kind in ("select", "multiselect", "boolean"):
+        opts = options or ["Yes", "No"]
+        opt = _pick(opts, [rf"^{want}\b"])
+        return (opt, why) if opt else None
+    return (want.capitalize(), why)
 
 
 def _rule(rules: list[dict[str, Any]], f: Field) -> tuple[Any, str] | None:
@@ -203,9 +251,15 @@ def build(form: Form, header: dict[str, Any], cfg: dict[str, Any], citizenship: 
         elif got := _availability(f"{f.label} {f.extra.get('description', '')}", f.options, f.kind):
             a.value, a.note = got
             a.source = RULE if a.value is not None else ASK
-        elif got := _work_auth(f.label, f.options, citizenship):
+        elif got := _work_auth(f.label, f.options, citizenship, cfg.get("job_country") or "",
+                               str((cfg.get("standing") or {}).get("outside_eu_work", "no_yes"))):
             a.value, a.note = got
             a.source = RULE if a.value is not None else ASK
+            if f.kind == "boolean" and isinstance(a.value, str):
+                a.value = a.value.lower() == "yes"
+        elif got := _past_employment(f.label, f.options, f.kind, cfg):
+            a.value, a.note = got
+            a.source = RULE
             if f.kind == "boolean" and isinstance(a.value, str):
                 a.value = a.value.lower() == "yes"
         elif got := _rule(rules, f):

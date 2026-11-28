@@ -170,6 +170,8 @@ def build_prompt(cfg: dict[str, Any], areas: list[dict[str, Any]], exclude: list
         "French Tech chapter pages, podcast episode lists), then return every qualifying person on them.").strip()
         + " Search result "
         "snippets are usually enough; fetch a page only when a snippet does not show both the name and the company.\n"
+        "Before proposing a company, look at its own careers, jobs or FAQ page: leave it out if it says it does not "
+        "offer internships or does not accept internship inquiries. Give its official https website in 'website'.\n"
         "The source_quote must be copied character for character from the source page and contain the person's name.\n"
         "Finish with ONE fenced ```json block and nothing after it, matching:\n" + SCHEMA_HINT
     )
@@ -389,6 +391,10 @@ def verify(c: Candidate, cfg: dict[str, Any], excluded_countries: set[str], seen
     except Exception as exc:  # noqa: BLE001 - any fetch failure = unverified = dropped
         return Verdict(c, False, f"page source inaccessible ({type(exc).__name__})")
     ok, reason, excerpt = check_page(c, text)
+    if ok and cfg.get("require_website", True) and not c.website.startswith("https://"):
+        ok, reason = False, "site officiel manquant (impossible de vérifier s'il prend des stagiaires)"
+    if ok and (why := no_interns_reason(c, cfg, user_agent, text, transport)):
+        ok, reason = False, why
     v = Verdict(c, ok, reason, excerpt)
     if ok:   # what the page does not say is not shown as fact
         norm = normalize_for_match(text)
@@ -398,6 +404,39 @@ def verify(c: Candidate, cfg: dict[str, Any], excluded_countries: set[str], seen
             site.hostname.removeprefix("www.") == (urlparse(c.source_url).hostname or "").removeprefix("www.")
             or site.hostname.removeprefix("www.") in norm)
     return v
+
+
+# A company that says it takes no interns is not worth a message (Seoul Robotics FAQ, 28 Nov 2026).
+NO_INTERNS = re.compile(
+    r"(not|no longer) (currently )?(offering|accepting|hiring|taking|recruiting) (any )?(internship|intern)s?"
+    r"|(do|does|we) not (currently )?(offer|have|take|accept|hire) (any )?(internship|intern)s?"
+    r"|no internship (program|programme|position|opportunit)"
+    r"|not accepting internship[- ]related (inquiries|enquiries|requests)"
+    r"|ne (proposons|propose|prenons|prend|recrutons|recrute) (pas|plus) de stag", re.I)
+SITE_PATHS = ("", "/careers", "/jobs", "/faq", "/careers/faq", "/join-us")
+
+
+def no_interns_reason(c: Candidate, cfg: dict[str, Any], user_agent: str, source_text: str,
+                      transport: httpx.BaseTransport | None = None) -> str:
+    """Empty when nothing says the company refuses interns; else the reason. Reads the source page and the
+    company's own home, careers, jobs and FAQ pages (plain HTTP, no model)."""
+    texts = [source_text]
+    site = urlparse(c.website)
+    if site.scheme == "https" and site.hostname:
+        resolve = transport is None
+        base = f"https://{site.hostname}"
+        for path in SITE_PATHS:
+            url = base + path
+            if _safe_url(url, cfg, resolve):
+                continue
+            try:
+                texts.append(fetch_text(url, user_agent, cfg, transport, resolve=resolve))
+            except Exception:  # noqa: BLE001 - a missing page says nothing either way
+                continue
+    for t in texts:
+        if m := NO_INTERNS.search(re.sub(r"\s+", " ", t)):
+            return f"l'entreprise dit ne pas prendre de stagiaires (« {m.group(0)[:60]} »)"
+    return ""
 
 
 # Message -------------------------------------------------------------------------------------------
@@ -572,10 +611,11 @@ def _run(settings, sessions, cfg, telegram, force, dry_run, model_call, transpor
         last = s.scalar(select(LLMUsage.cost_usd).where(LLMUsage.purpose == PURPOSE, LLMUsage.outcome == "ok")
                         .order_by(LLMUsage.id.desc()).limit(1)) or 0.0
         remaining = cap - spent(s, day)
-        if remaining < max(float(last), MIN_RUN_ESTIMATE_USD):
+        need = min(max(float(last), MIN_RUN_ESTIMATE_USD), cap)   # a last run above the cap must not block forever
+        if remaining < need:
             return ScoutResult("budget", note=f"plafond {cap:.2f} $ atteint aujourd'hui")
         monthly = month_left(s, day, settings.llm)              # all paid calls together, cycle from the 11th
-        if monthly < max(float(last), MIN_RUN_ESTIMATE_USD):
+        if monthly < need:
             return ScoutResult("budget", note="plafond mensuel API atteint (reprise le 11)")
         remaining = min(remaining, monthly)
         exclude = known_names(s)

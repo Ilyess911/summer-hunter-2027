@@ -253,12 +253,15 @@ def resolve(f: WDField, known: dict[str, Any], who: ans.Applicant, cfg: dict[str
         return a
     if f.kind == "multiselect" and re.search(r"how did you (hear|find|learn)|source", f.label, re.I):
         alts = (cfg.get("applicant") or {}).get("heard_from") or ["Company Website", "Career Site", "Careers",
-                                                                   "Website", "LinkedIn", "Job Board", "Other"]
+                                                                   "Website", "LinkedIn", "Linkedin Jobs", "Job Board",
+                                                                   "Internet", "Indeed", "Other"]
         a.value, a.source, a.extra["alts"] = alts[0], ans.RULE, list(alts)
         return a
     fld = Field(a.key, f.label, kind if kind != "checkbox" else "checkbox", f.required, list(f.options))
     for fn in (lambda: ans._availability(f.label, f.options, kind),
-               lambda: ans._work_auth(f.label, f.options, citizenship),
+               lambda: ans._work_auth(f.label, f.options, citizenship, cfg.get("job_country") or "",
+                                      str((cfg.get("standing") or {}).get("outside_eu_work", "no_yes"))),
+               lambda: ans._past_employment(f.label, f.options, f.kind, cfg),
                lambda: ans._rule(cfg.get("rules") or [], fld)):
         got = fn()
         if got:

@@ -57,7 +57,7 @@ def routes(settings: Settings, sessions: sessionmaker[Session], telegram=None) -
         from summer_hunter.utils.budget import month_left
 
         room = min(cap - spent, month_left(session, day, settings.llm))
-        fits = room >= max(float(last), founders.MIN_RUN_ESTIMATE_USD)
+        fits = room >= min(max(float(last), founders.MIN_RUN_ESTIMATE_USD), cap)
         return {"date": day.isoformat(), "done": raw is not None, "ids": json.loads(raw or "[]"),
                 "areas": [a["name"] for a in founders.areas_for(day, cfg)], "spent": round(spent, 2), "cap": cap,
                 "enabled": bool(cfg.get("enabled")), "running": running.is_set(),

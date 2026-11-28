@@ -99,16 +99,16 @@ def test_answers_profile_rules_and_asks(cfg) -> None:  # noqa: ANN001
     out = {a.key: a for a in A.build(form, HEADER, cfg, ["FR", "MA"], {"resume": "/tmp/cv.pdf", "cover_letter": None})}
     assert out["first_name"].value == "Ilyess" and out["first_name"].source == A.PROFILE
     assert out["resume"].value == "/tmp/cv.pdf" and out["cover_letter"].missing
-    assert out["q1"].missing and "jamais" in out["q1"].note          # salary: never guessed
+    assert out["q1"].value == "In line with your internship pay policy"   # salary: standing answer (28 Nov)
     assert out["q2"].value == "Prefer not to say"
-    assert out["q3"].missing and "hors UE" in out["q3"].note        # outside the EU: the user decides
+    assert out["q3"].value == "No" and "hors UE" in out["q3"].note   # outside the EU: no visa yet (28 Nov rule)
     assert out["q4"].value == "No"                                    # French citizen, no sponsorship in France
     assert out["q5"].value == "Yes"                                   # inside April-August 2027
     assert out["q6"].value == "No"
-    assert out["q7"].missing                                          # own employer named: never auto-answered
+    assert out["q7"].value == "Yes" and "Air France" in out["q7"].note   # own employer named: from the CV
     assert out["q8"].missing and out["q8"].source == A.ASK
     blocking = {a.key for a in A.blocking(list(out.values()))}
-    assert blocking == {"q1", "q3", "q7", "q8"}
+    assert blocking == {"q8"}
 
 
 class FakeLLM:
@@ -123,10 +123,10 @@ class FakeLLM:
 
 def test_model_answers_are_validated(cfg) -> None:  # noqa: ANN001
     F = ats.Field
-    form = _form(F("q1", "Expected salary?", "text", True), F("q2", "Years of Python?", "select", True, ["0-1", "2-3"]),
+    form = _form(F("q1", "How many hours per week?", "text", True), F("q2", "Years of Python?", "select", True, ["0-1", "2-3"]),
                  F("q3", "Why us?", "textarea", True), F("q4", "Puzzle", "text", True))
     answers = A.build(form, HEADER, cfg, ["FR"], {})
-    # numbering covers only what the model may answer: q2, q3, q4 (the salary is excluded)
+    # numbering covers only what the model may answer: q2, q3, q4 (hours per week are always asked)
     llm = FakeLLM({"answers": [{"n": 1, "answer": "5+"}, {"n": 2, "answer": "UNKNOWN"}, {"n": 9, "answer": "x"}]})
     assert A.fill_with_model(llm, answers, "facts", "Intern", "Acme", "posting") == 0
     assert all(a.missing for a in answers)                # an option outside the list and UNKNOWN are both refused
@@ -216,7 +216,13 @@ def test_visa_polarity_and_ambiguity() -> None:
     assert w("Are you legally authorized to work in France without visa sponsorship?", ["Yes", "No"], ["FR"])[0] == "Yes"
     assert w("Will you now or in the future require visa sponsorship to work in Germany?", ["Yes", "No"], ["FR"])[0] == "No"
     assert w("Are you authorized to work in Spain or will you need sponsorship?", ["Yes", "No"], ["FR"])[0] is None
-    assert w("Do you have the right to work in Singapore?", ["Yes", "No"], ["FR"])[0] is None
+    assert w("Do you have the right to work in Singapore?", ["Yes", "No"], ["FR"])[0] == "No"
+    assert w("Will you require sponsorship to work in Japan?", ["Yes", "No"], ["FR"])[0] == "Yes"
+    # the country comes from the job when the label does not name it
+    q = "Are you legally authorized to work in the country where this position is located?"
+    assert w(q, ["Yes", "No"], ["FR"], "US")[0] == "No" and w(q, ["Yes", "No"], ["FR"], "DE")[0] == "Yes"
+    assert w(q, ["Yes", "No"], ["FR"], "")[0] is None
+    assert w(q, ["Yes", "No"], ["FR"], "US", "ask")[0] is None
 
 
 def test_availability_checks_the_end_of_the_stay() -> None:
@@ -235,7 +241,8 @@ def test_employment_and_duration_rules(cfg) -> None:  # noqa: ANN001
                  F("e", "How many hours per week can you work?", "text", True))
     out = {a.key: a for a in A.build(form, HEADER, cfg, ["FR"], {})}
     assert out["a"].value == "No"
-    assert all(out[k].missing for k in "bcde")
+    assert out["c"].value == "No"                         # not one of the CV's employers
+    assert all(out[k].missing for k in "bde")
 
 
 def test_model_index_zero_and_duplicates_ignored(cfg) -> None:  # noqa: ANN001

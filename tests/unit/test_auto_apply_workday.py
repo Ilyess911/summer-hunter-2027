@@ -43,7 +43,8 @@ def test_resolve_fields() -> None:
     assert r(_f("Address Line 1", fid="addressSection_addressLine1"), {"address line 1": "1 rue X"}).value == "1 rue X"
     assert r(_f("Middle Name", fid="legalNameSection_middleName")).missing
     assert r(_f("Will you require visa sponsorship to work in France?", "select", ["Yes", "No"])).value == "No"
-    assert r(_f("What are your salary expectations?")).missing
+    assert r(_f("What are your salary expectations?")).value == "In line with your internship pay policy"
+    assert r(_f("How many hours per week can you work?")).missing
     assert r(_f("I acknowledge and agree to Acme's Candidate Privacy Notice", "checkbox")).value is True
     assert r(_f("I agree to the terms and confirm all information is accurate", "checkbox")).missing
 

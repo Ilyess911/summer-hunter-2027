@@ -253,7 +253,7 @@ def test_interrupted_delivery_resumes_unsent_cards_only(settings, sessions):
     pages = {"https://studiokelapa.example/about": PAGE,
              "https://lea.example/about": "<p>Léa Morel est la fondatrice de Maison Lea à Ubud.</p>"}
     answer = _answer(_person(), _person(name="Léa Morel", company="Maison Lea", city="Ubud",
-                                        source_url="https://lea.example/about", source_quote="", website=""))
+                                        source_url="https://lea.example/about", source_quote="", website="https://lea.example"))
     tg = Flaky(fail_at=3)                       # header ok, card 1 ok, card 2 fails
     res = founders.run(settings, sessions, tg, model_call=lambda s, u: (answer, 0.1, 1, 1, 1),
                        transport=_transport(pages))
@@ -284,3 +284,19 @@ def test_non_french_contact_gets_english_message_and_cto_role_counts():
     fr = founders.Candidate.from_dict({"name": "Paul Durand", "company": "Robo SA", "city": "Lausanne",
                                        "country_code": "CH"})
     assert fr.french and founders.draft_message(fr, {}).startswith("Bonjour Paul,")
+
+
+def test_company_that_refuses_interns_is_dropped():
+    c = founders.Candidate.from_dict({"name": "Han Lee", "company": "Seoul Robotics", "website": ""})
+    faq = ("Does Seoul Robotics offer internship programs? Seoul Robotics is not currently offering internship "
+           "programs. Please note that we are not accepting internship-related inquiries at this time.")
+    assert "stagiaires" in founders.no_interns_reason(c, {}, "ua", faq)
+    assert founders.no_interns_reason(c, {}, "ua", "We hire interns every summer in Seoul.") == ""
+    assert founders.no_interns_reason(c, {}, "ua", "Nous ne proposons pas de stage cette année.") != ""
+
+
+def test_person_without_official_site_is_dropped(settings, sessions):
+    page = "<p>Studio Kelapa was founded in 2019 by Camille Durand in Canggu.</p>"
+    res = founders.run(settings, sessions, None, model_call=lambda s, u: (_answer(_person(website="")), 0.1, 1, 1, 1),
+                       transport=_transport({"https://studiokelapa.example/about": page}))
+    assert not res.kept and "site officiel manquant" in res.rejected[0][1]

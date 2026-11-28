@@ -35,11 +35,19 @@ applicant:
   phone_device: "Mobile"
   phone_country: "France (+33)"
 
+# Standing answers, given once by the user on 28 Nov 2026 so that forms stop asking them every time.
+standing:
+  outside_eu_work: no_yes       # outside EU/EEA/CH: not authorized to work yet, needs sponsorship ("ask" to be asked)
+  employers: [Air France, KLM, Airbus, Amundi, Nexya]   # "have you worked for X?": Yes only for these (CV)
+
 # Rules on the question label, first match wins. `pick`: option patterns tried in order (selects).
 # `text`: the answer for free text. `ask: true`: never guessed, always asked to the user.
 # `unless`: the rule is skipped when the label matches it.
 rules:
-  - {match: "salary|compensation expect|pay expect|current (ctc|pay)|expected (ctc|pay)|desired pay", ask: true}
+  # Salary: "in line with your policy" (user, 28 Nov 2026); a numeric-only field is still asked.
+  - {match: "salary|compensation expect|pay expect|current (ctc|pay)|expected (ctc|pay)|desired pay|stipend|remuneration",
+     pick: ["negotiable", "open", "per (company|your) (policy|scale)", "prefer not"],
+     text: "In line with your internship pay policy"}
   - {match: "gender|race|ethnic|veteran|disabilit|sexual orientation|pronoun|transgender|hispanic|latino",
      pick: ["decline", "prefer not", "don.?t wish", "do not wish", "not wish", "rather not", "not to (say|disclose|answer|specify)", "choose not"]}
   - {match: "how did you (hear|find|learn)|where did you (hear|find)|source of (this|your) application|referred by",
@@ -47,8 +55,10 @@ rules:
      text: "Company careers page"}
   - {match: "(consent|agree|acknowledge|accept).*(data|privacy|policy|terms|processing|notice)|(data|privacy).*(consent|agree|policy)",
      pick: ["^yes", "i agree", "i consent", "^agree", "i confirm", "i acknowledge", "i accept"]}
-  # Past employment, ex-employees, relatives: the CV may not list everything, so always asked.
-  - {match: "ex-?employee|ever (been )?(employed|worked)|previously (employed|worked)|have you (ever )?worked (for|at)|former employee|relative|family member|related to|close personal relationship", ask: true}
+  # Past employment is answered in code from standing.employers. Relatives / close relationships: always No
+  # (user, 28 Nov 2026; tell the bot if that ever becomes false for a company).
+  - {match: "relative|family member|related to|close personal relationship|spouse|partner works|know anyone (who )?works",
+     pick: ["^no\\b", "^none", "^n/?a"], text: "No"}
   # Present employment by a NAMED other company or group: the candidate's employers are known (CV). Generic
   # "are you currently employed?" is asked (he is an apprentice).
   - {match: "(presently|currently) employed (by|at|with) (any (company|entity|firm|subsidiary)|[^?]{0,80}\\b(group|holdings|subsidiar))",

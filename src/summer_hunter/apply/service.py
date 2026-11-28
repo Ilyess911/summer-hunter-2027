@@ -237,7 +237,8 @@ def prepare(settings, sessions, telegram, opp_id: int, explicit: bool = True) ->
         target = target_for(opp, session, look_up=True)
         app = CRM(session).application_for(opp_id)
         applied_on = app.date_applied if app else None
-        info = {"title": opp.title, "company": opp.company_name, "posting": opp.description_text or ""}
+        info = {"title": opp.title, "company": opp.company_name, "posting": opp.description_text or "",
+                "country": (opp.country_code or "").upper()}
         docs = documents(settings, opp) if target else {}
     if target is None:
         telegram.send_message(chat, f"🤖 #{opp_id} : plateforme non gérée (Greenhouse, Lever, Ashby et Workday "
@@ -262,7 +263,7 @@ def prepare(settings, sessions, telegram, opp_id: int, explicit: bool = True) ->
             state = {"opp_id": opp_id, "kind": "workday", "status": "needs", "target": target.__dict__,
                      "known": dict(old.get("known") or {}), "hashes": hashes, "resume": docs.get("resume"),
                      "title": info["title"], "company": info["company"], "posting": info["posting"][:6000],
-                     "rev": int(old.get("rev") or 0), "created": datetime.now(timezone.utc).isoformat()}
+                     "country": info["country"], "rev": int(old.get("rev") or 0), "created": datetime.now(timezone.utc).isoformat()}
             save_state(settings.data_dir, opp_id, state)
             telegram.send_message(chat, f"🤖 Workday de <b>{escape(info['company'])}</b> : connexion ou création du compte, "
                                         "puis remplissage étape par étape (2 à 4 min)…")
@@ -298,6 +299,7 @@ def _plan(settings, cfg: dict[str, Any], form: ats.Form, docs: dict[str, str | N
     content = load_content(settings.config_dir)
     profile = load_yaml(settings.config_dir / "candidate_profile.yaml")
     citizenship = list((profile.get("immigration") or {}).get("citizenship") or [])
+    cfg = {**cfg, "job_country": info.get("country") or "", "job_company": info.get("company") or ""}
     answers = ans.build(form, content.get("header") or {}, cfg, citizenship, docs)
     applicant = cfg.get("applicant") or {}
     for a in answers:
@@ -728,6 +730,17 @@ def _tenant_flag(data_dir: Path, host: str, flag: str | None = None) -> bool:
     return bool((known.get(host) or {}).get("single_profile"))
 
 
+def _country_of(sessions, opp_id: int) -> str:  # noqa: ANN001
+    from summer_hunter.database.models import Opportunity
+
+    try:
+        with sessions() as session:
+            opp = session.get(Opportunity, opp_id)
+            return ((opp.country_code if opp else "") or "").upper()
+    except Exception:  # noqa: BLE001 - unknown country: work-right questions are then asked
+        return ""
+
+
 def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict[str, Any],  # noqa: ANN001
                   submit: bool = False) -> None:
     """One browser run through the Workday wizard; caller holds _LOCK and saved the state."""
@@ -743,6 +756,8 @@ def _workday_pass(settings, sessions, telegram, state: dict[str, Any], cfg: dict
     citizenship = list((profile.get("immigration") or {}).get("citizenship") or [])
     target = ats.Target(**state["target"])
     known = {**memory(settings.data_dir), **(state.get("known") or {})}
+    cfg = {**cfg, "job_country": state.get("country") or _country_of(sessions, opp_id),
+           "job_company": state.get("company") or ""}
 
     def model(items: list[ans.Answer]) -> None:
         if not items:
