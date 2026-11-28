@@ -28,6 +28,8 @@ geography:
   # Bonus added to the career-fit score of an offer in that region (replaces priority_country_bonus there, never both).
   # The first tier that lists the country wins. Americas are outside the user's four regions: -10 (US also keeps -12 on fit).
   region_priority:
+    # 27 Nov 2026: the six off-market countries come first for the background digest too (the first tier wins).
+    - {name: Off-market countries, bonus: 25, countries: [AU, JP, CA, KR, SG, CH]}
     - {name: South-East Asia & Greater China, bonus: 20, countries: [SG, ID, TH, VN, MY, PH, KH, LA, MM, BN, CN, HK, TW, MO]}
     - {name: Asia-Pacific, bonus: 15, countries: [JP, KR, AU, NZ]}
     - {name: Middle East, bonus: 10, countries: [AE, QA, SA, KW, BH, OM, JO, LB]}

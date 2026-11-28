@@ -171,7 +171,13 @@ class Analyzer:
         return not isinstance(self.provider, NullProvider)
 
     def budget_left(self) -> float:
-        return float(self.cfg.get("daily_budget_usd", 0.0)) - self.repo.spend_on(local_date(self.tz))
+        from datetime import date as _date
+
+        from summer_hunter.utils.budget import month_left
+
+        today = local_date(self.tz)
+        daily = float(self.cfg.get("daily_budget_usd", 0.0)) - self.repo.spend_on(today)
+        return min(daily, month_left(self.repo.s, _date.fromisoformat(today), self.cfg))
 
     def _record_usage(self, purpose: str, tokens_in: int, tokens_out: int, opp_id: int | None, outcome: str) -> float:
         p = _price(self.cfg, self.provider.model)

@@ -1,5 +1,5 @@
-# Daily founders to contact (22 Nov 2026, the user's request): French people who started a SMALL company abroad,
-# where the candidate could intern and also live well (gym in the morning, digital-nomad life).
+# Daily off-market contacts. 22 Nov 2026: French founders of small companies in South-East Asia and the Gulf.
+# 27 Nov 2026: replaced by decision makers at AI / robotics startups and industrials in six countries (below).
 # Found by Claude with web search (paid, opt-in: go given on 22 Nov 2026 with a 0.30 USD/day cap, separate from
 # the email budget). Every person is kept only if WE fetch the source page and find both the name and the company
 # in it; otherwise the person is dropped. Nothing is ever sent to them: the bot only drafts a message.
@@ -16,25 +16,41 @@ daily_budget_usd: 0.30     # cap on purpose founder_scout only; the email/analys
 web_search_usd: 0.01
 max_tokens: 6000           # bounds the output part of one request (6000 x 20 USD/M = 0.12 USD)
 
-# Areas in the user's order (Bali, rest of South-East Asia, Middle East). Each day uses two areas, rotating;
-# an area listed twice comes up twice as often.
+# 27 Nov 2026, new direction (the user's choice): off-market only, in countries that are worth it on the CV
+# (future ESSEC / ESCP application) AND good to live in. Australia, Japan, Canada, South Korea, Singapore,
+# Switzerland. Targets: AI / robotics startups AND industrials. Two areas a day, rotating.
+title: "🎯 Off-market : décideurs à contacter"
 areas:
-  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu, Denpasar]}
-  - {name: Thailand, country: TH, cities: [Bangkok, Phuket, Chiang Mai, Koh Samui]}
-  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu, Denpasar]}
-  - {name: Vietnam, country: VN, cities: [Ho Chi Minh City, Da Nang, Hanoi, Hoi An]}
-  - {name: Dubai, country: AE, cities: [Dubai, Abu Dhabi]}
-  - {name: Bali, country: ID, cities: [Canggu, Ubud, Seminyak, Uluwatu]}
-  - {name: Malaysia & Singapore, country: MY, cities: [Kuala Lumpur, Penang, Singapore]}
-  - {name: Philippines & Cambodia, country: PH, cities: [Siargao, Cebu, Manila, Phnom Penh, Siem Reap]}
-  - {name: Doha & Gulf, country: QA, cities: [Doha, Muscat, Bahrain]}
+  - {name: Australia, country: AU, cities: [Sydney, Melbourne, Brisbane]}
+  - {name: Japan, country: JP, cities: [Tokyo, Yokohama, Osaka]}
+  - {name: Canada, country: CA, cities: [Montreal, Toronto, Quebec City]}
+  - {name: South Korea, country: KR, cities: [Seoul, Pangyo, Daejeon]}
+  - {name: Singapore, country: SG, cities: [Singapore]}
+  - {name: Switzerland, country: CH, cities: [Zurich, Lausanne, Geneva, Basel]}
 
-# What a good fit looks like (shown to the model as guidance, never as facts about a person).
-company_size: 1-50 people
-sectors: [digital or marketing agency, e-commerce brand, hospitality or boutique hotel, coworking or coliving,
-          fitness or wellness studio, surf or sport business, SaaS or tech startup, sourcing or import-export,
-          food and beverage, real estate or property management, events]
-roles_for_candidate: [business development, operations, partnerships, sales, automation and data, project management]
+who: >-
+  Who: people who can create an internship WITHOUT a job posting: founders, co-founders, CEOs, CTOs, heads of
+  engineering / robotics / AI / R&D at startups and scale-ups (seed to series C, roughly 5-500 people), or site,
+  plant, engineering or country managers at industrial companies (aerospace, MRO, robotics, automation,
+  manufacturing, energy), based in the requested area and still in that role. French or francophone people are
+  preferred (the student is French: French founders abroad, French Tech chapter members, French chamber of
+  commerce members, alumni of French engineering or business schools), but non-French people are accepted.
+strategy: >-
+  Strategy, to find many people with few searches: favour pages that name SEVERAL qualifying people at once:
+  French Tech chapter pages (French Tech Tokyo, Sydney, Montreal, Seoul, Singapore, Switzerland), French chamber
+  of commerce member spotlights, startup ecosystem lists (robotics / AI startup lists, accelerator cohorts,
+  university spin-off pages such as ETH Zurich, EPFL, University of Tokyo, KAIST, NUS), company team pages and
+  local tech press; then return every qualifying person on them.
+prefer: >-
+  Prefer companies a business-school admissions jury (ESSEC, ESCP) would recognise as serious: funded startups,
+  known industrial groups, research spin-offs. Avoid one-person shops, agencies with no product, and consulting
+  body shops.
+
+company_size: 5-500 people (startups, scale-ups) or local teams of industrial groups
+sectors: [AI startup, robotics, industrial automation, deep tech, computer vision, drones, aerospace, aircraft MRO,
+          manufacturing, energy and cleantech, mobility, industrial software or SaaS]
+roles_for_candidate: [AI and automation engineering, robotics or industrial engineering, data and process improvement,
+                      product or operations, strategy and business development in a tech company]
 
 # Pages we cannot fetch to verify a person (login walls): never accepted as the source.
 blocked_source_domains: [linkedin.com, instagram.com, facebook.com, tiktok.com, x.com, twitter.com, threads.net]

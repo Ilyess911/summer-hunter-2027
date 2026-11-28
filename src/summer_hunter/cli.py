@@ -856,7 +856,7 @@ def build_parser() -> argparse.ArgumentParser:
     fxp = sub.add_parser("fx", help="exchange rates used by the compensation engine (ECB, then fallback)")
     fxp.add_argument("action", choices=["show", "refresh"])
     fxp.set_defaults(fn=cmd_fx)
-    fd = sub.add_parser("founders", help="today's French founders abroad to contact (paid web search, own cap)")
+    fd = sub.add_parser("founders", help="today's off-market decision makers to contact (paid web search, own cap)")
     fd.add_argument("--force", action="store_true", help="run again even if today's list was sent")
     fd.add_argument("--dry-run", action="store_true", help="search and verify, store and send nothing")
     fd.set_defaults(fn=cmd_founders)

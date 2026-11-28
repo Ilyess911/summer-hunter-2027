@@ -437,6 +437,14 @@ class BudgetedProvider(LLMProvider):
         price = (self.cfg.get("pricing") or {}).get(self.model) or self.cfg.get("default_pricing") or {"input": 4.0, "output": 20.0}
         return tokens_in / 1e6 * float(price["input"]) + tokens_out / 1e6 * float(price["output"])
 
+    def _month_left(self) -> float:
+        from datetime import date as _date
+
+        from summer_hunter.utils.budget import month_left
+
+        with self.sessions() as s:
+            return month_left(s, _date.fromisoformat(self._today()), self.cfg)
+
     def spent_today(self) -> float:
         from sqlalchemy import func, select
 
@@ -453,6 +461,8 @@ class BudgetedProvider(LLMProvider):
         cap = float(self.cfg.get("daily_budget_usd", 0.5))
         if self.spent_today() >= cap:
             raise LLMError(f"daily AI budget reached ({cap:.2f} USD)")
+        if self._month_left() <= 0:
+            raise LLMError("monthly AI budget reached")
         outcome, resp = "ok", None
         try:
             resp = self.inner.complete_json(system, user, schema, max_tokens)

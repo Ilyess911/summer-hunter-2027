@@ -1,4 +1,4 @@
-"""Daily founders to contact: French people who run a small company abroad (Bali, South-East Asia, Gulf).
+"""Daily decision makers to contact off-market (who, where and why: config/founders.yaml).
 
 Flow, once a day after the morning digest:
 1. Budget check (llm_usage purpose `founder_scout`, its own daily cap in config/founders.yaml).
@@ -30,6 +30,7 @@ from sqlalchemy import func, select
 
 from summer_hunter.crm.validation import normalize_name
 from summer_hunter.database.models import ContactEvidence, CRMContact, LLMUsage
+from summer_hunter.utils.budget import month_left, month_line
 from summer_hunter.database.repository import Repository
 from summer_hunter.engine.geo import country_name
 from summer_hunter.utils.settings import load_yaml
@@ -53,6 +54,8 @@ SCHEMA_HINT = """{"founders": [{
   "team_size": "what the source says about size, or 'unknown'",
   "what_they_do": "one sentence, in French, from the source only (max 140 chars)",
   "why_fit": "one sentence, in French: why an engineering student in business development / ops / automation could intern there (max 160 chars)",
+  "role": "the person's role as written on the source page (e.g. 'co-founder & CTO', 'Head of Robotics')",
+  "french": "true if the person is French or clearly francophone per the source, else false",
   "hook": "a short French noun phrase about the company, taken from the source, used in a message (max 80 chars), e.g. 'votre studio de branding à Canggu'",
   "source_url": "https URL of the page that names this person as founder or co-founder of this company",
   "source_quote": "verbatim sentence from that page containing the person's name (max 220 chars)",
@@ -74,6 +77,8 @@ class Candidate:
     source_url: str = ""
     source_quote: str = ""
     website: str = ""
+    role: str = ""
+    french: bool = True
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Candidate":
@@ -84,7 +89,8 @@ class Candidate:
         return cls(name=s("name", 120), company=s("company", 160), city=s("city", 80),
                    country_code=s("country_code", 2).upper(), sector=s("sector", 80), team_size=s("team_size", 80),
                    what_they_do=s("what_they_do", 200), why_fit=s("why_fit", 220), hook=s("hook", 100),
-                   source_url=s("source_url", 600), source_quote=s("source_quote", 300), website=s("website", 300))
+                   source_url=s("source_url", 600), source_quote=s("source_quote", 300), website=s("website", 300),
+                   role=s("role", 80), french=str(d.get("french", True)).strip().lower() not in ("false", "0", "no"))
 
 
 @dataclass
@@ -150,15 +156,19 @@ def build_prompt(cfg: dict[str, Any], areas: list[dict[str, Any]], exclude: list
         "You research real people for a student's networking list. You use web search and web fetch, and you only "
         "report people you actually found on a public web page during this task. Never invent or guess a name, a "
         "company, a city or a quote. If you cannot find enough people, return fewer: an empty list is acceptable.\n"
+        + (cfg.get("who") or (
         "Who: French founders or co-founders (French nationality or clearly French, e.g. interviewed by French media "
         "abroad, French chamber of commerce member, 'entrepreneur français à ...') who run a SMALL company "
-        f"({cfg.get('company_size', '1-50 people')}) based in the requested area, still active.\n"
+        f"({cfg.get('company_size', '1-50 people')}) based in the requested area, still active.")).strip() + "\n"
+        "Every person must be named on the source page together with the company and their role there.\n"
         "Good sources: the company's own about/team page, interviews in French expatriate media (lepetitjournal.com, "
         "French chambers of commerce, French Tech chapters, podcasts with show notes), local press. "
         "A source must be a page that a plain HTTP client can read: never LinkedIn, Instagram, Facebook, TikTok or X.\n"
+        + (cfg.get("strategy") or
         "Strategy, to find many people with few searches: favour pages that name SEVERAL French entrepreneurs at once "
         "(expat media portrait series, 'entrepreneurs français à <city>' articles, chamber of commerce member spotlights, "
-        "French Tech chapter pages, podcast episode lists), then return every qualifying person on them. Search result "
+        "French Tech chapter pages, podcast episode lists), then return every qualifying person on them.").strip()
+        + " Search result "
         "snippets are usually enough; fetch a page only when a snippet does not show both the name and the company.\n"
         "The source_quote must be copied character for character from the source page and contain the person's name.\n"
         "Finish with ONE fenced ```json block and nothing after it, matching:\n" + SCHEMA_HINT
@@ -168,7 +178,8 @@ def build_prompt(cfg: dict[str, Any], areas: list[dict[str, Any]], exclude: list
         f"Find up to {want + 3} such founders in these areas (spread across them):\n" + "\n".join(lines) + "\n\n"
         f"Preferred sectors: {', '.join(cfg.get('sectors') or [])}.\n"
         f"The student would join for an internship (April to August 2027) in: {', '.join(cfg.get('roles_for_candidate') or [])}. "
-        "Prefer companies where a small team could take an intern: agencies, brands, hospitality, wellness, startups.\n"
+        + (cfg.get("prefer") or "Prefer companies where a small team could take an intern: agencies, brands, hospitality, "
+                                 "wellness, startups.").strip() + "\n"
         "Already proposed, do not return them again:\n" + ("\n".join(f"- {n}" for n in exclude[-150:]) or "- (none)")
     )
     return system, user
@@ -260,7 +271,12 @@ def call_model(api_key: str, cfg: dict[str, Any], system: str, user: str, llm_pr
 # Verification ---------------------------------------------------------------------------------------
 
 ROLE = re.compile(r"\b(co-?founders?|founders?|founded|co-?founded|cofondat(eur|rice)s?|fondat(eur|rice)s?|a fonde|ont fonde|"
-                  r"cree par|a cree|founding|owner|proprietaire|gerant|ceo|managing director|started|launched|lance par|a lance)\b")
+                  r"cree par|a cree|founding|owner|proprietaire|gerant|ceo|managing director|started|launched|lance par|a lance|"
+                  r"cto|chief (technology|technical|executive|operating) officer|coo|president|general manager|"
+                  r"country manager|site (manager|director)|plant manager|vp (of )?engineering|"
+                  r"(head|director|vice president) of (engineering|robotics|ai|artificial intelligence|r ?& ?d|research|"
+                  r"technology|innovation|operations|automation)|engineering (manager|director)|directeur general|"
+                  r"directeur technique|directeur des operations)\b")
 WINDOW = 160            # characters around the full name in which the company and the founder/leader role must appear
 # Known limit: the host is resolved once to refuse private addresses, then httpx resolves again (DNS rebinding not
 # covered). Acceptable for a personal tool fetching pages the search returned; revisit if the fetcher is exposed.
@@ -390,6 +406,8 @@ def draft_message(c: Candidate, pitches: dict[str, Any], city_verified: bool = F
     """French LinkedIn-length message (<= 300 chars) from verified facts only: the name and company found on the
     source page, the city only if the page names it, and the candidate's verified pitches. Never sent automatically."""
     first = c.name.split()[0]
+    if not c.french:
+        return _draft_en(c, first, city_verified)
     esilv = ((pitches.get("esilv") or {}).get("fr") or {}).get("short", "Je suis étudiant ingénieur en dernière année à l'ESILV")
     where = f" à {c.city}" if city_verified and c.city else ""
     ask = "Seriez-vous ouvert(e) à un court échange ?"
@@ -401,6 +419,17 @@ def draft_message(c: Candidate, pitches: dict[str, Any], city_verified: bool = F
         if len(msg) <= LINKEDIN_LIMIT:
             return msg
     return f"Bonjour {first}, {after_comma} {ask}"[:LINKEDIN_LIMIT]
+
+
+def _draft_en(c: Candidate, first: str, city_verified: bool) -> str:
+    where = f" in {c.city}" if city_verified and c.city else ""
+    ask = "Would you be open to a short chat?"
+    body = ("I'm a final-year engineering student at ESILV (Paris), apprentice at Air France Industries, and I "
+            f"co-founded a B2B agency. I'm looking for an internship from April to August 2027{where}.")
+    for msg in (f"Hi {first}, I came across {c.company} and your work. {body} {ask}", f"Hi {first}, {body} {ask}"):
+        if len(msg) <= LINKEDIN_LIMIT:
+            return msg
+    return f"Hi {first}, {body} {ask}"[:LINKEDIN_LIMIT]
 
 
 def linkedin_search(c: Candidate) -> str:
@@ -415,7 +444,7 @@ def store(session, v: Verdict, message: str) -> CRMContact:  # noqa: ANN001
                         "team_size": c.team_size, "what": c.what_they_do, "why": c.why_fit,
                         "website": c.website if v.website_verified else "", "message": message,
                         "linkedin_search": linkedin_search(c)}, ensure_ascii=False)
-    row = CRMContact(company=c.company, name=c.name, normalized_name=normalize_name(c.name), position="Fondateur·rice",
+    row = CRMContact(company=c.company, name=c.name, normalized_name=normalize_name(c.name), position=(c.role or "Fondateur·rice")[:80],
                      contact_type="Other", interaction_status="TO_CONTACT", source=c.source_url[:300], category=CATEGORY,
                      verification="verified", dismissed=False, notes=notes, next_action="Envoyer le message LinkedIn")
     session.add(row)
@@ -475,7 +504,7 @@ def send_day(telegram, chat_id: str, session, ids: list[int], header: str | None
 
 def _header(day: date, cfg: dict[str, Any], n: int, want: int, cost: float | None) -> str:
     short = f" (seulement {n} vérifiés sur {want} demandés)" if n < want else ""
-    return (f"<b>🌴 Fondateurs à contacter · {day.strftime('%d/%m')}</b>{short}\n"
+    return (f"<b>{escape(cfg.get('title') or '🌴 Fondateurs à contacter')} · {day.strftime('%d/%m')}</b>{short}\n"
             f"Zones : {escape(', '.join(a['name'] for a in areas_for(day, cfg)))}. "
             "Chaque personne est vérifiée sur sa page source : nom, entreprise et rôle de fondateur ou dirigeant. "
             "Rien n'est envoyé à personne." + (f" Coût : {cost:.2f} $." if cost is not None else ""))
@@ -498,7 +527,8 @@ def deliver(settings, sessions, telegram, day: date, cfg: dict[str, Any], cost: 
             repo.set_kv(KV_SENT + day.isoformat(), json.dumps(done))
             s.commit()
 
-        header = None if "h" in done else _header(day, cfg, len(ids), int(cfg.get("per_day", 6)), cost)
+        header = None if "h" in done else (_header(day, cfg, len(ids), int(cfg.get("per_day", 6)), cost)
+                                            + "\n" + escape(month_line(s, day, settings.llm)))
         send_day(telegram, str(settings.telegram_chat_id), s, todo, header, on_sent)
         return len(todo)
 
@@ -544,6 +574,10 @@ def _run(settings, sessions, cfg, telegram, force, dry_run, model_call, transpor
         remaining = cap - spent(s, day)
         if remaining < max(float(last), MIN_RUN_ESTIMATE_USD):
             return ScoutResult("budget", note=f"plafond {cap:.2f} $ atteint aujourd'hui")
+        monthly = month_left(s, day, settings.llm)              # all paid calls together, cycle from the 11th
+        if monthly < max(float(last), MIN_RUN_ESTIMATE_USD):
+            return ScoutResult("budget", note="plafond mensuel API atteint (reprise le 11)")
+        remaining = min(remaining, monthly)
         exclude = known_names(s)
         seen = {normalize_name(n.rsplit(" (", 1)[0]) for n in exclude}
     if model_call is None:

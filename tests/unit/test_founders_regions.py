@@ -54,8 +54,9 @@ class FakeTelegram:
 def test_region_order_follows_user_choice(settings):
     geo = settings.preferences["geography"]
     bonus = region_bonus_map(geo)
-    assert bonus["ID"][1] > bonus["JP"][1] > bonus["AE"][1] > bonus["DE"][1] > bonus["MA"][1] == 0
-    assert bonus["CN"][1] == bonus["SG"][1]          # China counts with South-East Asia
+    # 27 Nov 2026: the six off-market countries first, then the earlier order.
+    assert bonus["JP"][1] == bonus["CA"][1] == bonus["CH"][1] == bonus["SG"][1] > bonus["ID"][1] > bonus["AE"][1]
+    assert bonus["AE"][1] > bonus["DE"][1] > bonus["MA"][1] == 0 > bonus["US"][1]
     assert bonus["US"][1] < 0
     assert region_rank("VN", geo) < region_rank("QA", geo) < region_rank("NL", geo) < region_rank("KE", geo)
 
@@ -114,7 +115,7 @@ def test_areas_rotate_two_distinct_per_day(settings):
         picked = founders.areas_for(date(2026, 11, 22) + timedelta(days=k), cfg)
         assert len(picked) == 2 and picked[0]["name"] != picked[1]["name"]
         seen |= {a["name"] for a in picked}
-    assert {"Bali", "Dubai"} <= seen
+    assert {"Australia", "Japan", "Canada", "South Korea", "Singapore", "Switzerland"} <= seen
 
 
 # Founders: end to end ------------------------------------------------------------------------------
@@ -136,7 +137,7 @@ def test_run_keeps_only_verified_people_and_sends_cards(settings, sessions):
         assert usage.cost_usd == 0.12
         # the founder budget never eats the analysis/email budget
         assert Repository(s).spend_on(usage.local_date) == 0.0
-    assert "Fondateurs à contacter" in tg.sent[0][0] and "seulement 1" in tg.sent[0][0]
+    assert "décideurs à contacter" in tg.sent[0][0] and "seulement 1" in tg.sent[0][0]
     text, buttons = tg.sent[1]
     assert "Camille Durand" in text and buttons[1][0]["callback_data"].startswith("fd:")
 
@@ -271,3 +272,15 @@ def test_unverified_city_and_website_are_not_presented_as_facts(settings, sessio
         n = founders.notes_of(row)
         assert n["website"] == "" and not n["city_verified"] and "Canggu" not in n["message"]
         assert "lieu non confirmé" in founders.card(1, row)[0]
+
+
+def test_non_french_contact_gets_english_message_and_cto_role_counts():
+    c = founders.Candidate.from_dict({"name": "Kenji Sato", "company": "Mujin Robotics", "city": "Tokyo",
+                                      "country_code": "JP", "role": "co-founder & CTO", "french": False})
+    msg = founders.draft_message(c, {}, city_verified=True)
+    assert msg.startswith("Hi Kenji,") and "April to August 2027" in msg and len(msg) <= founders.LINKEDIN_LIMIT
+    ok, _, _ = founders.check_page(c, "Kenji Sato is the CTO of Mujin Robotics in Tokyo.")
+    assert ok
+    fr = founders.Candidate.from_dict({"name": "Paul Durand", "company": "Robo SA", "city": "Lausanne",
+                                       "country_code": "CH"})
+    assert fr.french and founders.draft_message(fr, {}).startswith("Bonjour Paul,")

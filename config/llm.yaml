@@ -8,6 +8,11 @@ max_tokens: 8000
 prompt_version: v1
 refusal_fallback: true       # server-side fallback model on a policy refusal
 daily_budget_usd: 0.50       # hard cap per Europe/Paris day
+# Monthly cap on ALL paid calls (analysis + emails + off-market scout), decided 27 Nov 2026: the user's
+# 100 USD credit renews on the 11th, this bot may use at most 25 USD of it (warning from 20 USD).
+monthly_budget_usd: 25
+monthly_warn_usd: 20
+budget_cycle_day: 11
 max_analyses_per_run: 12
 min_deterministic_fit_for_llm: 60
 blend:
